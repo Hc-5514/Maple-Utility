@@ -6,10 +6,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        > **등록 후 라벨 추가 필수:**
-        > - 도구: `claude` 또는 `codex`
-        > - 역할: `frontend` / `backend` / `db` / `devops` / `tester` / `docs`
-        > - 우선순위: `P0` / `P1` / `P2`
+        **등록 후 라벨 추가 필수:**
+        - 도구: `claude` 또는 `codex`
+        - 역할: `frontend` / `backend` / `db` / `devops` / `tester` / `docs`
+        - 우선순위: `P0` / `P1` / `P2`
 
   - type: input
     id: task
@@ -50,6 +50,7 @@ body:
     attributes:
       label: 실행 도구
       description: 작업을 수행할 AI 도구 선택
+      multiple: true
       options:
         - Claude (Frontend, UI/UX)
         - Codex (Backend, Infra)
@@ -61,6 +62,7 @@ body:
     attributes:
       label: 담당 에이전트
       description: 주 담당 역할 선택
+      multiple: true
       options:
         - PM
         - Frontend
