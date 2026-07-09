@@ -1,6 +1,6 @@
 name: "작업 요청"
 description: "Claude / Codex 에이전트 작업 생성"
-title: ""
+title: "[작업 요청] "
 labels: []
 body:
   - type: markdown
