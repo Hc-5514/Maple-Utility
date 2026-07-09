@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:16.9-alpine
+    container_name: maple-postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: maple
+      POSTGRES_USER: maple_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maple_user -d maple"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: maple-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # app:
+  #   build: ./backend
+  #   container_name: maple-app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   environment:
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/maple
+  #     SPRING_DATASOURCE_USERNAME: maple_user
+  #     SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+  #     SPRING_REDIS_HOST: redis
+  #     JWT_SECRET: ${JWT_SECRET}
+  #     KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
+  #     NEXON_API_KEY_SECRET: ${NEXON_API_KEY_SECRET}
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
+
+  # nginx:
+  #   image: nginx:1.27-alpine
+  #   container_name: maple-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   depends_on:
+  #     app:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 3
+  #     start_period: 10s
+
+volumes:
+  postgres_data:
+  redis_data:
