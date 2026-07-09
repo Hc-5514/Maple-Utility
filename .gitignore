@@ -1,0 +1,32 @@
+# OS
+.DS_Store
+
+# IDE
+/.idea/
+
+# codex
+/.codex/
+/AGENTS.md
+
+# claude
+/.claude/
+/CLAUDE.md
+/backend/CLAUDE.md
+/frontend/CLAUDE.md
+
+# 기획/설계
+/docs/GitHub_Issue_List.md
+/docs/MVP_기획설계서.md
+/참고 이미지/
+/Codex_GitHub_Issue_Preview.md
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Docker
+docker-compose.override.yml
+
+

@@ -1,0 +1,116 @@
+name: "작업 요청"
+description: "Claude / Codex 에이전트 작업 생성"
+title: ""
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **등록 후 라벨 추가 필수:**
+        > - 도구: `claude` 또는 `codex`
+        > - 역할: `frontend` / `backend` / `db` / `devops` / `tester` / `docs`
+        > - 우선순위: `P0` / `P1` / `P2`
+
+  - type: input
+    id: task
+    attributes:
+      label: 작업 내용
+      description: 명사형으로 작성
+      placeholder: "OAuth2 소셜 로그인 구현"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: 유형
+      options:
+        - feat (신규 기능)
+        - fix (버그 수정)
+        - refactor (리팩토링)
+        - docs (문서화)
+        - chore (유지보수)
+        - test (테스트)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 우선순위
+      options:
+        - P0 (즉시)
+        - P1 (높음)
+        - P2 (보통)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tool
+    attributes:
+      label: 실행 도구
+      description: 작업을 수행할 AI 도구 선택
+      options:
+        - Claude (Frontend, UI/UX)
+        - Codex (Backend, Infra)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: owner
+    attributes:
+      label: 담당 에이전트
+      description: 주 담당 역할 선택
+      options:
+        - PM
+        - Frontend
+        - Backend
+        - DB
+        - DevOps
+        - Tester
+    validations:
+      required: true
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: 실행 단계
+      options:
+        - "Phase 1 – 기반 구축 (Day 1~2)"
+        - "Phase 2 – 핵심 기능 (Day 3~5)"
+        - "Phase 3 – 부가 기능 (Day 6~7)"
+        - "Phase 4 – 통합 + 인프라 (Day 8~9)"
+        - "Phase 5 – 안정화 (Day 10)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 완료 조건
+      description: 명사형 체크리스트
+      placeholder: |
+        - [ ] 카카오/넥슨 OAuth2 로그인 구현
+        - [ ] JWT Access Token + Refresh Token 발급
+        - [ ] 첫 로그인 시 자동 회원가입
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 의존성
+      description: "선행 이슈 번호 나열 (없으면 '없음')"
+      placeholder: |
+        - Depends on #1 (BE-01 프로젝트 초기 설정)
+        - Depends on #2 (BE-02 DB 스키마)
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 추가 컨텍스트
+      description: 제약 조건, 참고 사항
+      placeholder: |
+        - 기획설계서 §6.1 참조
+        - 제약: Java 17 전용 기능만 사용
+        - Nexon API Key AES 암호화 필수
