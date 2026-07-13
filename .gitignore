@@ -29,4 +29,9 @@
 # Docker
 docker-compose.override.yml
 
+# Build outputs
+build/
+.gradle/
+backend/build/
+backend/.gradle/
 
