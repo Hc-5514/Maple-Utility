@@ -36,6 +36,14 @@ jobs:
               labels.push(`phase-${m[1]}`);
             }
 
+            // 실행 도구: "- [x] Claude" / "- [x] Codex"
+            if (body.match(/- \[x\] Claude/i)) labels.push('claude');
+            if (body.match(/- \[x\] Codex/i))  labels.push('codex');
+
+            // 우선순위: "- [x] P0 ..." / "- [x] P1 ..." / "- [x] P2 ..."
+            const priorityMatch = body.match(/- \[x\] (P[012])/i);
+            if (priorityMatch) labels.push(priorityMatch[1].toUpperCase());
+
             if (labels.length > 0) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
