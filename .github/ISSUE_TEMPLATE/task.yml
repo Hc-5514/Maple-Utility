@@ -114,5 +114,5 @@ body:
       description: 제약 조건, 참고 사항
       placeholder: |
         - 기획설계서 §6.1 참조
-        - 제약: Java 17 전용 기능만 사용
+        - 제약: Java 21 LTS 사용 (Spring Boot 4.x 필수)
         - Nexon API Key AES 암호화 필수

@@ -1,0 +1,21 @@
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: ['frontend/**']
+
+backend:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'backend/**'
+      - '!backend/src/main/resources/db/**'
+
+db:
+  - changed-files:
+    - any-glob-to-any-file: ['backend/src/main/resources/db/**']
+
+devops:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'infra/**'
+      - '.github/workflows/**'
+      - 'docker-compose*.yml'
+      - '**/Dockerfile*'
