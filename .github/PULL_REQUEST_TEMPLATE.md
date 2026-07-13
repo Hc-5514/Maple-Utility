@@ -4,7 +4,11 @@
 
 ## 실행 단계
 
-<!-- Phase 1 기반 구축 / Phase 2 핵심 기능 / Phase 3 부가 기능 / Phase 4 통합+인프라 / Phase 5 안정화 -->
+- [ ] Phase 1 – 기반 구축
+- [ ] Phase 2 – 핵심 기능
+- [ ] Phase 3 – 부가 기능
+- [ ] Phase 4 – 통합 + 인프라
+- [ ] Phase 5 – 안정화
 
 ## 변경 유형
 
