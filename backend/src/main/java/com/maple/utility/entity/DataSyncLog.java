@@ -50,4 +50,27 @@ public class DataSyncLog extends BaseTimeEntity {
 
 	@Column(name = "completed_at")
 	private LocalDateTime completedAt;
+
+	public static DataSyncLog start(User user, SyncType syncType, LocalDateTime startedAt) {
+		DataSyncLog log = new DataSyncLog();
+		log.user = user;
+		log.syncType = syncType;
+		log.status = SyncStatus.STARTED;
+		log.apiCallsUsed = 0;
+		log.startedAt = startedAt;
+		return log;
+	}
+
+	public void complete(int apiCallsUsed, LocalDateTime completedAt) {
+		this.status = SyncStatus.COMPLETED;
+		this.apiCallsUsed = apiCallsUsed;
+		this.completedAt = completedAt;
+	}
+
+	public void fail(int apiCallsUsed, String errorMessage, LocalDateTime completedAt) {
+		this.status = SyncStatus.FAILED;
+		this.apiCallsUsed = apiCallsUsed;
+		this.errorMessage = errorMessage;
+		this.completedAt = completedAt;
+	}
 }

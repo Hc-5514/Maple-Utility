@@ -16,7 +16,8 @@ public record RedisPolicyProperties(
 	public record Cache(
 			@NotNull Duration schedulerTtl,
 			@NotNull Duration characterBasicTtl,
-			@NotNull Duration staticDataTtl
+			@NotNull Duration staticDataTtl,
+			@NotNull Duration nexonApiTtl
 	) {
 	}
 

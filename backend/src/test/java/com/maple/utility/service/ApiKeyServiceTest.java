@@ -79,7 +79,7 @@ class ApiKeyServiceTest {
 		);
 
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-		when(nexonOpenApiClient.getCharacters("plain-api-key")).thenReturn(characters);
+		when(nexonOpenApiClient.getCharacters(1L, "plain-api-key")).thenReturn(characters);
 		when(apiKeyCryptoService.encrypt("plain-api-key")).thenReturn("encrypted-api-key");
 		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.empty());
 		when(userApiKeyRepository.save(any(UserApiKey.class))).thenReturn(savedApiKey);
@@ -98,7 +98,7 @@ class ApiKeyServiceTest {
 		List<NexonCharacterSummary> characters = List.of();
 
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-		when(nexonOpenApiClient.getCharacters("plain-api-key")).thenReturn(characters);
+		when(nexonOpenApiClient.getCharacters(1L, "plain-api-key")).thenReturn(characters);
 		when(apiKeyCryptoService.encrypt("plain-api-key")).thenReturn("new-encrypted-api-key");
 		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(existingApiKey));
 
@@ -114,7 +114,7 @@ class ApiKeyServiceTest {
 		UserApiKey existingApiKey = UserApiKey.create(user, "old-encrypted-api-key", null);
 
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-		when(nexonOpenApiClient.getCharacters("invalid-api-key"))
+		when(nexonOpenApiClient.getCharacters(1L, "invalid-api-key"))
 				.thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "API_KEY_INVALID", "유효하지 않은 Nexon API Key"));
 		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(existingApiKey));
 

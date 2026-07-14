@@ -17,7 +17,8 @@ class RedisConfigTest {
 			new RedisPolicyProperties.Cache(
 					Duration.ofMinutes(5),
 					Duration.ofHours(1),
-					Duration.ofHours(24)
+					Duration.ofHours(24),
+					Duration.ofMinutes(5)
 			),
 			new RedisPolicyProperties.RefreshToken(Duration.ofDays(7))
 	);
@@ -44,5 +45,6 @@ class RedisConfigTest {
 		assertThat(cacheManager.getCache(RedisCacheNames.SCHEDULER)).isNotNull();
 		assertThat(cacheManager.getCache(RedisCacheNames.CHARACTER_BASIC)).isNotNull();
 		assertThat(cacheManager.getCache(RedisCacheNames.STATIC_DATA)).isNotNull();
+		assertThat(cacheManager.getCache(RedisCacheNames.NEXON_API)).isNotNull();
 	}
 }

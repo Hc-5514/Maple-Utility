@@ -49,7 +49,7 @@ public class ApiKeyService {
 		User user = findUser(userId);
 		List<NexonCharacterSummary> characters;
 		try {
-			characters = nexonOpenApiClient.getCharacters(apiKey);
+			characters = nexonOpenApiClient.getCharacters(userId, apiKey);
 		} catch (ApiException exception) {
 			if ("API_KEY_INVALID".equals(exception.getCode())) {
 				markInvalid(userId);
