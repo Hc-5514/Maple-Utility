@@ -2,12 +2,16 @@ package com.maple.utility.security;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDate;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.MissingNode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.maple.utility.config.NexonProperties;
+import com.maple.utility.entity.Difficulty;
+import com.maple.utility.entity.ResetPeriod;
 
 @Component
 public class NexonOpenApiClient {
@@ -38,6 +42,11 @@ public class NexonOpenApiClient {
 	public NexonCharacterBasic getCharacterBasic(Long userId, String ocid) {
 		JsonNode response = nexonApiGateway.getWithStoredKey(userId, characterBasicUri(ocid), NexonRequestMode.REALTIME);
 		return parseCharacterBasic(ocid, response);
+	}
+
+	public NexonSchedulerResponse getCharacterScheduler(Long userId, String ocid) {
+		JsonNode response = nexonApiGateway.getWithStoredKey(userId, characterSchedulerUri(ocid), NexonRequestMode.REALTIME);
+		return parseScheduler(response);
 	}
 
 	private List<NexonCharacterSummary> parseCharacters(JsonNode response) {
@@ -89,6 +98,163 @@ public class NexonOpenApiClient {
 
 	private String characterBasicUri(String ocid) {
 		return UriComponentsBuilder.fromUriString(properties.characterBasicUri())
+				.queryParam("ocid", ocid)
+				.build()
+				.encode()
+				.toUriString();
+	}
+
+	private NexonSchedulerResponse parseScheduler(JsonNode response) {
+		if (response == null) {
+			return new NexonSchedulerResponse(List.of(), List.of(), List.of());
+		}
+		return new NexonSchedulerResponse(
+				parseDailyRecords(firstArray(response, "daily", "daily_records", "scheduler_daily_records")),
+				parseWeeklyRecords(firstArray(response, "weekly", "weekly_records", "scheduler_weekly_records")),
+				parseBossRecords(firstArray(response, "boss", "boss_records", "scheduler_boss_records"))
+		);
+	}
+
+	private List<NexonSchedulerResponse.Daily> parseDailyRecords(JsonNode records) {
+		List<NexonSchedulerResponse.Daily> dailyRecords = new ArrayList<>();
+		if (!records.isArray()) {
+			return dailyRecords;
+		}
+		for (JsonNode record : records) {
+			String contentName = text(record, "content_name", "contentName", "name");
+			if (contentName == null) {
+				continue;
+			}
+			dailyRecords.add(new NexonSchedulerResponse.Daily(
+					date(record, "record_date", "date"),
+					contentName,
+					integer(record, 0, "completed_count", "completedCount", "current_count"),
+					integer(record, 1, "total_count", "totalCount", "max_count")
+			));
+		}
+		return dailyRecords;
+	}
+
+	private List<NexonSchedulerResponse.Weekly> parseWeeklyRecords(JsonNode records) {
+		List<NexonSchedulerResponse.Weekly> weeklyRecords = new ArrayList<>();
+		if (!records.isArray()) {
+			return weeklyRecords;
+		}
+		for (JsonNode record : records) {
+			String contentName = text(record, "content_name", "contentName", "name");
+			if (contentName == null) {
+				continue;
+			}
+			weeklyRecords.add(new NexonSchedulerResponse.Weekly(
+					date(record, "week_start_date", "weekStartDate", "date"),
+					contentName,
+					bool(record, "is_completed", "completed", "complete"),
+					nullableInteger(record, "score")
+			));
+		}
+		return weeklyRecords;
+	}
+
+	private List<NexonSchedulerResponse.Boss> parseBossRecords(JsonNode records) {
+		List<NexonSchedulerResponse.Boss> bossRecords = new ArrayList<>();
+		if (!records.isArray()) {
+			return bossRecords;
+		}
+		for (JsonNode record : records) {
+			String bossName = text(record, "boss_name", "bossName", "name");
+			Difficulty difficulty = difficulty(text(record, "difficulty", "boss_difficulty"));
+			ResetPeriod resetPeriod = resetPeriod(text(record, "reset_period", "resetPeriod"));
+			if (bossName == null || difficulty == null || resetPeriod == null) {
+				continue;
+			}
+			bossRecords.add(new NexonSchedulerResponse.Boss(
+					date(record, "record_date", "date"),
+					bossName,
+					difficulty,
+					resetPeriod,
+					bool(record, "is_completed", "completed", "complete")
+			));
+		}
+		return bossRecords;
+	}
+
+	private JsonNode firstArray(JsonNode response, String... fieldNames) {
+		for (String fieldName : fieldNames) {
+			JsonNode node = response.path(fieldName);
+			if (node.isArray()) {
+				return node;
+			}
+		}
+		return MissingNode.getInstance();
+	}
+
+	private String text(JsonNode node, String... fieldNames) {
+		for (String fieldName : fieldNames) {
+			JsonNode value = node.path(fieldName);
+			if (value.isTextual() && !value.asText().isBlank()) {
+				return value.asText();
+			}
+		}
+		return null;
+	}
+
+	private LocalDate date(JsonNode node, String... fieldNames) {
+		String value = text(node, fieldNames);
+		return value == null ? null : LocalDate.parse(value);
+	}
+
+	private Integer nullableInteger(JsonNode node, String... fieldNames) {
+		for (String fieldName : fieldNames) {
+			JsonNode value = node.path(fieldName);
+			if (value.isNumber()) {
+				return value.asInt();
+			}
+		}
+		return null;
+	}
+
+	private int integer(JsonNode node, int fallback, String... fieldNames) {
+		Integer value = nullableInteger(node, fieldNames);
+		return value == null ? fallback : value;
+	}
+
+	private boolean bool(JsonNode node, String... fieldNames) {
+		for (String fieldName : fieldNames) {
+			JsonNode value = node.path(fieldName);
+			if (value.isBoolean()) {
+				return value.asBoolean();
+			}
+		}
+		return false;
+	}
+
+	private Difficulty difficulty(String value) {
+		if (value == null) {
+			return null;
+		}
+		return switch (value.toUpperCase()) {
+			case "EASY", "이지" -> Difficulty.EASY;
+			case "NORMAL", "노멀", "노말" -> Difficulty.NORMAL;
+			case "HARD", "하드" -> Difficulty.HARD;
+			case "CHAOS", "카오스" -> Difficulty.CHAOS;
+			case "EXTREME", "익스트림" -> Difficulty.EXTREME;
+			default -> null;
+		};
+	}
+
+	private ResetPeriod resetPeriod(String value) {
+		if (value == null) {
+			return null;
+		}
+		return switch (value.toUpperCase()) {
+			case "WEEKLY", "주간" -> ResetPeriod.WEEKLY;
+			case "MONTHLY", "월간" -> ResetPeriod.MONTHLY;
+			default -> null;
+		};
+	}
+
+	private String characterSchedulerUri(String ocid) {
+		return UriComponentsBuilder.fromUriString(properties.characterSchedulerUri())
 				.queryParam("ocid", ocid)
 				.build()
 				.encode()

@@ -47,4 +47,26 @@ public class SchedulerWeeklyRecord extends BaseTimeEntity {
 
 	@Column(name = "synced_at")
 	private LocalDateTime syncedAt;
+
+	public static SchedulerWeeklyRecord create(
+			MapleCharacter character,
+			LocalDate weekStartDate,
+			String contentName,
+			boolean completed,
+			Integer score,
+			LocalDateTime syncedAt
+	) {
+		SchedulerWeeklyRecord record = new SchedulerWeeklyRecord();
+		record.character = character;
+		record.weekStartDate = weekStartDate;
+		record.contentName = contentName;
+		record.updateProgress(completed, score, syncedAt);
+		return record;
+	}
+
+	public void updateProgress(boolean completed, Integer score, LocalDateTime syncedAt) {
+		this.completed = completed;
+		this.score = score;
+		this.syncedAt = syncedAt;
+	}
 }

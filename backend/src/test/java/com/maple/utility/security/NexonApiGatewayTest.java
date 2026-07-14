@@ -67,6 +67,7 @@ class NexonApiGatewayTest {
 			"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 			"https://example.test/character/list",
 			"https://example.test/character/basic",
+			"https://example.test/character/scheduler",
 			500,
 			450,
 			Duration.ofSeconds(1)
