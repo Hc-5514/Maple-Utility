@@ -4,9 +4,7 @@ frontend:
 
 backend:
   - changed-files:
-    - any-glob-to-any-file:
-      - 'backend/**'
-      - '!backend/src/main/resources/db/**'
+    - any-glob-to-any-file: ['backend/**']
 
 db:
   - changed-files:
