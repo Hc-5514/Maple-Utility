@@ -5,8 +5,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.maple.utility.repository.UserRepository;
+import com.maple.utility.repository.BossMasterRepository;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.DataSyncLogRepository;
+import com.maple.utility.repository.SchedulerBossRecordRepository;
+import com.maple.utility.repository.SchedulerDailyRecordRepository;
+import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
 
 @SpringBootTest(properties = {
@@ -35,6 +39,18 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private DataSyncLogRepository dataSyncLogRepository;
+
+	@MockitoBean
+	private BossMasterRepository bossMasterRepository;
+
+	@MockitoBean
+	private SchedulerDailyRecordRepository schedulerDailyRecordRepository;
+
+	@MockitoBean
+	private SchedulerWeeklyRecordRepository schedulerWeeklyRecordRepository;
+
+	@MockitoBean
+	private SchedulerBossRecordRepository schedulerBossRecordRepository;
 
 	@Test
 	void contextLoads() {

@@ -21,6 +21,7 @@ class ApiKeyCryptoServiceTest {
 						SECRET,
 						"http://localhost/character/list",
 						"http://localhost/character/basic",
+						"http://localhost/character/scheduler",
 						500,
 						450,
 						Duration.ofSeconds(1)
@@ -42,6 +43,7 @@ class ApiKeyCryptoServiceTest {
 						"c2hvcnQ=",
 						"http://localhost/character/list",
 						"http://localhost/character/basic",
+						"http://localhost/character/scheduler",
 						500,
 						450,
 						Duration.ofSeconds(1)

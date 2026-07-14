@@ -33,6 +33,7 @@ class NexonOpenApiClientTest {
 				"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 				"https://example.test/character/list",
 				"https://example.test/character/basic",
+				"https://example.test/character/scheduler",
 				500,
 				450,
 				Duration.ofSeconds(1)
@@ -79,5 +80,46 @@ class NexonOpenApiClientTest {
 		NexonCharacterBasic basic = nexonOpenApiClient.getCharacterBasic(1L, "api-key", "ocid");
 
 		assertThat(basic).isEqualTo(new NexonCharacterBasic("ocid", "캐릭터", "스카니아", "히어로", 280, "image-url", "길드"));
+	}
+
+	@Test
+	void getCharacterSchedulerBuildsOcidQueryAndParsesScheduler() throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("ocid=ocid"), eq(NexonRequestMode.REALTIME)))
+				.thenReturn(objectMapper.readTree("""
+						{
+						  "daily": [
+						    {
+						      "record_date": "2026-07-14",
+						      "content_name": "일일 퀘스트",
+						      "completed_count": 1,
+						      "total_count": 3
+						    }
+						  ],
+						  "weekly": [
+						    {
+						      "week_start_date": "2026-07-13",
+						      "content_name": "길드 주간 미션",
+						      "is_completed": true,
+						      "score": 1000
+						    }
+						  ],
+						  "boss": [
+						    {
+						      "record_date": "2026-07-14",
+						      "boss_name": "스우",
+						      "difficulty": "HARD",
+						      "reset_period": "WEEKLY",
+						      "is_completed": true
+						    }
+						  ]
+						}
+						"""));
+
+		NexonSchedulerResponse response = nexonOpenApiClient.getCharacterScheduler(1L, "ocid");
+
+		assertThat(response.daily()).hasSize(1);
+		assertThat(response.weekly()).hasSize(1);
+		assertThat(response.boss()).hasSize(1);
+		assertThat(response.boss().get(0).bossName()).isEqualTo("스우");
 	}
 }

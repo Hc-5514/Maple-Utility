@@ -47,4 +47,26 @@ public class SchedulerDailyRecord extends BaseTimeEntity {
 
 	@Column(name = "synced_at")
 	private LocalDateTime syncedAt;
+
+	public static SchedulerDailyRecord create(
+			MapleCharacter character,
+			LocalDate recordDate,
+			String contentName,
+			int completedCount,
+			int totalCount,
+			LocalDateTime syncedAt
+	) {
+		SchedulerDailyRecord record = new SchedulerDailyRecord();
+		record.character = character;
+		record.recordDate = recordDate;
+		record.contentName = contentName;
+		record.updateProgress(completedCount, totalCount, syncedAt);
+		return record;
+	}
+
+	public void updateProgress(int completedCount, int totalCount, LocalDateTime syncedAt) {
+		this.completedCount = completedCount;
+		this.totalCount = totalCount;
+		this.syncedAt = syncedAt;
+	}
 }

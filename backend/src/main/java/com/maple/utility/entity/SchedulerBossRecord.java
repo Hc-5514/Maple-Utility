@@ -51,4 +51,26 @@ public class SchedulerBossRecord extends BaseTimeEntity {
 
 	@Column(name = "synced_at")
 	private LocalDateTime syncedAt;
+
+	public static SchedulerBossRecord create(
+			MapleCharacter character,
+			BossMaster boss,
+			LocalDate recordDate,
+			ResetPeriod resetPeriod,
+			boolean completed,
+			LocalDateTime syncedAt
+	) {
+		SchedulerBossRecord record = new SchedulerBossRecord();
+		record.character = character;
+		record.boss = boss;
+		record.recordDate = recordDate;
+		record.resetPeriod = resetPeriod;
+		record.updateProgress(completed, syncedAt);
+		return record;
+	}
+
+	public void updateProgress(boolean completed, LocalDateTime syncedAt) {
+		this.completed = completed;
+		this.syncedAt = syncedAt;
+	}
 }

@@ -14,6 +14,7 @@ public record NexonProperties(
 		@NotBlank String apiKeySecret,
 		@NotBlank String characterListUri,
 		@NotBlank String characterBasicUri,
+		@NotBlank String characterSchedulerUri,
 		@Positive int dailyCallLimit,
 		@Positive int realtimeCallThreshold,
 		@NotNull Duration dispatchInterval
