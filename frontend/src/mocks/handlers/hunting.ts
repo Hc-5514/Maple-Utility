@@ -10,6 +10,14 @@ let huntingRecords = [
 let nextId = huntingRecords.length + 1
 
 export const huntingHandlers = [
+  http.get('/api/v1/hunting/:id', ({ params }) => {
+    const record = huntingRecords.find(r => r.id === Number(params.id))
+    if (!record) {
+      return HttpResponse.json({ success: false, message: '기록을 찾을 수 없음' }, { status: 404 })
+    }
+    return HttpResponse.json({ success: true, data: record })
+  }),
+
   http.get('/api/v1/hunting', ({ request }) => {
     const url = new URL(request.url)
     const characterId = Number(url.searchParams.get('characterId'))
