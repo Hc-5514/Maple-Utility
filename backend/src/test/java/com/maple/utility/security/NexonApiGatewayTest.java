@@ -29,6 +29,7 @@ import com.maple.utility.config.NexonProperties;
 import com.maple.utility.config.RedisPolicyProperties;
 import com.maple.utility.entity.DataSyncLog;
 import com.maple.utility.entity.OAuthProvider;
+import com.maple.utility.entity.SyncType;
 import com.maple.utility.entity.User;
 import com.maple.utility.entity.UserApiKey;
 import com.maple.utility.exception.ApiException;
@@ -169,6 +170,36 @@ class NexonApiGatewayTest {
 		assertThatThrownBy(() -> gateway.get(1L, "plain-api-key", "https://example.test", NexonRequestMode.REALTIME))
 				.isInstanceOf(ApiException.class);
 		assertThat(userApiKey.getKeyStatus().name()).isEqualTo("INVALID");
+	}
+
+	@Test
+	void getWithBatchSyncTypeWritesSchedulerBatchLog() {
+		WebClient webClient = WebClient.builder()
+				.exchangeFunction(request -> Mono.just(ClientResponse.create(HttpStatus.OK).body("{}").build()))
+				.build();
+		NexonApiGateway gateway = gateway(webClient, millis -> {
+		});
+		User user = user();
+		UserApiKey userApiKey = UserApiKey.create(user, "encrypted-api-key", null);
+		AtomicReference<DataSyncLog> startedLog = new AtomicReference<>();
+
+		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+		when(valueOperations.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(userApiKey));
+		when(apiKeyCryptoService.decrypt("encrypted-api-key")).thenReturn("plain-api-key");
+		when(apiCallCounter.getCount("1")).thenReturn(450L);
+		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
+				.thenAnswer(invocation -> {
+					DataSyncLog log = invocation.getArgument(0);
+					startedLog.compareAndSet(null, log);
+					return log;
+				});
+		when(apiCallCounter.increment("1")).thenReturn(451L);
+
+		gateway.getWithStoredKey(1L, "https://example.test/character/scheduler", NexonRequestMode.BATCH, SyncType.SCHEDULER_BATCH);
+
+		assertThat(startedLog.get().getSyncType()).isEqualTo(SyncType.SCHEDULER_BATCH);
 	}
 
 	@Test

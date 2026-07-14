@@ -110,6 +110,18 @@ class SchedulerSyncServiceTest {
 		assertThat(bossCaptor.getValue().getResetPeriod()).isEqualTo(ResetPeriod.WEEKLY);
 	}
 
+	@Test
+	void syncCharactersForBatchUsesBatchSchedulerApi() {
+		User user = user();
+		MapleCharacter character = character(user);
+		NexonSchedulerResponse response = new NexonSchedulerResponse(List.of(), List.of(), List.of());
+		when(nexonOpenApiClient.getCharacterSchedulerForBatch(1L, "ocid")).thenReturn(response);
+
+		schedulerSyncService.syncCharactersForBatch(1L, List.of(character));
+
+		verify(nexonOpenApiClient).getCharacterSchedulerForBatch(1L, "ocid");
+	}
+
 	private User user() {
 		User user = User.create(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
 		ReflectionTestUtils.setField(user, "id", 1L);
