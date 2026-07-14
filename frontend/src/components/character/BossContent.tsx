@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import BossCard from './BossCard'
+import BossDropModal from './BossDropModal'
 import { useBossMasters, useCharacterBoss, useToggleBoss } from '../../hooks/useCharacterDetail'
 import type { BossMaster, SchedulerBossRecord } from '../../types'
 
@@ -12,11 +14,13 @@ function BossGroup({
   records,
   bossMasterMap,
   onToggle,
+  onClickDetail,
 }: {
   title: string
   records: SchedulerBossRecord[]
   bossMasterMap: Map<number, BossMaster>
   onToggle: (record: SchedulerBossRecord) => void
+  onClickDetail: (boss: BossMaster, record: SchedulerBossRecord) => void
 }) {
   if (records.length === 0) return null
 
@@ -33,7 +37,7 @@ function BossGroup({
               boss={boss}
               record={record}
               onToggle={() => onToggle(record)}
-              onClickDetail={() => {}}
+              onClickDetail={() => onClickDetail(boss, record)}
             />
           )
         })}
@@ -46,6 +50,11 @@ export default function BossContent({ characterId, date }: Props) {
   const { data: bossRecords, isLoading: loadingRecords } = useCharacterBoss(characterId, date)
   const { data: bossMasters, isLoading: loadingMasters } = useBossMasters()
   const toggleBoss = useToggleBoss()
+
+  const [selectedInfo, setSelectedInfo] = useState<{
+    boss: BossMaster
+    record: SchedulerBossRecord
+  } | null>(null)
 
   const isLoading = loadingRecords || loadingMasters
   const bossMasterMap = new Map<number, BossMaster>((bossMasters ?? []).map((b) => [b.id, b]))
@@ -74,14 +83,26 @@ export default function BossContent({ characterId, date }: Props) {
             records={weeklyRecords}
             bossMasterMap={bossMasterMap}
             onToggle={handleToggle}
+            onClickDetail={(boss, record) => setSelectedInfo({ boss, record })}
           />
           <BossGroup
             title="월간 보스"
             records={monthlyRecords}
             bossMasterMap={bossMasterMap}
             onToggle={handleToggle}
+            onClickDetail={(boss, record) => setSelectedInfo({ boss, record })}
           />
         </div>
+      )}
+
+      {selectedInfo && (
+        <BossDropModal
+          isOpen={true}
+          onClose={() => setSelectedInfo(null)}
+          boss={selectedInfo.boss}
+          record={selectedInfo.record}
+          characterId={characterId}
+        />
       )}
     </section>
   )

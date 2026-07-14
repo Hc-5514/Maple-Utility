@@ -1,11 +1,12 @@
 import { http, HttpResponse } from 'msw'
 import bossesFixture from '../fixtures/bosses.json'
 
-const acquisitions = [
+let acquisitions = [
   { id: 1, characterId: 1, bossDropItemId: 4,  acquiredDate: '2026-07-13', memo: null, createdAt: '2026-07-13T22:00:00' },
   { id: 2, characterId: 1, bossDropItemId: 8,  acquiredDate: '2026-07-13', memo: null, createdAt: '2026-07-13T22:30:00' },
   { id: 3, characterId: 1, bossDropItemId: 32, acquiredDate: '2026-07-14', memo: '더스크 하드', createdAt: '2026-07-14T09:30:00' },
 ]
+let nextAcqId = 4
 
 export const bossHandlers = [
   http.get('/api/v1/bosses', ({ request }) => {
@@ -37,5 +38,33 @@ export const bossHandlers = [
       ? acquisitions.filter(a => a.characterId === characterId)
       : acquisitions
     return HttpResponse.json({ success: true, data: filtered })
+  }),
+
+  http.post('/api/v1/boss/item-acquisition', async ({ request }) => {
+    const body = await request.json() as {
+      characterId: number
+      bossDropItemId: number
+      acquiredDate: string
+      memo?: string
+    }
+    const newAcq = {
+      id: nextAcqId++,
+      characterId: body.characterId,
+      bossDropItemId: body.bossDropItemId,
+      acquiredDate: body.acquiredDate,
+      memo: body.memo ?? null,
+      createdAt: new Date().toISOString(),
+    }
+    acquisitions.push(newAcq)
+    return HttpResponse.json({ success: true, data: newAcq }, { status: 201 })
+  }),
+
+  http.delete('/api/v1/boss/item-acquisition/:id', ({ params }) => {
+    const idx = acquisitions.findIndex(a => a.id === Number(params.id))
+    if (idx === -1) {
+      return HttpResponse.json({ success: false, message: '기록을 찾을 수 없음' }, { status: 404 })
+    }
+    acquisitions.splice(idx, 1)
+    return new HttpResponse(null, { status: 204 })
   }),
 ]
