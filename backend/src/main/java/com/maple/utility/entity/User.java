@@ -37,4 +37,18 @@ public class User extends BaseTimeEntity {
 
 	@Column(name = "nickname", length = 50)
 	private String nickname;
+
+	public static User create(OAuthProvider oauthProvider, String oauthId, String email, String nickname) {
+		User user = new User();
+		user.oauthProvider = oauthProvider;
+		user.oauthId = oauthId;
+		user.email = email;
+		user.nickname = nickname;
+		return user;
+	}
+
+	public void updateProfile(String email, String nickname) {
+		this.email = email;
+		this.nickname = nickname;
+	}
 }
