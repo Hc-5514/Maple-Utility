@@ -13,6 +13,7 @@ import com.maple.utility.repository.HuntingRecordRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
+import com.maple.utility.repository.StatsQueryRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
 
@@ -63,6 +64,9 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private SchedulerBossRecordRepository schedulerBossRecordRepository;
+
+	@MockitoBean
+	private StatsQueryRepository statsQueryRepository;
 
 	@Test
 	void contextLoads() {
