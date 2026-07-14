@@ -38,4 +38,18 @@ public class BossItemAcquisition extends BaseTimeEntity {
 
 	@Column(name = "memo", length = 255)
 	private String memo;
+
+	public static BossItemAcquisition create(
+			MapleCharacter character,
+			BossDropItem bossDropItem,
+			LocalDate acquiredDate,
+			String memo
+	) {
+		BossItemAcquisition acquisition = new BossItemAcquisition();
+		acquisition.character = character;
+		acquisition.bossDropItem = bossDropItem;
+		acquisition.acquiredDate = acquiredDate;
+		acquisition.memo = memo;
+		return acquisition;
+	}
 }

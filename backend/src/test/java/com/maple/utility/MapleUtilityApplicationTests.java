@@ -4,7 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import com.maple.utility.repository.UserRepository;
+import com.maple.utility.repository.BossDropItemRepository;
+import com.maple.utility.repository.BossItemAcquisitionRepository;
 import com.maple.utility.repository.BossMasterRepository;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.DataSyncLogRepository;
@@ -12,6 +13,7 @@ import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
+import com.maple.utility.repository.UserRepository;
 
 @SpringBootTest(properties = {
 		"JWT_SECRET=test-jwt-secret-for-context-load",
@@ -42,6 +44,12 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private BossMasterRepository bossMasterRepository;
+
+	@MockitoBean
+	private BossDropItemRepository bossDropItemRepository;
+
+	@MockitoBean
+	private BossItemAcquisitionRepository bossItemAcquisitionRepository;
 
 	@MockitoBean
 	private SchedulerDailyRecordRepository schedulerDailyRecordRepository;
