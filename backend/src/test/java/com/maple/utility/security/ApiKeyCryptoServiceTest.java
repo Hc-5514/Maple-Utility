@@ -11,7 +11,7 @@ import com.maple.utility.config.NexonProperties;
 
 class ApiKeyCryptoServiceTest {
 
-	private static final String SECRET = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=";
+	private static final String SECRET = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
 	@Test
 	void encryptAndDecryptApiKey() {
