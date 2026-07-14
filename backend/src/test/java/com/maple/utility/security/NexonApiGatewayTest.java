@@ -66,6 +66,7 @@ class NexonApiGatewayTest {
 	private final NexonProperties nexonProperties = new NexonProperties(
 			"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 			"https://example.test/character/list",
+			"https://example.test/character/basic",
 			500,
 			450,
 			Duration.ofSeconds(1)

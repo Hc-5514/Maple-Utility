@@ -39,6 +39,7 @@ oauth:
 nexon:
   api-key-secret: ${NEXON_API_KEY_SECRET}
   character-list-uri: ${NEXON_CHARACTER_LIST_URI:https://open.api.nexon.com/maplestory/v1/character/list}
+  character-basic-uri: ${NEXON_CHARACTER_BASIC_URI:https://open.api.nexon.com/maplestory/v1/character/basic}
   daily-call-limit: 500
   realtime-call-threshold: 450
   dispatch-interval: 1s

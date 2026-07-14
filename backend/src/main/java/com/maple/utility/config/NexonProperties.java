@@ -13,6 +13,7 @@ import org.springframework.validation.annotation.Validated;
 public record NexonProperties(
 		@NotBlank String apiKeySecret,
 		@NotBlank String characterListUri,
+		@NotBlank String characterBasicUri,
 		@Positive int dailyCallLimit,
 		@Positive int realtimeCallThreshold,
 		@NotNull Duration dispatchInterval
