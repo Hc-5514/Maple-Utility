@@ -1,15 +1,15 @@
 name: "작업 요청"
 description: "Claude / Codex 에이전트 작업 생성"
-title: ""
+title: "[작업 요청] "
 labels: []
 body:
   - type: markdown
     attributes:
       value: |
-        > **등록 후 라벨 추가 필수:**
-        > - 도구: `claude` 또는 `codex`
-        > - 역할: `frontend` / `backend` / `db` / `devops` / `tester` / `docs`
-        > - 우선순위: `P0` / `P1` / `P2`
+        **등록 후 라벨 추가 필수:**
+        - 도구: `claude` 또는 `codex`
+        - 역할: `frontend` / `backend` / `db` / `devops` / `tester` / `docs`
+        - 우선순위: `P0` / `P1` / `P2`
 
   - type: input
     id: task
@@ -50,6 +50,7 @@ body:
     attributes:
       label: 실행 도구
       description: 작업을 수행할 AI 도구 선택
+      multiple: true
       options:
         - Claude (Frontend, UI/UX)
         - Codex (Backend, Infra)
@@ -61,6 +62,7 @@ body:
     attributes:
       label: 담당 에이전트
       description: 주 담당 역할 선택
+      multiple: true
       options:
         - PM
         - Frontend
@@ -112,5 +114,5 @@ body:
       description: 제약 조건, 참고 사항
       placeholder: |
         - 기획설계서 §6.1 참조
-        - 제약: Java 17 전용 기능만 사용
+        - 제약: Java 21 LTS 사용 (Spring Boot 4.x 필수)
         - Nexon API Key AES 암호화 필수

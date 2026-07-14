@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: maple-utility
+  jpa:
+    open-in-view: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+jwt:
+  secret: ${JWT_SECRET}
+
+oauth:
+  kakao:
+    client-secret: ${KAKAO_CLIENT_SECRET}
+  nexon:
+    client-secret: ${NEXON_CLIENT_SECRET}
+
+nexon:
+  api-key-secret: ${NEXON_API_KEY_SECRET}
