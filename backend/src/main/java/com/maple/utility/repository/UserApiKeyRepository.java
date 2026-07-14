@@ -9,4 +9,6 @@ import com.maple.utility.entity.UserApiKey;
 public interface UserApiKeyRepository extends JpaRepository<UserApiKey, Long> {
 
 	Optional<UserApiKey> findByUserId(Long userId);
+
+	void deleteByUserId(Long userId);
 }

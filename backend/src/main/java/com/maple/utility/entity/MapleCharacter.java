@@ -56,4 +56,38 @@ public class MapleCharacter extends BaseTimeEntity {
 
 	@Column(name = "sort_order", nullable = false)
 	private int sortOrder;
+
+	public static MapleCharacter create(
+			User user,
+			String ocid,
+			String characterName,
+			String worldName,
+			String characterClass,
+			Integer characterLevel,
+			int sortOrder
+	) {
+		MapleCharacter character = new MapleCharacter();
+		character.user = user;
+		character.ocid = ocid;
+		character.characterName = characterName;
+		character.worldName = worldName;
+		character.characterClass = characterClass;
+		character.characterLevel = characterLevel;
+		character.sortOrder = sortOrder;
+		return character;
+	}
+
+	public void updateBasicInfo(
+			String characterName,
+			String worldName,
+			String characterClass,
+			Integer characterLevel,
+			int sortOrder
+	) {
+		this.characterName = characterName;
+		this.worldName = worldName;
+		this.characterClass = characterClass;
+		this.characterLevel = characterLevel;
+		this.sortOrder = sortOrder;
+	}
 }
