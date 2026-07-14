@@ -27,9 +27,14 @@ jobs:
             const body  = context.payload.pull_request.body  || '';
             const labels = [];
 
-            // 유형: PR 제목 패턴 "feat(be): ..." → "feat"
+            // 유형: PR 제목 → 없으면 본문 '변경 유형' 체크박스 fallback
             const typeMatch = title.match(/^(feat|fix|refactor|docs|chore|test|style)\b/i);
-            if (typeMatch) labels.push(typeMatch[1].toLowerCase());
+            if (typeMatch) {
+              labels.push(typeMatch[1].toLowerCase());
+            } else {
+              const bodyTypeMatch = body.match(/- \[x\] .+\(`(feat|fix|refactor|docs|chore|test|style)`\)/i);
+              if (bodyTypeMatch) labels.push(bodyTypeMatch[1].toLowerCase());
+            }
 
             // 단계: 본문 체크박스 "- [x] Phase N"
             for (const m of body.matchAll(/- \[x\] Phase (\d)/gi)) {
