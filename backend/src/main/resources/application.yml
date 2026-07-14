@@ -28,3 +28,12 @@ oauth:
 
 nexon:
   api-key-secret: ${NEXON_API_KEY_SECRET}
+
+app:
+  redis:
+    cache:
+      scheduler-ttl: 5m
+      character-basic-ttl: 1h
+      static-data-ttl: 24h
+    refresh-token:
+      ttl: 7d
