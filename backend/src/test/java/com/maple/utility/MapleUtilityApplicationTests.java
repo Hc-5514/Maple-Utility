@@ -9,6 +9,7 @@ import com.maple.utility.repository.BossItemAcquisitionRepository;
 import com.maple.utility.repository.BossMasterRepository;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.DataSyncLogRepository;
+import com.maple.utility.repository.HuntingRecordRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
@@ -41,6 +42,9 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private DataSyncLogRepository dataSyncLogRepository;
+
+	@MockitoBean
+	private HuntingRecordRepository huntingRecordRepository;
 
 	@MockitoBean
 	private BossMasterRepository bossMasterRepository;

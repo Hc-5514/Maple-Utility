@@ -49,4 +49,40 @@ public class HuntingRecord extends BaseTimeEntity {
 
 	@Column(name = "memo")
 	private String memo;
+
+	public static HuntingRecord create(
+			MapleCharacter character,
+			LocalDate recordDate,
+			long mesoEarned,
+			int solErdaEarned,
+			Integer playDurationMin,
+			String huntingGround,
+			String memo
+	) {
+		HuntingRecord record = new HuntingRecord();
+		record.character = character;
+		record.recordDate = recordDate;
+		record.mesoEarned = mesoEarned;
+		record.solErdaEarned = solErdaEarned;
+		record.playDurationMin = playDurationMin;
+		record.huntingGround = huntingGround;
+		record.memo = memo;
+		return record;
+	}
+
+	public void update(
+			LocalDate recordDate,
+			long mesoEarned,
+			int solErdaEarned,
+			Integer playDurationMin,
+			String huntingGround,
+			String memo
+	) {
+		this.recordDate = recordDate;
+		this.mesoEarned = mesoEarned;
+		this.solErdaEarned = solErdaEarned;
+		this.playDurationMin = playDurationMin;
+		this.huntingGround = huntingGround;
+		this.memo = memo;
+	}
 }
