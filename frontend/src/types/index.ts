@@ -147,6 +147,30 @@ export interface HuntingRecord {
   updatedAt: string
 }
 
+// ─── 스케줄러 요약 (대시보드) ──────────────────────────────────────
+export interface SchedulerProgress {
+  completed: number
+  total: number
+}
+
+export interface CharacterSchedulerSummary {
+  characterId: number
+  characterName: string
+  characterLevel: number | null
+  characterClass: string | null
+  characterImage: string | null
+  worldName: string | null
+  daily: SchedulerProgress
+  weekly: SchedulerProgress
+  weeklyBoss: SchedulerProgress
+  monthlyBoss: SchedulerProgress
+}
+
+export interface SchedulerSummary {
+  characters: CharacterSchedulerSummary[]
+  syncedAt: string
+}
+
 // ─── 데이터 동기화 ────────────────────────────────────────────────
 export type SyncType = 'SCHEDULER_BATCH' | 'SCHEDULER_REALTIME' | 'CHARACTER_SYNC'
 export type SyncStatus = 'STARTED' | 'COMPLETED' | 'FAILED'
