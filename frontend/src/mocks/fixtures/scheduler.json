@@ -1,0 +1,26 @@
+{
+  "daily": [
+    { "id": 1, "characterId": 1, "recordDate": "2026-07-14", "contentName": "일일 퀘스트",        "completedCount": 1, "totalCount": 1, "syncedAt": "2026-07-14T09:00:00" },
+    { "id": 2, "characterId": 1, "recordDate": "2026-07-14", "contentName": "아케인 포스 증폭",   "completedCount": 1, "totalCount": 1, "syncedAt": "2026-07-14T09:00:00" },
+    { "id": 3, "characterId": 1, "recordDate": "2026-07-14", "contentName": "에르다 퍼즐",        "completedCount": 0, "totalCount": 1, "syncedAt": null },
+    { "id": 4, "characterId": 1, "recordDate": "2026-07-14", "contentName": "미니던전",           "completedCount": 0, "totalCount": 1, "syncedAt": null },
+    { "id": 5, "characterId": 1, "recordDate": "2026-07-14", "contentName": "레이드 일일 미션",   "completedCount": 1, "totalCount": 1, "syncedAt": "2026-07-14T08:30:00" }
+  ],
+  "weekly": [
+    { "id": 1, "characterId": 1, "weekStartDate": "2026-07-13", "contentName": "무릉도장",          "isCompleted": true,  "score": 32,  "syncedAt": "2026-07-13T20:00:00" },
+    { "id": 2, "characterId": 1, "weekStartDate": "2026-07-13", "contentName": "타락한 세계수",     "isCompleted": false, "score": null, "syncedAt": null },
+    { "id": 3, "characterId": 1, "weekStartDate": "2026-07-13", "contentName": "아케인리버 주간퀘", "isCompleted": true,  "score": null, "syncedAt": "2026-07-14T10:00:00" }
+  ],
+  "boss": [
+    { "id": 1,  "characterId": 1, "bossId": 2,  "recordDate": "2026-07-13", "resetPeriod": "WEEKLY", "isCompleted": true,  "syncedAt": "2026-07-13T22:00:00" },
+    { "id": 2,  "characterId": 1, "bossId": 5,  "recordDate": "2026-07-13", "resetPeriod": "WEEKLY", "isCompleted": true,  "syncedAt": "2026-07-13T22:30:00" },
+    { "id": 3,  "characterId": 1, "bossId": 10, "recordDate": "2026-07-14", "resetPeriod": "WEEKLY", "isCompleted": false, "syncedAt": null },
+    { "id": 4,  "characterId": 1, "bossId": 13, "recordDate": "2026-07-14", "resetPeriod": "WEEKLY", "isCompleted": false, "syncedAt": null },
+    { "id": 5,  "characterId": 1, "bossId": 16, "recordDate": "2026-07-14", "resetPeriod": "WEEKLY", "isCompleted": true,  "syncedAt": "2026-07-14T09:30:00" },
+    { "id": 6,  "characterId": 1, "bossId": 18, "recordDate": "2026-07-14", "resetPeriod": "WEEKLY", "isCompleted": false, "syncedAt": null },
+    { "id": 7,  "characterId": 1, "bossId": 20, "recordDate": "2026-07-14", "resetPeriod": "WEEKLY", "isCompleted": false, "syncedAt": null },
+    { "id": 8,  "characterId": 1, "bossId": 24, "recordDate": "2026-07-14", "resetPeriod": "WEEKLY", "isCompleted": false, "syncedAt": null },
+    { "id": 9,  "characterId": 1, "bossId": 27, "recordDate": "2026-07-14", "resetPeriod": "WEEKLY", "isCompleted": false, "syncedAt": null },
+    { "id": 10, "characterId": 1, "bossId": 35, "recordDate": "2026-07-14", "resetPeriod": "MONTHLY","isCompleted": false, "syncedAt": null }
+  ]
+}
