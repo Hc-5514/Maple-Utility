@@ -66,7 +66,7 @@ public class ApiKeyService {
 		} else {
 			userApiKey.replaceKey(encryptedKey, verifiedAt);
 		}
-		characterSyncService.syncCharacters(user, characters);
+		characterSyncService.syncCharacters(user, characters, apiKey);
 
 		return ApiKeyStatusResponse.registered(userApiKey);
 	}

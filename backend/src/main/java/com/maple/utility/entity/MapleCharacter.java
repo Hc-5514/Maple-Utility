@@ -90,4 +90,30 @@ public class MapleCharacter extends BaseTimeEntity {
 		this.characterLevel = characterLevel;
 		this.sortOrder = sortOrder;
 	}
+
+	public void updateDetails(
+			String characterName,
+			String worldName,
+			String characterClass,
+			Integer characterLevel,
+			String characterImage,
+			String guildName,
+			int sortOrder
+	) {
+		this.characterName = characterName;
+		this.worldName = worldName;
+		this.characterClass = characterClass;
+		this.characterLevel = characterLevel;
+		this.characterImage = characterImage;
+		this.guildName = guildName;
+		this.sortOrder = sortOrder;
+	}
+
+	public void toggleFavorite() {
+		this.favorite = !this.favorite;
+	}
+
+	public void updateSortOrder(int sortOrder) {
+		this.sortOrder = sortOrder;
+	}
 }

@@ -88,7 +88,7 @@ class ApiKeyServiceTest {
 
 		assertThat(response.registered()).isTrue();
 		assertThat(response.keyStatus()).isEqualTo(ApiKeyStatus.ACTIVE);
-		verify(characterSyncService).syncCharacters(user, characters);
+		verify(characterSyncService).syncCharacters(user, characters, "plain-api-key");
 	}
 
 	@Test

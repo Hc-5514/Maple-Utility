@@ -14,4 +14,6 @@ public interface CharacterRepository extends JpaRepository<MapleCharacter, Long>
 	List<MapleCharacter> findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(Long userId);
 
 	Optional<MapleCharacter> findByUserIdAndOcid(Long userId, String ocid);
+
+	Optional<MapleCharacter> findByIdAndUserId(Long id, Long userId);
 }

@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import com.maple.utility.config.NexonProperties;
 
@@ -22,6 +23,21 @@ public class NexonOpenApiClient {
 	public List<NexonCharacterSummary> getCharacters(Long userId, String apiKey) {
 		JsonNode response = nexonApiGateway.get(userId, apiKey, properties.characterListUri(), NexonRequestMode.REALTIME);
 		return parseCharacters(response);
+	}
+
+	public List<NexonCharacterSummary> getCharacters(Long userId) {
+		JsonNode response = nexonApiGateway.getWithStoredKey(userId, properties.characterListUri(), NexonRequestMode.REALTIME);
+		return parseCharacters(response);
+	}
+
+	public NexonCharacterBasic getCharacterBasic(Long userId, String apiKey, String ocid) {
+		JsonNode response = nexonApiGateway.get(userId, apiKey, characterBasicUri(ocid), NexonRequestMode.REALTIME);
+		return parseCharacterBasic(ocid, response);
+	}
+
+	public NexonCharacterBasic getCharacterBasic(Long userId, String ocid) {
+		JsonNode response = nexonApiGateway.getWithStoredKey(userId, characterBasicUri(ocid), NexonRequestMode.REALTIME);
+		return parseCharacterBasic(ocid, response);
 	}
 
 	private List<NexonCharacterSummary> parseCharacters(JsonNode response) {
@@ -54,5 +70,28 @@ public class NexonOpenApiClient {
 					character.path("character_level").isNumber() ? character.path("character_level").asInt() : null
 			));
 		}
+	}
+
+	private NexonCharacterBasic parseCharacterBasic(String ocid, JsonNode response) {
+		if (response == null) {
+			return new NexonCharacterBasic(ocid, null, null, null, null, null, null);
+		}
+		return new NexonCharacterBasic(
+				ocid,
+				response.path("character_name").asText(null),
+				response.path("world_name").asText(null),
+				response.path("character_class").asText(null),
+				response.path("character_level").isNumber() ? response.path("character_level").asInt() : null,
+				response.path("character_image").asText(null),
+				response.path("character_guild_name").asText(null)
+		);
+	}
+
+	private String characterBasicUri(String ocid) {
+		return UriComponentsBuilder.fromUriString(properties.characterBasicUri())
+				.queryParam("ocid", ocid)
+				.build()
+				.encode()
+				.toUriString();
 	}
 }
