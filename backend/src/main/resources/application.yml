@@ -38,6 +38,7 @@ oauth:
 
 nexon:
   api-key-secret: ${NEXON_API_KEY_SECRET}
+  character-list-uri: ${NEXON_CHARACTER_LIST_URI:https://open.api.nexon.com/maplestory/v1/character/list}
 
 app:
   redis:

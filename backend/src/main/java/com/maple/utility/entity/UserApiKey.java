@@ -40,4 +40,23 @@ public class UserApiKey extends BaseTimeEntity {
 
 	@Column(name = "last_verified_at")
 	private LocalDateTime lastVerifiedAt;
+
+	public static UserApiKey create(User user, String encryptedKey, LocalDateTime verifiedAt) {
+		UserApiKey userApiKey = new UserApiKey();
+		userApiKey.user = user;
+		userApiKey.encryptedKey = encryptedKey;
+		userApiKey.keyStatus = ApiKeyStatus.ACTIVE;
+		userApiKey.lastVerifiedAt = verifiedAt;
+		return userApiKey;
+	}
+
+	public void replaceKey(String encryptedKey, LocalDateTime verifiedAt) {
+		this.encryptedKey = encryptedKey;
+		this.keyStatus = ApiKeyStatus.ACTIVE;
+		this.lastVerifiedAt = verifiedAt;
+	}
+
+	public void invalidate() {
+		this.keyStatus = ApiKeyStatus.INVALID;
+	}
 }
