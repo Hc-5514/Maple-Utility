@@ -19,7 +19,12 @@ class RefreshTokenRedisServiceTest {
 	private final StringRedisTemplate redisTemplate = org.mockito.Mockito.mock(StringRedisTemplate.class);
 	private final ValueOperations<String, String> valueOperations = org.mockito.Mockito.mock(ValueOperations.class);
 	private final RedisPolicyProperties properties = new RedisPolicyProperties(
-			new RedisPolicyProperties.Cache(Duration.ofMinutes(5), Duration.ofHours(1), Duration.ofHours(24)),
+			new RedisPolicyProperties.Cache(
+					Duration.ofMinutes(5),
+					Duration.ofHours(1),
+					Duration.ofHours(24),
+					Duration.ofMinutes(5)
+			),
 			new RedisPolicyProperties.RefreshToken(Duration.ofDays(7))
 	);
 	private final RefreshTokenRedisService service = new RefreshTokenRedisService(redisTemplate, properties);

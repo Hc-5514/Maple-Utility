@@ -6,6 +6,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.maple.utility.repository.UserRepository;
 import com.maple.utility.repository.CharacterRepository;
+import com.maple.utility.repository.DataSyncLogRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
 
 @SpringBootTest(properties = {
@@ -31,6 +32,9 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private CharacterRepository characterRepository;
+
+	@MockitoBean
+	private DataSyncLogRepository dataSyncLogRepository;
 
 	@Test
 	void contextLoads() {

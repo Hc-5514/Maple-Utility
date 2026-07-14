@@ -51,7 +51,9 @@ public class RedisConfig {
 				RedisCacheNames.CHARACTER_BASIC,
 				defaultConfig.entryTtl(properties.cache().characterBasicTtl()),
 				RedisCacheNames.STATIC_DATA,
-				defaultConfig.entryTtl(properties.cache().staticDataTtl())
+				defaultConfig.entryTtl(properties.cache().staticDataTtl()),
+				RedisCacheNames.NEXON_API,
+				defaultConfig.entryTtl(properties.cache().nexonApiTtl())
 		);
 
 		return RedisCacheManager.builder(connectionFactory)

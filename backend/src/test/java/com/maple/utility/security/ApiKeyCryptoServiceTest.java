@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +17,7 @@ class ApiKeyCryptoServiceTest {
 	@Test
 	void encryptAndDecryptApiKey() {
 		ApiKeyCryptoService service = new ApiKeyCryptoService(
-				new NexonProperties(SECRET, "http://localhost/character/list"),
+				new NexonProperties(SECRET, "http://localhost/character/list", 500, 450, Duration.ofSeconds(1)),
 				new SecureRandom()
 		);
 
@@ -30,7 +31,7 @@ class ApiKeyCryptoServiceTest {
 	@Test
 	void constructorRejectsInvalidSecretLength() {
 		assertThatThrownBy(() -> new ApiKeyCryptoService(
-				new NexonProperties("c2hvcnQ=", "http://localhost/character/list"),
+				new NexonProperties("c2hvcnQ=", "http://localhost/character/list", 500, 450, Duration.ofSeconds(1)),
 				new SecureRandom()
 		)).isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("NEXON_API_KEY_SECRET");
