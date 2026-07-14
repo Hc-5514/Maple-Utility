@@ -32,6 +32,11 @@ export interface AuthToken {
   expiresIn: number
 }
 
+export interface AuthLoginResponse extends AuthToken {
+  isNewUser: boolean
+  user: User
+}
+
 // ─── Nexon API 키 ─────────────────────────────────────────────────
 export type ApiKeyStatus = 'ACTIVE' | 'INVALID' | 'EXPIRED'
 
