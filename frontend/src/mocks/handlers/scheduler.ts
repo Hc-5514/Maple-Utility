@@ -69,4 +69,48 @@ export const schedulerHandlers = [
     record.syncedAt = new Date().toISOString()
     return HttpResponse.json({ success: true, data: record })
   }),
+
+  http.get('/api/v1/scheduler/summary', () => {
+    const today = new Date().toISOString().split('T')[0]
+    const weekStart = '2026-07-13'
+
+    const charDaily = dailyRecords.filter(r => r.characterId === 1 && r.recordDate === today)
+    const charWeekly = weeklyRecords.filter(r => r.characterId === 1 && r.weekStartDate === weekStart)
+    const charBoss = bossRecords.filter(r => r.characterId === 1)
+    const weeklyBoss = charBoss.filter(r => r.resetPeriod === 'WEEKLY')
+    const monthlyBoss = charBoss.filter(r => r.resetPeriod === 'MONTHLY')
+
+    return HttpResponse.json({
+      success: true,
+      data: {
+        characters: [
+          {
+            characterId: 1,
+            characterName: '달빛제로',
+            characterLevel: 285,
+            characterClass: '제로',
+            characterImage: null,
+            worldName: '크로아',
+            daily: {
+              completed: charDaily.reduce((sum, r) => sum + r.completedCount, 0),
+              total: charDaily.reduce((sum, r) => sum + r.totalCount, 0),
+            },
+            weekly: {
+              completed: charWeekly.filter(r => r.isCompleted).length,
+              total: charWeekly.length,
+            },
+            weeklyBoss: {
+              completed: weeklyBoss.filter(r => r.isCompleted).length,
+              total: weeklyBoss.length,
+            },
+            monthlyBoss: {
+              completed: monthlyBoss.filter(r => r.isCompleted).length,
+              total: monthlyBoss.length,
+            },
+          },
+        ],
+        syncedAt: new Date().toISOString(),
+      },
+    })
+  }),
 ]
