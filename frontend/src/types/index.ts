@@ -171,6 +171,16 @@ export interface SchedulerSummary {
   syncedAt: string
 }
 
+// ─── 길드 콘텐츠 ─────────────────────────────────────────────────
+export interface GuildRecord {
+  id: number
+  characterId: number
+  recordDate: string
+  contentName: string
+  score: number | null
+  syncedAt: string | null
+}
+
 // ─── 데이터 동기화 ────────────────────────────────────────────────
 export type SyncType = 'SCHEDULER_BATCH' | 'SCHEDULER_REALTIME' | 'CHARACTER_SYNC'
 export type SyncStatus = 'STARTED' | 'COMPLETED' | 'FAILED'

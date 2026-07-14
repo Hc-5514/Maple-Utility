@@ -4,6 +4,10 @@ import schedulerFixture from '../fixtures/scheduler.json'
 const dailyRecords = [...schedulerFixture.daily]
 const weeklyRecords = [...schedulerFixture.weekly]
 const bossRecords = [...schedulerFixture.boss]
+const guildRecords = [
+  { id: 1, characterId: 1, recordDate: '2026-07-14', contentName: '지하 수로', score: 45000, syncedAt: '2026-07-14T09:00:00' },
+  { id: 2, characterId: 1, recordDate: '2026-07-14', contentName: '플래그 레이스', score: null as number | null, syncedAt: null },
+]
 
 export const schedulerHandlers = [
   http.get('/api/v1/scheduler/daily', ({ request }) => {
@@ -68,6 +72,14 @@ export const schedulerHandlers = [
     if (body.isCompleted !== undefined) record.isCompleted = body.isCompleted
     record.syncedAt = new Date().toISOString()
     return HttpResponse.json({ success: true, data: record })
+  }),
+
+  http.get('/api/v1/scheduler/guild', ({ request }) => {
+    const url = new URL(request.url)
+    const characterId = Number(url.searchParams.get('characterId'))
+    const date = url.searchParams.get('date') ?? new Date().toISOString().split('T')[0]
+    const records = guildRecords.filter(r => r.characterId === characterId && r.recordDate === date)
+    return HttpResponse.json({ success: true, data: records })
   }),
 
   http.get('/api/v1/scheduler/summary', () => {
