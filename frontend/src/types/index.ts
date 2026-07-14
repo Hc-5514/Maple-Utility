@@ -195,3 +195,45 @@ export interface DataSyncLog {
   startedAt: string
   completedAt: string | null
 }
+
+// ─── 통계 ─────────────────────────────────────────────────────────
+export interface StatsHuntingDaily {
+  date: string
+  mesoEarned: number
+  solErdaEarned: number
+  playDurationMin: number | null
+}
+
+export interface StatsHuntingSummary {
+  totalMeso: number
+  totalSolErda: number
+  avgDailyMeso: number
+  avgDailySolErda: number
+  dailyRecords: StatsHuntingDaily[]
+}
+
+export interface StatsCrystalBossDetail {
+  bossName: string
+  difficulty: BossDifficulty
+  income: number
+}
+
+export interface StatsCrystalWeekly {
+  weekStart: string
+  totalIncome: number
+  bossDetails: StatsCrystalBossDetail[]
+}
+
+export interface StatsCrystalSummary {
+  totalCrystalIncome: number
+  weeklyAverage: number
+  weeklyRecords: StatsCrystalWeekly[]
+}
+
+export interface StatsBossItem {
+  acquiredDate: string
+  characterName: string
+  bossName: string
+  difficulty: BossDifficulty
+  itemName: string
+}
