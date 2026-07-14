@@ -52,4 +52,11 @@ export const characterHandlers = [
     mockCharacters = mockCharacters.filter(c => c.id !== Number(params.id))
     return new HttpResponse(null, { status: 204 })
   }),
+
+  http.post('/api/v1/characters/sync', () => {
+    return HttpResponse.json(
+      { success: true, data: mockCharacters, message: '캐릭터 동기화 완료' },
+      { status: 200 },
+    )
+  }),
 ]
