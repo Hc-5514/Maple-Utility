@@ -49,12 +49,21 @@ public class SchedulerSyncService {
 	@Transactional
 	public void syncCharacters(Long userId, List<MapleCharacter> characters) {
 		for (MapleCharacter character : characters) {
-			syncCharacter(userId, character);
+			syncCharacter(userId, character, false);
 		}
 	}
 
-	private void syncCharacter(Long userId, MapleCharacter character) {
-		NexonSchedulerResponse scheduler = nexonOpenApiClient.getCharacterScheduler(userId, character.getOcid());
+	@Transactional
+	public void syncCharactersForBatch(Long userId, List<MapleCharacter> characters) {
+		for (MapleCharacter character : characters) {
+			syncCharacter(userId, character, true);
+		}
+	}
+
+	private void syncCharacter(Long userId, MapleCharacter character, boolean batch) {
+		NexonSchedulerResponse scheduler = batch
+				? nexonOpenApiClient.getCharacterSchedulerForBatch(userId, character.getOcid())
+				: nexonOpenApiClient.getCharacterScheduler(userId, character.getOcid());
 		LocalDateTime syncedAt = LocalDateTime.now(clock);
 		syncDailyRecords(character, scheduler.daily(), syncedAt);
 		syncWeeklyRecords(character, scheduler.weekly(), syncedAt);

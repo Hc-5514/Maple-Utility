@@ -12,6 +12,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.maple.utility.config.NexonProperties;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.ResetPeriod;
+import com.maple.utility.entity.SyncType;
 
 @Component
 public class NexonOpenApiClient {
@@ -46,6 +47,16 @@ public class NexonOpenApiClient {
 
 	public NexonSchedulerResponse getCharacterScheduler(Long userId, String ocid) {
 		JsonNode response = nexonApiGateway.getWithStoredKey(userId, characterSchedulerUri(ocid), NexonRequestMode.REALTIME);
+		return parseScheduler(response);
+	}
+
+	public NexonSchedulerResponse getCharacterSchedulerForBatch(Long userId, String ocid) {
+		JsonNode response = nexonApiGateway.getWithStoredKey(
+				userId,
+				characterSchedulerUri(ocid),
+				NexonRequestMode.BATCH,
+				SyncType.SCHEDULER_BATCH
+		);
 		return parseScheduler(response);
 	}
 

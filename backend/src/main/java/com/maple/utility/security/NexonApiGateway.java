@@ -107,13 +107,21 @@ public class NexonApiGateway {
 	}
 
 	public JsonNode getWithStoredKey(Long userId, String uri, NexonRequestMode mode) {
+		return getWithStoredKey(userId, uri, mode, SyncType.CHARACTER_SYNC);
+	}
+
+	public JsonNode getWithStoredKey(Long userId, String uri, NexonRequestMode mode, SyncType syncType) {
 		UserApiKey apiKey = userApiKeyRepository.findByUserId(userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_NOT_REGISTERED", "Nexon API Key 미등록"));
 		String decryptedApiKey = apiKeyCryptoService.decrypt(apiKey.getEncryptedKey());
-		return get(userId, decryptedApiKey, uri, mode);
+		return get(userId, decryptedApiKey, uri, mode, syncType);
 	}
 
 	public JsonNode get(Long userId, String apiKey, String uri, NexonRequestMode mode) {
+		return get(userId, apiKey, uri, mode, SyncType.CHARACTER_SYNC);
+	}
+
+	public JsonNode get(Long userId, String apiKey, String uri, NexonRequestMode mode, SyncType syncType) {
 		String cacheKey = cacheKey(userId, "GET", uri);
 		String cachedResponse = redisTemplate.opsForValue().get(cacheKey);
 		if (cachedResponse != null) {
@@ -122,7 +130,7 @@ public class NexonApiGateway {
 
 		validateDailyLimit(userId, mode);
 		User user = findUser(userId);
-		DataSyncLog log = dataSyncLogRepository.save(DataSyncLog.start(user, SyncType.CHARACTER_SYNC, now()));
+		DataSyncLog log = dataSyncLogRepository.save(DataSyncLog.start(user, syncType, now()));
 		int callsUsed = 0;
 		try {
 			throttleDispatch();
