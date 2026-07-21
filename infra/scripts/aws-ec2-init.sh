@@ -35,7 +35,7 @@ ufw allow 80/tcp
 ufw allow 443/tcp
 ufw --force enable
 
-echo "Oracle Cloud VM 초기 설정 완료"
+echo "AWS EC2 초기 설정 완료"
 echo "배포 사용자: ${DEPLOY_USER}"
 echo "배포 경로: ${DEPLOY_DIR}"
 echo "docker 그룹 적용을 위해 ${DEPLOY_USER} 재로그인 필요"
