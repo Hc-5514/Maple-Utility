@@ -2,8 +2,8 @@
 
 ## 개요
 
-- 대상: AWS EC2 Free Tier t2.micro Ubuntu VM
-- 리소스: 1 vCPU, 1GB RAM, 30GB EBS, 12개월 한정 무료
+- 대상: AWS EC2 Free Tier t3.micro Ubuntu VM
+- 리소스: 2 vCPU, 1GB RAM, 30GB EBS, 12개월 한정 무료
 - 런타임: Docker Compose 기반 Spring Boot, PostgreSQL, Redis, Nginx
 - 외부 노출: 80, 443
 - 내부 통신: app, postgres, redis, nginx 전용 Docker network
@@ -12,7 +12,7 @@
 ## EC2 생성 기준
 
 - AMI: Ubuntu Server 24.04 LTS 또는 22.04 LTS
-- Instance type: t2.micro
+- Instance type: t3.micro
 - Storage: 30GB gp3 EBS
 - Key pair: SSH 접속용 key pair 생성 또는 기존 public key 등록
 - Network: public subnet 배치
@@ -107,9 +107,9 @@ curl http://localhost/actuator/health
 - `http://localhost/health` 200 응답
 - `app` 로그에 Spring Boot 기동 완료 기록
 
-## t2.micro 운영 주의
+## t3.micro 운영 주의
 
-t2.micro는 1GB RAM 제한이 있어 프론트엔드는 Vercel에 분리하고 EC2는 API, DB, Redis, Nginx만 담당.
+t3.micro는 1GB RAM 제한이 있어 프론트엔드는 Vercel에 분리하고 EC2는 API, DB, Redis, Nginx만 담당.
 
 메모리 부족이 발생하면 swap 추가, JVM 메모리 제한, 미사용 Docker 이미지 정리 검토.
 
