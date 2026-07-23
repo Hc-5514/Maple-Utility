@@ -22,11 +22,6 @@ import com.maple.utility.repository.UserRepository;
 		"KAKAO_CLIENT_ID=test-kakao-client-id",
 		"KAKAO_CLIENT_SECRET=test-kakao-client-secret",
 		"KAKAO_REDIRECT_URI=http://localhost/oauth/kakao/callback",
-		"NEXON_CLIENT_ID=test-nexon-client-id",
-		"NEXON_CLIENT_SECRET=test-nexon-client-secret",
-		"NEXON_REDIRECT_URI=http://localhost/oauth/nexon/callback",
-		"NEXON_TOKEN_URI=http://localhost/oauth/nexon/token",
-		"NEXON_USER_INFO_URI=http://localhost/oauth/nexon/user",
 		"NEXON_API_KEY_SECRET=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 		"spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"
 })

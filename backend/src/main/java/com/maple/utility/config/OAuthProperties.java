@@ -8,8 +8,7 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties(prefix = "oauth")
 public record OAuthProperties(
-		@Valid Provider kakao,
-		@Valid Provider nexon
+		@Valid Provider kakao
 ) {
 
 	public record Provider(
