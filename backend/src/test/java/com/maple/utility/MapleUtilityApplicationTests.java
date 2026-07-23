@@ -1,7 +1,11 @@
 package com.maple.utility;
 
+import java.util.Base64;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.maple.utility.repository.BossDropItemRepository;
@@ -22,7 +26,6 @@ import com.maple.utility.repository.UserRepository;
 		"KAKAO_CLIENT_ID=test-kakao-client-id",
 		"KAKAO_CLIENT_SECRET=test-kakao-client-secret",
 		"KAKAO_REDIRECT_URI=http://localhost/oauth/kakao/callback",
-		"NEXON_API_KEY_SECRET=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
 		"spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"
 })
 class MapleUtilityApplicationTests {
@@ -62,6 +65,11 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private StatsQueryRepository statsQueryRepository;
+
+	@DynamicPropertySource
+	static void nexonApiKeySecret(DynamicPropertyRegistry registry) {
+		registry.add("NEXON_API_KEY_SECRET", () -> Base64.getEncoder().encodeToString(new byte[32]));
+	}
 
 	@Test
 	void contextLoads() {
