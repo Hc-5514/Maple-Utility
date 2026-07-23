@@ -9,7 +9,7 @@
     "characterLevel": 285,
     "characterImage": null,
     "guildName": "새벽별",
-    "isFavorite": true,
+    "favorite": true,
     "sortOrder": 0,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"
@@ -24,7 +24,7 @@
     "characterLevel": 275,
     "characterImage": null,
     "guildName": null,
-    "isFavorite": false,
+    "favorite": false,
     "sortOrder": 1,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"
@@ -39,7 +39,7 @@
     "characterLevel": 268,
     "characterImage": null,
     "guildName": "새벽별",
-    "isFavorite": false,
+    "favorite": false,
     "sortOrder": 2,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"
@@ -54,7 +54,7 @@
     "characterLevel": 260,
     "characterImage": null,
     "guildName": null,
-    "isFavorite": false,
+    "favorite": false,
     "sortOrder": 3,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"
@@ -69,7 +69,7 @@
     "characterLevel": 250,
     "characterImage": null,
     "guildName": null,
-    "isFavorite": false,
+    "favorite": false,
     "sortOrder": 4,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"
@@ -84,7 +84,7 @@
     "characterLevel": 245,
     "characterImage": null,
     "guildName": null,
-    "isFavorite": false,
+    "favorite": false,
     "sortOrder": 5,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"
@@ -99,7 +99,7 @@
     "characterLevel": 240,
     "characterImage": null,
     "guildName": "새벽별",
-    "isFavorite": false,
+    "favorite": false,
     "sortOrder": 6,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"
@@ -114,7 +114,7 @@
     "characterLevel": 220,
     "characterImage": null,
     "guildName": null,
-    "isFavorite": false,
+    "favorite": false,
     "sortOrder": 7,
     "createdAt": "2026-07-01T00:00:00",
     "updatedAt": "2026-07-01T00:00:00"

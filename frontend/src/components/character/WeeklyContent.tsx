@@ -8,7 +8,7 @@ interface Props {
 export default function WeeklyContent({ characterId, weekStart }: Props) {
   const { data, isLoading } = useCharacterWeekly(characterId, weekStart)
 
-  const allDone = data && data.length > 0 && data.every((r) => r.isCompleted)
+  const allDone = data && data.length > 0 && data.every((r) => r.completed)
 
   return (
     <section className="rounded-xl bg-[#2d2d44] p-5">
@@ -30,15 +30,15 @@ export default function WeeklyContent({ characterId, weekStart }: Props) {
         <ul className="space-y-2">
           {data.map((record) => (
             <li
-              key={record.id}
+              key={record.id ?? record.contentName}
               className="flex items-center gap-3 rounded-lg bg-[#1a1a2e] px-4 py-3"
             >
               <span
-                className={`text-lg leading-none ${record.isCompleted ? 'text-[#4ade80]' : 'text-white/20'}`}
+                className={`text-lg leading-none ${record.completed ? 'text-[#4ade80]' : 'text-white/20'}`}
               >
-                {record.isCompleted ? '✓' : '─'}
+                {record.completed ? '✓' : '─'}
               </span>
-              <span className={`flex-1 text-sm ${record.isCompleted ? 'text-white/60 line-through' : 'text-white/80'}`}>
+              <span className={`flex-1 text-sm ${record.completed ? 'text-white/60 line-through' : 'text-white/80'}`}>
                 {record.contentName}
               </span>
               {record.score !== null && (

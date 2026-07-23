@@ -19,11 +19,8 @@ export type OAuthProvider = 'KAKAO' | 'NEXON_APIKEY'
 export interface User {
   id: number
   oauthProvider: OAuthProvider
-  oauthId: string
   email: string | null
   nickname: string | null
-  createdAt: string
-  updatedAt: string
 }
 
 export interface AuthToken {
@@ -32,21 +29,24 @@ export interface AuthToken {
   expiresIn: number
 }
 
-export interface AuthLoginResponse extends AuthToken {
+export interface AuthUserResponse {
+  id: number
+  nickname: string
+  email: string | null
   isNewUser: boolean
-  user: User
+}
+
+export interface AuthLoginResponse extends AuthToken {
+  user: AuthUserResponse
 }
 
 // ─── Nexon API 키 ─────────────────────────────────────────────────
 export type ApiKeyStatus = 'ACTIVE' | 'INVALID' | 'EXPIRED'
 
-export interface UserApiKey {
-  id: number
-  userId: number
-  keyStatus: ApiKeyStatus
+export interface ApiKeyStatusResponse {
+  registered: boolean
+  keyStatus: ApiKeyStatus | null
   lastVerifiedAt: string | null
-  createdAt: string
-  updatedAt: string
 }
 
 // ─── 캐릭터 ──────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export interface Character {
   characterLevel: number | null
   characterImage: string | null
   guildName: string | null
-  isFavorite: boolean
+  favorite: boolean
   sortOrder: number
   createdAt: string
   updatedAt: string
@@ -104,8 +104,9 @@ export interface BossItemAcquisition {
 
 // ─── 스케줄러 (일간/주간/보스) ────────────────────────────────────
 export interface SchedulerDailyRecord {
-  id: number
+  id?: number
   characterId: number
+  characterName?: string
   recordDate: string
   contentName: string
   completedCount: number
@@ -114,23 +115,34 @@ export interface SchedulerDailyRecord {
 }
 
 export interface SchedulerWeeklyRecord {
-  id: number
+  id?: number
   characterId: number
+  characterName?: string
   weekStartDate: string
   contentName: string
-  isCompleted: boolean
+  completed: boolean
   score: number | null
   syncedAt: string | null
 }
 
 export interface SchedulerBossRecord {
-  id: number
+  id?: number
   characterId: number
-  bossId: number
-  recordDate: string
+  characterName?: string
+  bossId?: number
+  bossName?: string
+  difficulty?: BossDifficulty
+  recordDate?: string
   resetPeriod: ResetPeriod
-  isCompleted: boolean
+  completed: boolean
   syncedAt: string | null
+}
+
+export interface BESchedulerSummaryResponse {
+  daily: SchedulerDailyRecord[]
+  weekly: SchedulerWeeklyRecord[]
+  weeklyBoss: SchedulerBossRecord[]
+  monthlyBoss: SchedulerBossRecord[]
 }
 
 // ─── 사냥 기록 ────────────────────────────────────────────────────
@@ -173,8 +185,9 @@ export interface SchedulerSummary {
 
 // ─── 길드 콘텐츠 ─────────────────────────────────────────────────
 export interface GuildRecord {
-  id: number
+  id?: number
   characterId: number
+  characterName?: string
   recordDate: string
   contentName: string
   score: number | null
