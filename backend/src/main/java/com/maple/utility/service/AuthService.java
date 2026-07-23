@@ -1,5 +1,10 @@
 package com.maple.utility.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -13,10 +18,15 @@ import com.maple.utility.dto.response.AuthUserResponse;
 import com.maple.utility.dto.response.MeResponse;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
+import com.maple.utility.entity.UserApiKey;
 import com.maple.utility.exception.ApiException;
+import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
+import com.maple.utility.security.ApiKeyCryptoService;
 import com.maple.utility.security.JwtToken;
 import com.maple.utility.security.JwtTokenProvider;
+import com.maple.utility.security.NexonCharacterSummary;
+import com.maple.utility.security.NexonOpenApiClient;
 import com.maple.utility.security.OAuthClient;
 import com.maple.utility.security.OAuthUserInfo;
 import com.maple.utility.security.RefreshTokenRedisService;
@@ -26,20 +36,32 @@ public class AuthService {
 
 	private final Map<OAuthProvider, OAuthClient> oauthClients;
 	private final UserRepository userRepository;
+	private final UserApiKeyRepository userApiKeyRepository;
 	private final JwtTokenProvider jwtTokenProvider;
 	private final RefreshTokenRedisService refreshTokenRedisService;
+	private final NexonOpenApiClient nexonOpenApiClient;
+	private final ApiKeyCryptoService apiKeyCryptoService;
+	private final Clock clock;
 
 	public AuthService(
 			List<OAuthClient> oauthClients,
 			UserRepository userRepository,
 			JwtTokenProvider jwtTokenProvider,
-			RefreshTokenRedisService refreshTokenRedisService
+			RefreshTokenRedisService refreshTokenRedisService,
+			UserApiKeyRepository userApiKeyRepository,
+			NexonOpenApiClient nexonOpenApiClient,
+			ApiKeyCryptoService apiKeyCryptoService,
+			Clock clock
 	) {
 		this.oauthClients = new EnumMap<>(OAuthProvider.class);
 		oauthClients.forEach(oauthClient -> this.oauthClients.put(oauthClient.provider(), oauthClient));
 		this.userRepository = userRepository;
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.refreshTokenRedisService = refreshTokenRedisService;
+		this.userApiKeyRepository = userApiKeyRepository;
+		this.nexonOpenApiClient = nexonOpenApiClient;
+		this.apiKeyCryptoService = apiKeyCryptoService;
+		this.clock = clock;
 	}
 
 	@Transactional
@@ -70,16 +92,40 @@ public class AuthService {
 			));
 		}
 
-		JwtToken accessToken = jwtTokenProvider.createAccessToken(user.getId());
-		JwtToken refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-		refreshTokenRedisService.save(user.getId(), refreshToken.tokenId(), refreshToken.value(), refreshToken.ttl());
+		return createLoginResult(user, isNewUser);
+	}
 
-		AuthResponse response = AuthResponse.bearer(
-				accessToken.value(),
-				accessToken.ttl().toSeconds(),
-				AuthUserResponse.from(user, isNewUser)
-		);
-		return new LoginResult(response, refreshToken);
+	@Transactional
+	public LoginResult loginWithNexonApiKey(String apiKey) {
+		String oauthId = sha256Hex(apiKey);
+		User user = userRepository.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY, oauthId)
+				.orElse(null);
+		boolean isNewUser = user == null;
+		if (isNewUser) {
+			user = userRepository.save(User.create(
+					OAuthProvider.NEXON_APIKEY,
+					oauthId,
+					null,
+					null
+			));
+		}
+
+		List<NexonCharacterSummary> characters = nexonOpenApiClient.getCharacters(user.getId(), apiKey);
+		String nickname = firstCharacterName(characters);
+		if (nickname != null) {
+			user.updateProfile(null, nickname);
+		}
+
+		String encryptedKey = apiKeyCryptoService.encrypt(apiKey);
+		LocalDateTime verifiedAt = LocalDateTime.now(clock);
+		UserApiKey userApiKey = userApiKeyRepository.findByUserId(user.getId()).orElse(null);
+		if (userApiKey == null) {
+			userApiKeyRepository.save(UserApiKey.create(user, encryptedKey, verifiedAt));
+		} else {
+			userApiKey.replaceKey(encryptedKey, verifiedAt);
+		}
+
+		return createLoginResult(user, isNewUser);
 	}
 
 	@Transactional(readOnly = true)
@@ -114,6 +160,41 @@ public class AuthService {
 	private User findUser(Long userId) {
 		return userRepository.findById(userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "사용자 없음"));
+	}
+
+	private LoginResult createLoginResult(User user, boolean isNewUser) {
+		JwtToken accessToken = jwtTokenProvider.createAccessToken(user.getId());
+		JwtToken refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+		refreshTokenRedisService.save(user.getId(), refreshToken.tokenId(), refreshToken.value(), refreshToken.ttl());
+
+		AuthResponse response = AuthResponse.bearer(
+				accessToken.value(),
+				accessToken.ttl().toSeconds(),
+				AuthUserResponse.from(user, isNewUser)
+		);
+		return new LoginResult(response, refreshToken);
+	}
+
+	private String firstCharacterName(List<NexonCharacterSummary> characters) {
+		return characters.stream()
+				.map(NexonCharacterSummary::characterName)
+				.filter(characterName -> characterName != null && !characterName.isBlank())
+				.findFirst()
+				.orElse(null);
+	}
+
+	private String sha256Hex(String value) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+			StringBuilder builder = new StringBuilder(hash.length * 2);
+			for (byte b : hash) {
+				builder.append(String.format("%02x", b));
+			}
+			return builder.toString();
+		} catch (NoSuchAlgorithmException exception) {
+			throw new IllegalStateException("SHA-256 algorithm not available", exception);
+		}
 	}
 
 	public record LoginResult(
