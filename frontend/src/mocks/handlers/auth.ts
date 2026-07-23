@@ -25,11 +25,18 @@ export const authHandlers = [
     })
   }),
 
-  http.post('/api/v1/auth/nexon', () => {
+  http.post('/api/v1/auth/nexon-apikey', () => {
+    const nexonApiKeyUser = {
+      ...mockUser,
+      oauthProvider: 'NEXON_APIKEY' as const,
+      oauthId: 'nexon_apikey_sha256_mock',
+      email: null,
+      nickname: '넥슨유저',
+    }
     localStorage.setItem('accessToken', mockAuthToken.accessToken)
     return HttpResponse.json({
       success: true,
-      data: { ...mockAuthToken, isNewUser: false, user: mockUser },
+      data: { ...mockAuthToken, isNewUser: false, user: nexonApiKeyUser },
     })
   }),
 

@@ -4,55 +4,76 @@ import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
 import type { ApiResponse, AuthLoginResponse, UserApiKey } from '../types'
 
-type Provider = 'kakao' | 'nexon'
-
-const getOAuthUrl = (provider: Provider) => {
+const getKakaoOAuthUrl = () => {
   const redirectUri = encodeURIComponent(import.meta.env.VITE_REDIRECT_URI ?? '')
-  if (provider === 'kakao') {
-    return `https://kauth.kakao.com/oauth/authorize?client_id=${import.meta.env.VITE_KAKAO_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&state=kakao`
-  }
-  return `https://openapi.nexon.com/oauth2.0/authorize?client_id=${import.meta.env.VITE_NEXON_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&state=nexon`
+  return `https://kauth.kakao.com/oauth/authorize?client_id=${import.meta.env.VITE_KAKAO_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&state=kakao`
+}
+
+const afterLogin = async (
+  data: AuthLoginResponse,
+  setUser: (u: AuthLoginResponse['user']) => void,
+  setHasApiKey: (v: boolean) => void,
+) => {
+  localStorage.setItem('accessToken', data.accessToken)
+  setUser(data.user)
+  try {
+    const { data: keyData } = await client.get<ApiResponse<UserApiKey>>('/user-api-keys')
+    if (keyData.data.keyStatus === 'ACTIVE') {
+      setHasApiKey(true)
+      return true
+    }
+  } catch {}
+  return false
 }
 
 export default function LoginPage() {
-  const [loading, setLoading] = useState<Provider | null>(null)
+  const [kakaoLoading, setKakaoLoading] = useState(false)
+  const [apiKey, setApiKey] = useState('')
+  const [apiKeyLoading, setApiKeyLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const { setUser, setHasApiKey } = useAuthStore()
   const isMock = import.meta.env.VITE_USE_MOCK === 'true'
 
-  const handleMockLogin = async (provider: Provider) => {
-    setLoading(provider)
+  const handleKakaoLogin = async () => {
     setError(null)
-    try {
-      const { data } = await client.post<ApiResponse<AuthLoginResponse>>(`/auth/${provider}`, {})
-      localStorage.setItem('accessToken', data.data.accessToken)
-      setUser(data.data.user)
+    if (isMock) {
+      setKakaoLoading(true)
       try {
-        const { data: keyData } = await client.get<ApiResponse<UserApiKey>>('/user-api-keys')
-        if (keyData.data.keyStatus === 'ACTIVE') {
-          setHasApiKey(true)
-          navigate('/dashboard', { replace: true })
-          return
-        }
-      } catch {}
-      navigate('/settings', { replace: true })
-    } catch {
-      setError('로그인 중 오류가 발생했습니다. 다시 시도해 주세요.')
-    } finally {
-      setLoading(null)
+        const { data } = await client.post<ApiResponse<AuthLoginResponse>>('/auth/kakao', {})
+        const hasKey = await afterLogin(data.data, setUser, setHasApiKey)
+        navigate(hasKey ? '/dashboard' : '/settings', { replace: true })
+      } catch {
+        setError('로그인 중 오류가 발생했습니다. 다시 시도해 주세요.')
+      } finally {
+        setKakaoLoading(false)
+      }
+    } else {
+      sessionStorage.setItem('oauth_provider', 'kakao')
+      window.location.href = getKakaoOAuthUrl()
     }
   }
 
-  const handleRealLogin = (provider: Provider) => {
-    sessionStorage.setItem('oauth_provider', provider)
-    window.location.href = getOAuthUrl(provider)
+  const handleNexonApiKey = async () => {
+    const key = apiKey.trim()
+    if (!key) {
+      setError('Nexon API Key를 입력해 주세요.')
+      return
+    }
+    setApiKeyLoading(true)
+    setError(null)
+    try {
+      const { data } = await client.post<ApiResponse<AuthLoginResponse>>('/auth/nexon-apikey', { apiKey: key })
+      const hasKey = await afterLogin(data.data, setUser, setHasApiKey)
+      navigate(hasKey ? '/dashboard' : '/settings', { replace: true })
+    } catch {
+      setError('API Key가 올바르지 않거나 넥슨 서버와 통신에 실패했습니다.')
+    } finally {
+      setApiKeyLoading(false)
+    }
   }
 
-  const handleLogin = (provider: Provider) => {
-    if (isMock) void handleMockLogin(provider)
-    else handleRealLogin(provider)
-  }
+  const isLoading = kakaoLoading || apiKeyLoading
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#1a1a2e]">
@@ -65,11 +86,11 @@ export default function LoginPage() {
 
         <div className="space-y-3">
           <button
-            onClick={() => handleLogin('kakao')}
-            disabled={loading !== null}
+            onClick={() => void handleKakaoLogin()}
+            disabled={isLoading}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#FEE500] py-3 text-sm font-semibold text-[#191919] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {loading === 'kakao' ? (
+            {kakaoLoading ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#191919] border-t-transparent" />
             ) : (
               <span>💬</span>
@@ -77,18 +98,35 @@ export default function LoginPage() {
             카카오로 로그인
           </button>
 
-          <button
-            onClick={() => handleLogin('nexon')}
-            disabled={loading !== null}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-[#1a1a2e] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {loading === 'nexon' ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            ) : (
-              <span>🎮</span>
-            )}
-            넥슨으로 로그인
-          </button>
+          <div className="flex items-center gap-3 py-1">
+            <span className="h-px flex-1 bg-white/10" />
+            <span className="text-xs text-white/30">또는</span>
+            <span className="h-px flex-1 bg-white/10" />
+          </div>
+
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void handleNexonApiKey()}
+              placeholder="Nexon Open API Key"
+              disabled={isLoading}
+              className="w-full rounded-lg border border-white/15 bg-[#1a1a2e] px-3 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/40 disabled:opacity-50"
+            />
+            <button
+              onClick={() => void handleNexonApiKey()}
+              disabled={isLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/20 bg-[#1a1a2e] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {apiKeyLoading ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <span>🎮</span>
+              )}
+              Nexon API Key로 로그인
+            </button>
+          </div>
         </div>
 
         {error && (

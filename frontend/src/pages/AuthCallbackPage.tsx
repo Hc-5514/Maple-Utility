@@ -4,8 +4,6 @@ import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
 import type { ApiResponse, AuthLoginResponse, UserApiKey } from '../types'
 
-type Provider = 'kakao' | 'nexon'
-
 export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -14,7 +12,6 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const code = searchParams.get('code')
-    const provider = (sessionStorage.getItem('oauth_provider') ?? 'kakao') as Provider
     sessionStorage.removeItem('oauth_provider')
 
     if (!code) {
@@ -25,7 +22,7 @@ export default function AuthCallbackPage() {
     const login = async () => {
       try {
         const { data } = await client.post<ApiResponse<AuthLoginResponse>>(
-          `/auth/${provider}`,
+          '/auth/kakao',
           { code },
         )
         localStorage.setItem('accessToken', data.data.accessToken)

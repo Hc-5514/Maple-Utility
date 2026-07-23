@@ -14,7 +14,7 @@ export interface PageResponse<T> {
 }
 
 // ─── 인증 ─────────────────────────────────────────────────────────
-export type OAuthProvider = 'KAKAO' | 'NEXON'
+export type OAuthProvider = 'KAKAO' | 'NEXON_APIKEY'
 
 export interface User {
   id: number
