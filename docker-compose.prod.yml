@@ -20,9 +20,13 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:?KAKAO_CLIENT_ID is required}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:?KAKAO_REDIRECT_URI is required}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:?KAKAO_CLIENT_SECRET is required}
-      NEXON_CLIENT_SECRET: ${NEXON_CLIENT_SECRET:?NEXON_CLIENT_SECRET is required}
+      KAKAO_TOKEN_URI: ${KAKAO_TOKEN_URI:-https://kauth.kakao.com/oauth/token}
+      KAKAO_USER_INFO_URI: ${KAKAO_USER_INFO_URI:-https://kapi.kakao.com/v2/user/me}
       NEXON_API_KEY_SECRET: ${NEXON_API_KEY_SECRET:?NEXON_API_KEY_SECRET is required}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:?APP_CORS_ALLOWED_ORIGINS is required}
       JAVA_TOOL_OPTIONS: -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
@@ -74,22 +78,44 @@ services:
     container_name: maple-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
     networks:
       - maple_internal
     depends_on:
       app:
         condition: service_healthy
+    environment:
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME is required}
+    command: >
+      sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done &
+      nginx -g "daemon off;"'
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/templates:/etc/nginx/templates:ro
       - certbot_certs:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
     healthcheck:
       test: ["CMD-SHELL", "nginx -t && wget -qO- http://localhost/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: maple-certbot
+    restart: unless-stopped
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint: /bin/sh
+    command: >
+      -c 'trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done;'
 
 networks:
   maple_internal:
@@ -99,3 +125,4 @@ volumes:
   postgres_data:
   redis_data:
   certbot_certs:
+  certbot_webroot:
