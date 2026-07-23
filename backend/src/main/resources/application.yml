@@ -29,12 +29,6 @@ oauth:
     redirect-uri: ${KAKAO_REDIRECT_URI}
     token-uri: ${KAKAO_TOKEN_URI:https://kauth.kakao.com/oauth/token}
     user-info-uri: ${KAKAO_USER_INFO_URI:https://kapi.kakao.com/v2/user/me}
-  nexon:
-    client-id: ${NEXON_CLIENT_ID}
-    client-secret: ${NEXON_CLIENT_SECRET}
-    redirect-uri: ${NEXON_REDIRECT_URI}
-    token-uri: ${NEXON_TOKEN_URI}
-    user-info-uri: ${NEXON_USER_INFO_URI}
 
 nexon:
   api-key-secret: ${NEXON_API_KEY_SECRET}

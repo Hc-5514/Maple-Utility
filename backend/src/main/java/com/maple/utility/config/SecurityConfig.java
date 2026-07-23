@@ -25,7 +25,7 @@ public class SecurityConfig {
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
-						.requestMatchers("/api/v1/auth/kakao", "/api/v1/auth/nexon", "/api/v1/auth/refresh").permitAll()
+						.requestMatchers("/api/v1/auth/kakao", "/api/v1/auth/nexon-apikey", "/api/v1/auth/refresh").permitAll()
 						.anyRequest().authenticated())
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

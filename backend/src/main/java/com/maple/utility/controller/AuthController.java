@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.maple.utility.dto.request.OAuthLoginRequest;
+import com.maple.utility.dto.request.NexonApiKeyLoginRequest;
 import com.maple.utility.dto.response.AuthResponse;
 import com.maple.utility.dto.response.MeResponse;
 import com.maple.utility.entity.OAuthProvider;
@@ -40,9 +41,12 @@ public class AuthController {
 		return login(OAuthProvider.KAKAO, request.code());
 	}
 
-	@PostMapping("/nexon")
-	public ResponseEntity<AuthResponse> nexonLogin(@Valid @RequestBody OAuthLoginRequest request) {
-		return login(OAuthProvider.NEXON, request.code());
+	@PostMapping("/nexon-apikey")
+	public ResponseEntity<AuthResponse> nexonApiKeyLogin(@Valid @RequestBody NexonApiKeyLoginRequest request) {
+		AuthService.LoginResult result = authService.loginWithNexonApiKey(request.apiKey());
+		return ResponseEntity.ok()
+				.header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result.refreshToken()).toString())
+				.body(result.response());
 	}
 
 	@PostMapping("/refresh")
