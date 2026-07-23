@@ -40,6 +40,8 @@ nexon:
   dispatch-interval: 1s
 
 app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS}
   redis:
     cache:
       scheduler-ttl: 5m
