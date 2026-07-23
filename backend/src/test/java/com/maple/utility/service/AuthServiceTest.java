@@ -7,6 +7,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -19,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.maple.utility.dto.response.AuthResponse;
@@ -103,7 +107,7 @@ class AuthServiceTest {
 
 	@Test
 	void loginWithNexonApiKeyCreatesUserAndStoresEncryptedKey() {
-		String oauthId = "aec3e83011b517c7a1fd8a8f6fcb457997a1a43c2009ecb3b54c17199cdb2621";
+		String oauthId = sha256Hex("plain-api-key");
 		User savedUser = User.create(OAuthProvider.NEXON_APIKEY, oauthId, null, null);
 		ReflectionTestUtils.setField(savedUser, "id", 1L);
 		UserApiKey savedApiKey = UserApiKey.create(savedUser, "encrypted-api-key", null);
@@ -132,7 +136,7 @@ class AuthServiceTest {
 
 	@Test
 	void loginWithNexonApiKeyReplacesExistingEncryptedKey() {
-		String oauthId = "aec3e83011b517c7a1fd8a8f6fcb457997a1a43c2009ecb3b54c17199cdb2621";
+		String oauthId = sha256Hex("plain-api-key");
 		User user = User.create(OAuthProvider.NEXON_APIKEY, oauthId, null, "기존캐릭터");
 		ReflectionTestUtils.setField(user, "id", 1L);
 		UserApiKey existingApiKey = UserApiKey.create(user, "old-encrypted-api-key", null);
@@ -156,7 +160,7 @@ class AuthServiceTest {
 
 	@Test
 	void loginWithNexonApiKeyPropagatesInvalidApiKey() {
-		String oauthId = "aec3e83011b517c7a1fd8a8f6fcb457997a1a43c2009ecb3b54c17199cdb2621";
+		String oauthId = sha256Hex("plain-api-key");
 		User savedUser = User.create(OAuthProvider.NEXON_APIKEY, oauthId, null, null);
 		ReflectionTestUtils.setField(savedUser, "id", 1L);
 
@@ -164,7 +168,7 @@ class AuthServiceTest {
 				.thenReturn(Optional.empty());
 		when(userRepository.save(any(User.class))).thenReturn(savedUser);
 		when(nexonOpenApiClient.getCharacters(1L, "plain-api-key"))
-				.thenThrow(new ApiException(org.springframework.http.HttpStatus.UNAUTHORIZED, "API_KEY_INVALID", "유효하지 않은 Nexon API Key"));
+				.thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "API_KEY_INVALID", "유효하지 않은 Nexon API Key"));
 
 		assertThatThrownBy(() -> authService.loginWithNexonApiKey("plain-api-key"))
 				.isInstanceOf(ApiException.class)
@@ -198,5 +202,19 @@ class AuthServiceTest {
 		authService.logout("refresh-token");
 
 		verify(refreshTokenRedisService).delete(1L, "refresh-token-id");
+	}
+
+	private String sha256Hex(String value) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance("SHA-256");
+			byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
+			StringBuilder builder = new StringBuilder(hash.length * 2);
+			for (byte b : hash) {
+				builder.append(String.format("%02x", b));
+			}
+			return builder.toString();
+		} catch (NoSuchAlgorithmException exception) {
+			throw new IllegalStateException("SHA-256 algorithm not available", exception);
+		}
 	}
 }
