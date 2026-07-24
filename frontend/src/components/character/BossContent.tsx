@@ -28,12 +28,12 @@ function BossGroup({
     <div>
       <h3 className="mb-3 text-sm font-semibold text-white/60">{title}</h3>
       <div className="grid grid-cols-2 gap-3">
-        {records.map((record) => {
-          const boss = bossMasterMap.get(record.bossId)
+        {records.map((record, idx) => {
+          const boss = bossMasterMap.get(record.bossId ?? 0)
           if (!boss) return null
           return (
             <BossCard
-              key={record.id}
+              key={record.id ?? `${record.characterId}-${idx}`}
               boss={boss}
               record={record}
               onToggle={() => onToggle(record)}
@@ -63,7 +63,8 @@ export default function BossContent({ characterId, date }: Props) {
   const monthlyRecords = (bossRecords ?? []).filter((r) => r.resetPeriod === 'MONTHLY')
 
   const handleToggle = (record: SchedulerBossRecord) => {
-    toggleBoss.mutate({ id: record.id, isCompleted: !record.isCompleted })
+    if (record.id == null) return
+    toggleBoss.mutate({ id: record.id, completed: !record.completed })
   }
 
   return (

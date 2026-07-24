@@ -72,9 +72,9 @@ export default function CharacterDetailPage() {
             onClick={() => toggleFav.mutate()}
             disabled={toggleFav.isPending || charLoading}
             className="text-2xl transition-opacity hover:opacity-70 disabled:opacity-40"
-            aria-label={character?.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+            aria-label={character?.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
           >
-            {character?.isFavorite ? '★' : '☆'}
+            {character?.favorite ? '★' : '☆'}
           </button>
           <CharacterSelector
             selectedId={id}

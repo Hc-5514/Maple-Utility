@@ -41,12 +41,12 @@ export default function BossCard({ boss, record, onToggle, onClickDetail }: Prop
             onToggle()
           }}
           className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
-            record.isCompleted
+            record.completed
               ? 'bg-[#4ade80]/20 text-[#4ade80]'
               : 'bg-white/10 text-white/50 hover:bg-white/20'
           }`}
         >
-          {record.isCompleted ? '✓ 처치' : '미처치'}
+          {record.completed ? '✓ 처치' : '미처치'}
         </button>
       </div>
     </div>

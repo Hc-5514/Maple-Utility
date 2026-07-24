@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
-import type { ApiResponse, AuthLoginResponse, UserApiKey } from '../types'
+import type { ApiResponse, ApiKeyStatusResponse, AuthLoginResponse, User } from '../types'
 
 export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null)
@@ -26,12 +26,14 @@ export default function AuthCallbackPage() {
           { code },
         )
         localStorage.setItem('accessToken', data.data.accessToken)
-        setUser(data.data.user)
+
+        const { data: meRes } = await client.get<ApiResponse<User>>('/auth/me')
+        setUser(meRes.data)
 
         let hasKey = false
         try {
-          const { data: keyData } = await client.get<ApiResponse<UserApiKey>>('/user-api-keys')
-          if (keyData.data.keyStatus === 'ACTIVE') {
+          const { data: keyData } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
+          if (keyData.data.registered && keyData.data.keyStatus === 'ACTIVE') {
             setHasApiKey(true)
             hasKey = true
           }

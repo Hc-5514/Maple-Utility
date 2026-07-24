@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import client from './api/client'
-import type { ApiResponse, User, UserApiKey } from './types'
+import type { ApiResponse, ApiKeyStatusResponse, User } from './types'
 import { useAuthStore } from './stores/authStore'
 import PrivateRoute from './router/PrivateRoute'
 import Layout from './components/layout/Layout'
@@ -37,11 +37,11 @@ function AppRoutes() {
         return
       }
       try {
-        const { data: userRes } = await client.get<ApiResponse<User>>('/users/me')
+        const { data: userRes } = await client.get<ApiResponse<User>>('/auth/me')
         setUser(userRes.data)
         try {
-          const { data: keyRes } = await client.get<ApiResponse<UserApiKey>>('/user-api-keys')
-          if (keyRes.data.keyStatus === 'ACTIVE') setHasApiKey(true)
+          const { data: keyRes } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
+          if (keyRes.data.registered && keyRes.data.keyStatus === 'ACTIVE') setHasApiKey(true)
         } catch {
           // API key 미등록 — 정상 케이스
         }

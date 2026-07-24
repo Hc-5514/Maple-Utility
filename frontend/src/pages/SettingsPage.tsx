@@ -4,7 +4,7 @@ import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
 import { useCharacterStore } from '../stores/characterStore'
 import Modal from '../components/common/Modal'
-import type { ApiResponse, ApiKeyStatus, Character, UserApiKey } from '../types'
+import type { ApiKeyStatus, ApiKeyStatusResponse, ApiResponse, Character } from '../types'
 
 // ─── API Key 섹션 ──────────────────────────────────────────────────────────────
 
@@ -21,10 +21,10 @@ function ApiKeySection() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   const { data: apiKeyRes, isLoading } = useQuery({
-    queryKey: ['user-api-keys'],
+    queryKey: ['api-key/status'],
     queryFn: async () => {
       try {
-        const { data } = await client.get<ApiResponse<UserApiKey>>('/user-api-keys')
+        const { data } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
         return data.data
       } catch {
         return null
@@ -34,29 +34,29 @@ function ApiKeySection() {
 
   const registerMutation = useMutation({
     mutationFn: async (apiKey: string) => {
-      const { data } = await client.post<ApiResponse<UserApiKey>>('/user-api-keys', { apiKey })
-      return data.data
+      await client.post('/api-key', { apiKey })
     },
     onSuccess: () => {
       setHasApiKey(true)
       setInputKey('')
-      void queryClient.invalidateQueries({ queryKey: ['user-api-keys'] })
+      void queryClient.invalidateQueries({ queryKey: ['api-key/status'] })
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await client.delete(`/user-api-keys/${id}`)
+    mutationFn: async () => {
+      await client.delete('/api-key')
     },
     onSuccess: () => {
       setHasApiKey(false)
       setShowDeleteModal(false)
-      void queryClient.invalidateQueries({ queryKey: ['user-api-keys'] })
+      void queryClient.invalidateQueries({ queryKey: ['api-key/status'] })
     },
   })
 
-  const hasKey = apiKeyRes !== null && apiKeyRes !== undefined
-  const isActive = hasKey && apiKeyRes.keyStatus === 'ACTIVE'
+  const hasKey = apiKeyRes?.registered === true
+  const keyStatus = apiKeyRes?.keyStatus ?? null
+  const isActive = hasKey && keyStatus === 'ACTIVE'
 
   return (
     <section className="rounded-xl bg-[#2d2d44] p-6">
@@ -73,12 +73,12 @@ function ApiKeySection() {
             <span
               className="rounded-full px-3 py-1 text-xs font-semibold"
               style={{
-                backgroundColor: `${statusConfig[apiKeyRes.keyStatus].color}22`,
-                color: statusConfig[apiKeyRes.keyStatus].color,
-                border: `1px solid ${statusConfig[apiKeyRes.keyStatus].color}44`,
+                backgroundColor: `${statusConfig[keyStatus ?? 'INVALID'].color}22`,
+                color: statusConfig[keyStatus ?? 'INVALID'].color,
+                border: `1px solid ${statusConfig[keyStatus ?? 'INVALID'].color}44`,
               }}
             >
-              {statusConfig[apiKeyRes.keyStatus].label}
+              {statusConfig[keyStatus ?? 'INVALID'].label}
             </span>
             <span className="text-sm text-white/50">
               {apiKeyRes.lastVerifiedAt
@@ -167,7 +167,7 @@ function ApiKeySection() {
             취소
           </button>
           <button
-            onClick={() => { if (apiKeyRes) deleteMutation.mutate(apiKeyRes.id) }}
+            onClick={() => deleteMutation.mutate()}
             disabled={deleteMutation.isPending}
             className="rounded-lg bg-[#f87171] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
@@ -187,13 +187,13 @@ function CharacterRow({ character }: { character: Character }) {
 
   const favoriteMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await client.put<ApiResponse<Character>>(
+      const { data } = await client.patch<ApiResponse<Character>>(
         `/characters/${character.id}/favorite`,
       )
       return data.data
     },
     onSuccess: (updated) => {
-      updateFavorite(character.id, updated.isFavorite)
+      updateFavorite(character.id, updated.favorite)
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
     },
   })
@@ -229,9 +229,9 @@ function CharacterRow({ character }: { character: Character }) {
         onClick={() => favoriteMutation.mutate()}
         disabled={favoriteMutation.isPending}
         className="text-xl transition-opacity hover:opacity-70 disabled:opacity-40"
-        aria-label={character.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+        aria-label={character.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
       >
-        {character.isFavorite ? '★' : '☆'}
+        {character.favorite ? '★' : '☆'}
       </button>
     </div>
   )
@@ -264,8 +264,8 @@ function CharacterSection() {
   })
 
   const sorted = [...characters].sort((a, b) => {
-    if (a.isFavorite === b.isFavorite) return a.sortOrder - b.sortOrder
-    return a.isFavorite ? -1 : 1
+    if (a.favorite === b.favorite) return a.sortOrder - b.sortOrder
+    return a.favorite ? -1 : 1
   })
 
   return (
