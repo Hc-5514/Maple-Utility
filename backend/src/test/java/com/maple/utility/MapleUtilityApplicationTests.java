@@ -28,6 +28,7 @@ import com.maple.utility.repository.UserRepository;
 		"NEXON_TOKEN_URI=http://localhost/oauth/nexon/token",
 		"NEXON_USER_INFO_URI=http://localhost/oauth/nexon/user",
 		"NEXON_API_KEY_SECRET=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"APP_CORS_ALLOWED_ORIGINS=http://localhost:3000",
 		"spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"
 })
 class MapleUtilityApplicationTests {
