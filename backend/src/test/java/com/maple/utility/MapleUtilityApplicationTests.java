@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import jakarta.persistence.EntityManager;
+
 import com.maple.utility.repository.BossDropItemRepository;
 import com.maple.utility.repository.BossItemAcquisitionRepository;
 import com.maple.utility.repository.BossMasterRepository;
@@ -32,6 +34,9 @@ import com.maple.utility.repository.UserRepository;
 		"spring.autoconfigure.exclude=org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"
 })
 class MapleUtilityApplicationTests {
+
+	@MockitoBean
+	private EntityManager entityManager;
 
 	@MockitoBean
 	private UserRepository userRepository;
