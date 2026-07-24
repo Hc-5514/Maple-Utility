@@ -16,8 +16,8 @@ export function useCharacter(characterId: number) {
   return useQuery({
     queryKey: ['characters', characterId],
     queryFn: async () => {
-      const { data } = await client.get<ApiResponse<Character>>(`/characters/${characterId}`)
-      return data.data
+      const { data } = await client.get<ApiResponse<Character[]>>('/characters')
+      return data.data.find((c) => c.id === characterId) ?? null
     },
     enabled: characterId > 0,
   })
@@ -28,7 +28,7 @@ export function useCharacterDaily(characterId: number, date: string) {
     queryKey: ['scheduler/daily', characterId, date],
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<SchedulerDailyRecord[]>>(
-        `/scheduler/daily?characterId=${characterId}&date=${date}`,
+        `/scheduler/${characterId}/daily?date=${date}`,
       )
       return data.data
     },
@@ -41,7 +41,7 @@ export function useCharacterWeekly(characterId: number, weekStart: string) {
     queryKey: ['scheduler/weekly', characterId, weekStart],
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<SchedulerWeeklyRecord[]>>(
-        `/scheduler/weekly?characterId=${characterId}&weekStart=${weekStart}`,
+        `/scheduler/${characterId}/weekly?date=${weekStart}`,
       )
       return data.data
     },
@@ -54,7 +54,7 @@ export function useCharacterBoss(characterId: number, date: string) {
     queryKey: ['scheduler/boss', characterId, date],
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<SchedulerBossRecord[]>>(
-        `/scheduler/boss?characterId=${characterId}&date=${date}`,
+        `/scheduler/${characterId}/boss?date=${date}`,
       )
       return data.data
     },
@@ -67,7 +67,7 @@ export function useCharacterGuild(characterId: number, date: string) {
     queryKey: ['scheduler/guild', characterId, date],
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<GuildRecord[]>>(
-        `/scheduler/guild?characterId=${characterId}&date=${date}`,
+        `/scheduler/${characterId}/guild?date=${date}`,
       )
       return data.data
     },
@@ -75,6 +75,7 @@ export function useCharacterGuild(characterId: number, date: string) {
   })
 }
 
+// BE에 GET /bosses 엔드포인트 미구현 — MSW Mock으로 운영 중 (Troubleshooting 기록됨)
 export function useBossMasters() {
   return useQuery({
     queryKey: ['bosses'],
@@ -86,13 +87,14 @@ export function useBossMasters() {
   })
 }
 
+// BE에 완료 처리 엔드포인트 미구현 — MSW Mock으로 운영 중 (Troubleshooting 기록됨)
 export function useToggleBoss() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, isCompleted }: { id: number; isCompleted: boolean }) => {
+    mutationFn: async ({ id, completed }: { id: number; completed: boolean }) => {
       const { data } = await client.put<ApiResponse<SchedulerBossRecord>>(
         `/scheduler/boss/${id}`,
-        { isCompleted },
+        { completed },
       )
       return data.data
     },
@@ -107,7 +109,7 @@ export function useToggleFavorite(characterId: number) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
-      const { data } = await client.put<ApiResponse<Character>>(
+      const { data } = await client.patch<ApiResponse<Character>>(
         `/characters/${characterId}/favorite`,
       )
       return data.data
@@ -121,22 +123,23 @@ export function useToggleFavorite(characterId: number) {
 
 export function useBossDropItems(bossId: number) {
   return useQuery({
-    queryKey: ['bosses', bossId, 'drop-items'],
+    queryKey: ['boss', bossId, 'drop-items'],
     queryFn: async () => {
-      const { data } = await client.get<ApiResponse<BossDropItem[]>>(`/bosses/${bossId}/drop-items`)
+      const { data } = await client.get<ApiResponse<BossDropItem[]>>(`/boss/${bossId}/drop-items`)
       return data.data
     },
     enabled: bossId > 0,
   })
 }
 
-export function useBossAcquisitions(characterId: number) {
+export function useBossAcquisitions(characterId: number, bossId?: number) {
   return useQuery({
-    queryKey: ['boss-acquisitions', characterId],
+    queryKey: ['boss-acquisitions', characterId, bossId],
     queryFn: async () => {
-      const { data } = await client.get<ApiResponse<BossItemAcquisition[]>>(
-        `/boss-acquisitions?characterId=${characterId}`,
-      )
+      const path = bossId
+        ? `/boss/${bossId}/drop-items/acquisitions?characterId=${characterId}`
+        : `/boss-acquisitions?characterId=${characterId}`
+      const { data } = await client.get<ApiResponse<BossItemAcquisition[]>>(path)
       return data.data
     },
     enabled: characterId > 0,

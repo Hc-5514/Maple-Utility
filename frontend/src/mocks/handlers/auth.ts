@@ -3,11 +3,8 @@ import { http, HttpResponse } from 'msw'
 const mockUser = {
   id: 1,
   oauthProvider: 'KAKAO' as const,
-  oauthId: 'kakao_123456',
   email: 'mock@example.com',
   nickname: '달빛유저',
-  createdAt: '2026-07-01T00:00:00',
-  updatedAt: '2026-07-01T00:00:00',
 }
 
 const mockAuthToken = {
@@ -21,22 +18,21 @@ export const authHandlers = [
     localStorage.setItem('accessToken', mockAuthToken.accessToken)
     return HttpResponse.json({
       success: true,
-      data: { ...mockAuthToken, isNewUser: false, user: mockUser },
+      data: {
+        ...mockAuthToken,
+        user: { id: 1, nickname: '달빛유저', email: 'mock@example.com', isNewUser: false },
+      },
     })
   }),
 
   http.post('/api/v1/auth/nexon-apikey', () => {
-    const nexonApiKeyUser = {
-      ...mockUser,
-      oauthProvider: 'NEXON_APIKEY' as const,
-      oauthId: 'nexon_apikey_sha256_mock',
-      email: null,
-      nickname: '넥슨유저',
-    }
     localStorage.setItem('accessToken', mockAuthToken.accessToken)
     return HttpResponse.json({
       success: true,
-      data: { ...mockAuthToken, isNewUser: false, user: nexonApiKeyUser },
+      data: {
+        ...mockAuthToken,
+        user: { id: 1, nickname: '넥슨유저', email: null, isNewUser: false },
+      },
     })
   }),
 
@@ -51,7 +47,7 @@ export const authHandlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  http.get('/api/v1/users/me', () => {
+  http.get('/api/v1/auth/me', () => {
     return HttpResponse.json({ success: true, data: mockUser })
   }),
 ]

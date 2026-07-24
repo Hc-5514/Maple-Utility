@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
-import type { ApiResponse, AuthLoginResponse, UserApiKey } from '../types'
+import type { ApiKeyStatusResponse, ApiResponse, AuthLoginResponse, User } from '../types'
 
 const getKakaoOAuthUrl = () => {
   const redirectUri = encodeURIComponent(import.meta.env.VITE_REDIRECT_URI ?? '')
@@ -11,14 +11,15 @@ const getKakaoOAuthUrl = () => {
 
 const afterLogin = async (
   data: AuthLoginResponse,
-  setUser: (u: AuthLoginResponse['user']) => void,
+  setUser: (u: User | null) => void,
   setHasApiKey: (v: boolean) => void,
 ) => {
   localStorage.setItem('accessToken', data.accessToken)
-  setUser(data.user)
+  const { data: meRes } = await client.get<ApiResponse<User>>('/auth/me')
+  setUser(meRes.data)
   try {
-    const { data: keyData } = await client.get<ApiResponse<UserApiKey>>('/user-api-keys')
-    if (keyData.data.keyStatus === 'ACTIVE') {
+    const { data: keyData } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
+    if (keyData.data.registered && keyData.data.keyStatus === 'ACTIVE') {
       setHasApiKey(true)
       return true
     }

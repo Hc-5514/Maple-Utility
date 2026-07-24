@@ -1,24 +1,21 @@
 import { http, HttpResponse } from 'msw'
 
-const mockApiKey = {
-  id: 1,
-  userId: 1,
+const mockApiKeyStatus = {
+  registered: true,
   keyStatus: 'ACTIVE' as const,
   lastVerifiedAt: '2026-07-14T08:00:00',
-  createdAt: '2026-07-01T00:00:00',
-  updatedAt: '2026-07-14T08:00:00',
 }
 
 export const apiKeyHandlers = [
-  http.get('/api/v1/user-api-keys', () => {
-    return HttpResponse.json({ success: true, data: mockApiKey })
+  http.get('/api/v1/api-key/status', () => {
+    return HttpResponse.json({ success: true, data: mockApiKeyStatus })
   }),
 
-  http.post('/api/v1/user-api-keys', () => {
-    return HttpResponse.json({ success: true, data: mockApiKey }, { status: 201 })
+  http.post('/api/v1/api-key', () => {
+    return new HttpResponse(null, { status: 201 })
   }),
 
-  http.delete('/api/v1/user-api-keys/:id', () => {
+  http.delete('/api/v1/api-key', () => {
     return new HttpResponse(null, { status: 204 })
   }),
 ]
