@@ -14,12 +14,12 @@ class SecurityConfigTest {
 		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/characters");
 
 		CorsConfiguration configuration = securityConfig
-				.corsConfigurationSource("https://app.example.com, http://localhost:5173")
+				.corsConfigurationSource("https://app.example.com, http://localhost:3000")
 				.getCorsConfiguration(request);
 
 		assertThat(configuration).isNotNull();
 		assertThat(configuration.getAllowedOrigins())
-				.containsExactly("https://app.example.com", "http://localhost:5173");
+				.containsExactly("https://app.example.com", "http://localhost:3000");
 		assertThat(configuration.getAllowedMethods()).contains("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS");
 		assertThat(configuration.getAllowedHeaders()).contains("Authorization", "Content-Type");
 		assertThat(configuration.getAllowCredentials()).isTrue();
