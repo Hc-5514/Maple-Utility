@@ -71,19 +71,6 @@ export type BossDifficulty = 'EASY' | 'NORMAL' | 'HARD' | 'CHAOS' | 'EXTREME'
 export type ResetPeriod = 'WEEKLY' | 'MONTHLY'
 export type DropRateTier = 'HIGH' | 'NORMAL' | 'LOW'
 
-export interface BossMaster {
-  id: number
-  bossName: string
-  difficulty: BossDifficulty
-  resetPeriod: ResetPeriod
-  crystalPrice: number
-  bossImage: string | null
-  sortOrder: number
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
 export interface BossDropItem {
   id: number
   bossId: number
@@ -132,6 +119,8 @@ export interface SchedulerBossRecord {
   bossId?: number
   bossName?: string
   difficulty?: BossDifficulty
+  bossImage?: string | null
+  crystalPrice?: number
   recordDate?: string
   resetPeriod: ResetPeriod
   completed: boolean

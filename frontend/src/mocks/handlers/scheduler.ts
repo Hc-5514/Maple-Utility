@@ -9,17 +9,17 @@ const guildRecords = [
   { id: 2, characterId: 1, recordDate: '2026-07-14', contentName: '플래그 레이스', score: null as number | null, syncedAt: null },
 ]
 
-const bossNameMap: Record<number, { bossName: string; difficulty: string }> = {
-  2:  { bossName: '시그너스',        difficulty: 'NORMAL' },
-  5:  { bossName: '데미안',          difficulty: 'HARD'   },
-  10: { bossName: '루시드',          difficulty: 'HARD'   },
-  13: { bossName: '윌',              difficulty: 'HARD'   },
-  16: { bossName: '더스크',          difficulty: 'CHAOS'  },
-  18: { bossName: '도원결의',        difficulty: 'HARD'   },
-  20: { bossName: '세렌',            difficulty: 'HARD'   },
-  24: { bossName: '칼로스',          difficulty: 'EXTREME'},
-  27: { bossName: '검은 마법사',     difficulty: 'NORMAL' },
-  35: { bossName: '진 힐라',         difficulty: 'CHAOS'  },
+const bossInfoMap: Record<number, { bossName: string; difficulty: string; bossImage: string | null; crystalPrice: number }> = {
+  2:  { bossName: '시그너스',    difficulty: 'NORMAL',  bossImage: null, crystalPrice: 1500000   },
+  5:  { bossName: '데미안',      difficulty: 'HARD',    bossImage: null, crystalPrice: 14400000  },
+  10: { bossName: '루시드',      difficulty: 'HARD',    bossImage: null, crystalPrice: 14400000  },
+  13: { bossName: '윌',          difficulty: 'HARD',    bossImage: null, crystalPrice: 14400000  },
+  16: { bossName: '더스크',      difficulty: 'CHAOS',   bossImage: null, crystalPrice: 21600000  },
+  18: { bossName: '도원결의',    difficulty: 'HARD',    bossImage: null, crystalPrice: 21600000  },
+  20: { bossName: '세렌',        difficulty: 'HARD',    bossImage: null, crystalPrice: 21600000  },
+  24: { bossName: '칼로스',      difficulty: 'EXTREME', bossImage: null, crystalPrice: 25000000  },
+  27: { bossName: '검은 마법사', difficulty: 'NORMAL',  bossImage: null, crystalPrice: 21600000  },
+  35: { bossName: '진 힐라',     difficulty: 'CHAOS',   bossImage: null, crystalPrice: 25000000  },
 }
 
 export const schedulerHandlers = [
@@ -54,7 +54,7 @@ export const schedulerHandlers = [
       .filter((r) => r.characterId === characterId && r.recordDate === date)
       .map((r) => ({
         ...r,
-        ...(bossNameMap[r.bossId] ?? { bossName: `보스#${r.bossId}`, difficulty: 'NORMAL' }),
+        ...(bossInfoMap[r.bossId] ?? { bossName: `보스#${r.bossId}`, difficulty: 'NORMAL', bossImage: null, crystalPrice: 0 }),
         completed: r.isCompleted,
       }))
     return HttpResponse.json({ success: true, data: records })
@@ -71,33 +71,52 @@ export const schedulerHandlers = [
     return HttpResponse.json({ success: true, data: records })
   }),
 
-  // 전체 요약 (BE: GET /scheduler/summary) — BE flat format 반환
+  // 전체 요약 (BE: GET /scheduler/summary) — per-character grouped format (BE-19 기준)
   http.get('/api/v1/scheduler/summary', () => {
     const today = new Date().toISOString().split('T')[0]
     const weekStart = '2026-07-13'
 
     const charDailyAll = dailyRecords.filter((r) => r.recordDate === today)
     const charWeeklyAll = weeklyRecords.filter((r) => r.weekStartDate === weekStart)
-    const allBoss = bossRecords.map((r) => ({
-      characterId: r.characterId,
-      characterName: '달빛제로',
-      ...(bossNameMap[r.bossId] ?? { bossName: `보스#${r.bossId}`, difficulty: 'NORMAL' }),
-      completed: r.isCompleted,
-      resetPeriod: r.resetPeriod,
-      syncedAt: r.syncedAt,
-    }))
+    const weeklyBossAll = bossRecords.filter((r) => r.resetPeriod === 'WEEKLY')
+    const monthlyBossAll = bossRecords.filter((r) => r.resetPeriod === 'MONTHLY')
+
+    const syncedAt =
+      [...charDailyAll, ...charWeeklyAll]
+        .map((r) => r.syncedAt)
+        .filter(Boolean)
+        .slice(-1)[0] ?? new Date().toISOString()
 
     return HttpResponse.json({
       success: true,
       data: {
-        daily: charDailyAll.map((r) => ({ ...r, characterName: '달빛제로' })),
-        weekly: charWeeklyAll.map((r) => ({
-          ...r,
-          characterName: '달빛제로',
-          completed: r.isCompleted,
-        })),
-        weeklyBoss: allBoss.filter((r) => r.resetPeriod === 'WEEKLY'),
-        monthlyBoss: allBoss.filter((r) => r.resetPeriod === 'MONTHLY'),
+        characters: [
+          {
+            characterId: 1,
+            characterName: '달빛제로',
+            characterLevel: 292,
+            characterClass: '아크메이지(썬,콜)',
+            characterImage: null,
+            worldName: '스카니아',
+            daily: {
+              completed: charDailyAll.reduce((s, r) => s + r.completedCount, 0),
+              total: charDailyAll.reduce((s, r) => s + r.totalCount, 0),
+            },
+            weekly: {
+              completed: charWeeklyAll.filter((r) => r.isCompleted).length,
+              total: charWeeklyAll.length,
+            },
+            weeklyBoss: {
+              completed: weeklyBossAll.filter((r) => r.isCompleted).length,
+              total: weeklyBossAll.length,
+            },
+            monthlyBoss: {
+              completed: monthlyBossAll.filter((r) => r.isCompleted).length,
+              total: monthlyBossAll.length,
+            },
+          },
+        ],
+        syncedAt,
       },
     })
   }),
@@ -126,14 +145,4 @@ export const schedulerHandlers = [
     return HttpResponse.json({ success: true, data: record })
   }),
 
-  http.put('/api/v1/scheduler/boss/:id', async ({ params, request }) => {
-    const body = (await request.json()) as { completed?: boolean }
-    const record = bossRecords.find((r) => r.id === Number(params.id))
-    if (!record) {
-      return HttpResponse.json({ success: false, message: '기록을 찾을 수 없음' }, { status: 404 })
-    }
-    if (body.completed !== undefined) record.isCompleted = body.completed
-    record.syncedAt = new Date().toISOString()
-    return HttpResponse.json({ success: true, data: record })
-  }),
 ]

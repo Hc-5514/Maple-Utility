@@ -4,7 +4,6 @@ import type {
   ApiResponse,
   BossDropItem,
   BossItemAcquisition,
-  BossMaster,
   Character,
   GuildRecord,
   SchedulerBossRecord,
@@ -72,36 +71,6 @@ export function useCharacterGuild(characterId: number, date: string) {
       return data.data
     },
     enabled: characterId > 0,
-  })
-}
-
-// BE에 GET /bosses 엔드포인트 미구현 — MSW Mock으로 운영 중 (Troubleshooting 기록됨)
-export function useBossMasters() {
-  return useQuery({
-    queryKey: ['bosses'],
-    queryFn: async () => {
-      const { data } = await client.get<ApiResponse<BossMaster[]>>('/bosses')
-      return data.data
-    },
-    staleTime: Infinity,
-  })
-}
-
-// BE에 완료 처리 엔드포인트 미구현 — MSW Mock으로 운영 중 (Troubleshooting 기록됨)
-export function useToggleBoss() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, completed }: { id: number; completed: boolean }) => {
-      const { data } = await client.put<ApiResponse<SchedulerBossRecord>>(
-        `/scheduler/boss/${id}`,
-        { completed },
-      )
-      return data.data
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['scheduler/boss'] })
-      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
-    },
   })
 }
 

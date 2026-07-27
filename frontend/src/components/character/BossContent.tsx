@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import BossCard from './BossCard'
 import BossDropModal from './BossDropModal'
-import { useBossMasters, useCharacterBoss, useToggleBoss } from '../../hooks/useCharacterDetail'
-import type { BossMaster, SchedulerBossRecord } from '../../types'
+import { useCharacterBoss } from '../../hooks/useCharacterDetail'
+import type { SchedulerBossRecord } from '../../types'
 
 interface Props {
   characterId: number
@@ -12,15 +12,11 @@ interface Props {
 function BossGroup({
   title,
   records,
-  bossMasterMap,
-  onToggle,
   onClickDetail,
 }: {
   title: string
   records: SchedulerBossRecord[]
-  bossMasterMap: Map<number, BossMaster>
-  onToggle: (record: SchedulerBossRecord) => void
-  onClickDetail: (boss: BossMaster, record: SchedulerBossRecord) => void
+  onClickDetail: (record: SchedulerBossRecord) => void
 }) {
   if (records.length === 0) return null
 
@@ -28,45 +24,24 @@ function BossGroup({
     <div>
       <h3 className="mb-3 text-sm font-semibold text-white/60">{title}</h3>
       <div className="grid grid-cols-2 gap-3">
-        {records.map((record, idx) => {
-          const boss = bossMasterMap.get(record.bossId ?? 0)
-          if (!boss) return null
-          return (
-            <BossCard
-              key={record.id ?? `${record.characterId}-${idx}`}
-              boss={boss}
-              record={record}
-              onToggle={() => onToggle(record)}
-              onClickDetail={() => onClickDetail(boss, record)}
-            />
-          )
-        })}
+        {records.map((record, idx) => (
+          <BossCard
+            key={record.id ?? `${record.characterId}-${idx}`}
+            record={record}
+            onClickDetail={() => onClickDetail(record)}
+          />
+        ))}
       </div>
     </div>
   )
 }
 
 export default function BossContent({ characterId, date }: Props) {
-  const { data: bossRecords, isLoading: loadingRecords, isError: errorRecords } = useCharacterBoss(characterId, date)
-  const { data: bossMasters, isLoading: loadingMasters, isError: errorMasters } = useBossMasters()
-  const toggleBoss = useToggleBoss()
-
-  const [selectedInfo, setSelectedInfo] = useState<{
-    boss: BossMaster
-    record: SchedulerBossRecord
-  } | null>(null)
-
-  const isLoading = loadingRecords || loadingMasters
-  const isError = errorRecords || errorMasters
-  const bossMasterMap = new Map<number, BossMaster>((bossMasters ?? []).map((b) => [b.id, b]))
+  const { data: bossRecords, isLoading, isError } = useCharacterBoss(characterId, date)
+  const [selectedRecord, setSelectedRecord] = useState<SchedulerBossRecord | null>(null)
 
   const weeklyRecords = (bossRecords ?? []).filter((r) => r.resetPeriod === 'WEEKLY')
   const monthlyRecords = (bossRecords ?? []).filter((r) => r.resetPeriod === 'MONTHLY')
-
-  const handleToggle = (record: SchedulerBossRecord) => {
-    if (record.id == null) return
-    toggleBoss.mutate({ id: record.id, completed: !record.completed })
-  }
 
   return (
     <section className="rounded-xl bg-[#2d2d44] p-5">
@@ -85,16 +60,12 @@ export default function BossContent({ characterId, date }: Props) {
           <BossGroup
             title="주간 보스"
             records={weeklyRecords}
-            bossMasterMap={bossMasterMap}
-            onToggle={handleToggle}
-            onClickDetail={(boss, record) => setSelectedInfo({ boss, record })}
+            onClickDetail={setSelectedRecord}
           />
           <BossGroup
             title="월간 보스"
             records={monthlyRecords}
-            bossMasterMap={bossMasterMap}
-            onToggle={handleToggle}
-            onClickDetail={(boss, record) => setSelectedInfo({ boss, record })}
+            onClickDetail={setSelectedRecord}
           />
           {weeklyRecords.length === 0 && monthlyRecords.length === 0 && (
             <p className="text-sm text-white/40">보스 기록 없음</p>
@@ -102,12 +73,11 @@ export default function BossContent({ characterId, date }: Props) {
         </div>
       )}
 
-      {selectedInfo && (
+      {selectedRecord && (
         <BossDropModal
           isOpen={true}
-          onClose={() => setSelectedInfo(null)}
-          boss={selectedInfo.boss}
-          record={selectedInfo.record}
+          onClose={() => setSelectedRecord(null)}
+          record={selectedRecord}
           characterId={characterId}
         />
       )}
