@@ -47,8 +47,8 @@ function BossGroup({
 }
 
 export default function BossContent({ characterId, date }: Props) {
-  const { data: bossRecords, isLoading: loadingRecords } = useCharacterBoss(characterId, date)
-  const { data: bossMasters, isLoading: loadingMasters } = useBossMasters()
+  const { data: bossRecords, isLoading: loadingRecords, isError: errorRecords } = useCharacterBoss(characterId, date)
+  const { data: bossMasters, isLoading: loadingMasters, isError: errorMasters } = useBossMasters()
   const toggleBoss = useToggleBoss()
 
   const [selectedInfo, setSelectedInfo] = useState<{
@@ -57,6 +57,7 @@ export default function BossContent({ characterId, date }: Props) {
   } | null>(null)
 
   const isLoading = loadingRecords || loadingMasters
+  const isError = errorRecords || errorMasters
   const bossMasterMap = new Map<number, BossMaster>((bossMasters ?? []).map((b) => [b.id, b]))
 
   const weeklyRecords = (bossRecords ?? []).filter((r) => r.resetPeriod === 'WEEKLY')
@@ -77,6 +78,8 @@ export default function BossContent({ characterId, date }: Props) {
             <div key={i} className="h-24 animate-pulse rounded-lg bg-white/10" />
           ))}
         </div>
+      ) : isError ? (
+        <p className="text-sm text-[#f87171]">불러오는 중 오류가 발생했습니다.</p>
       ) : (
         <div className="space-y-5">
           <BossGroup
@@ -93,6 +96,9 @@ export default function BossContent({ characterId, date }: Props) {
             onToggle={handleToggle}
             onClickDetail={(boss, record) => setSelectedInfo({ boss, record })}
           />
+          {weeklyRecords.length === 0 && monthlyRecords.length === 0 && (
+            <p className="text-sm text-white/40">보스 기록 없음</p>
+          )}
         </div>
       )}
 

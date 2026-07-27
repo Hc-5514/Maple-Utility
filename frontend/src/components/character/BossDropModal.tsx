@@ -33,7 +33,7 @@ export default function BossDropModal({ isOpen, onClose, boss, characterId }: Pr
   const today = new Date().toISOString().split('T')[0]
   const [pendingDates, setPendingDates] = useState<Record<number, string>>({})
 
-  const { data: dropItems, isLoading: loadingItems } = useBossDropItems(boss.id)
+  const { data: dropItems, isLoading: loadingItems, isError: errorItems } = useBossDropItems(boss.id)
   const { data: allAcquisitions } = useBossAcquisitions(characterId)
   const createAcq = useCreateAcquisition()
   const deleteAcq = useDeleteAcquisition()
@@ -104,6 +104,8 @@ export default function BossDropModal({ isOpen, onClose, boss, characterId }: Pr
             <div key={i} className="h-14 animate-pulse rounded-lg bg-white/10" />
           ))}
         </div>
+      ) : errorItems ? (
+        <p className="text-sm text-[#f87171]">드랍 아이템을 불러오지 못했습니다.</p>
       ) : !dropItems || dropItems.length === 0 ? (
         <p className="text-sm text-white/40">드랍 아이템 정보 없음</p>
       ) : (

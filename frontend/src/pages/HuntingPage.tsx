@@ -27,7 +27,7 @@ export default function HuntingPage() {
       client.get<ApiResponse<Character[]>>('/characters').then((r) => r.data.data),
   })
 
-  const { data: records, isLoading } = useHuntingList({ characterId, dateFrom, dateTo })
+  const { data: records, isLoading, isError, refetch } = useHuntingList({ characterId, dateFrom, dateTo })
   const deleteHunting = useDeleteHunting()
 
   const characterMap = new Map<number, string>(
@@ -76,6 +76,16 @@ export default function HuntingPage() {
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-12 animate-pulse rounded-lg bg-white/10" />
           ))}
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center gap-3 py-16 text-center">
+          <p className="text-sm text-[#f87171]">데이터를 불러오지 못했습니다.</p>
+          <button
+            onClick={() => void refetch()}
+            className="rounded-lg bg-[#2d2d44] px-4 py-2 text-sm text-white/70 hover:text-white"
+          >
+            재시도
+          </button>
         </div>
       ) : (
         <HuntingTable
