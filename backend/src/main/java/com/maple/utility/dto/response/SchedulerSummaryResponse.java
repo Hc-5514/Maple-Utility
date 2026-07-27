@@ -6,7 +6,7 @@ import java.util.List;
 public record SchedulerSummaryResponse(
 		List<SchedulerDailyResponse> daily,
 		List<SchedulerWeeklyResponse> weekly,
-		List<SchedulerBossResponse> weeklyBoss,
-		List<SchedulerBossResponse> monthlyBoss
+		List<SchedulerBossResponse> weeklyBosses,
+		List<SchedulerBossResponse> monthlyBosses
 ) implements Serializable {
 }

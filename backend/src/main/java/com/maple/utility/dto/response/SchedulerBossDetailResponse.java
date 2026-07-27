@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.List;
 
 public record SchedulerBossDetailResponse(
-		List<SchedulerBossResponse> weeklyBoss,
-		List<SchedulerBossResponse> monthlyBoss
+		List<SchedulerBossResponse> weeklyBosses,
+		List<SchedulerBossResponse> monthlyBosses
 ) implements Serializable {
 }

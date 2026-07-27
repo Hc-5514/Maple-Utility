@@ -98,8 +98,8 @@ class SchedulerServiceTest {
 
 		assertThat(response.daily()).hasSize(1);
 		assertThat(response.weekly()).hasSize(1);
-		assertThat(response.weeklyBoss()).hasSize(1);
-		assertThat(response.monthlyBoss()).hasSize(1);
+		assertThat(response.weeklyBosses()).hasSize(1);
+		assertThat(response.monthlyBosses()).hasSize(1);
 	}
 
 	@Test
@@ -131,8 +131,8 @@ class SchedulerServiceTest {
 		when(bossRecordRepository.findByCharacterIdAndRecordDateAndResetPeriodOrderByBoss_SortOrderAscIdAsc(10L, LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY))
 				.thenReturn(List.of(monthlyBossRecord));
 
-		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).weeklyBoss()).hasSize(1);
-		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).monthlyBoss()).hasSize(1);
+		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).weeklyBosses()).hasSize(1);
+		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).monthlyBosses()).hasSize(1);
 	}
 
 	@Test
@@ -174,6 +174,8 @@ class SchedulerServiceTest {
 		ReflectionTestUtils.setField(boss, "bossName", "스우");
 		ReflectionTestUtils.setField(boss, "difficulty", Difficulty.HARD);
 		ReflectionTestUtils.setField(boss, "resetPeriod", resetPeriod);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 25000000L);
+		ReflectionTestUtils.setField(boss, "bossImage", "/assets/boss/suu.png");
 		ReflectionTestUtils.setField(boss, "sortOrder", 1);
 		ReflectionTestUtils.setField(boss, "active", true);
 		return boss;
