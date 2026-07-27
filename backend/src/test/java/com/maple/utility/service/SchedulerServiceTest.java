@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.maple.utility.dto.response.SchedulerCharacterSummaryResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.Difficulty;
@@ -96,10 +97,12 @@ class SchedulerServiceTest {
 
 		SchedulerSummaryResponse response = schedulerService.getSummary(1L, LocalDate.parse("2026-07-14"));
 
-		assertThat(response.daily()).hasSize(1);
-		assertThat(response.weekly()).hasSize(1);
-		assertThat(response.weeklyBosses()).hasSize(1);
-		assertThat(response.monthlyBosses()).hasSize(1);
+		assertThat(response.characters()).hasSize(1);
+		SchedulerCharacterSummaryResponse charSummary = response.characters().get(0);
+		assertThat(charSummary.daily().total()).isEqualTo(1);
+		assertThat(charSummary.weekly().total()).isEqualTo(1);
+		assertThat(charSummary.weeklyBoss().total()).isEqualTo(1);
+		assertThat(charSummary.monthlyBoss().total()).isEqualTo(1);
 	}
 
 	@Test

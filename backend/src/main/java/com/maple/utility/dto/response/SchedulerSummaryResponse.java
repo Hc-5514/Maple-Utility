@@ -1,12 +1,11 @@
 package com.maple.utility.dto.response;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public record SchedulerSummaryResponse(
-		List<SchedulerDailyResponse> daily,
-		List<SchedulerWeeklyResponse> weekly,
-		List<SchedulerBossResponse> weeklyBosses,
-		List<SchedulerBossResponse> monthlyBosses
+		List<SchedulerCharacterSummaryResponse> characters,
+		LocalDateTime syncedAt
 ) implements Serializable {
 }

@@ -3,8 +3,13 @@ package com.maple.utility.service;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -15,11 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 import com.maple.utility.config.RedisCacheNames;
 import com.maple.utility.dto.response.SchedulerBossDetailResponse;
 import com.maple.utility.dto.response.SchedulerBossResponse;
+import com.maple.utility.dto.response.SchedulerCharacterSummaryResponse;
 import com.maple.utility.dto.response.SchedulerDailyResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SchedulerWeeklyResponse;
+import com.maple.utility.dto.response.TaskSummary;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.ResetPeriod;
+import com.maple.utility.entity.SchedulerBossRecord;
+import com.maple.utility.entity.SchedulerDailyRecord;
+import com.maple.utility.entity.SchedulerWeeklyRecord;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
@@ -62,26 +72,52 @@ public class SchedulerService {
 				.map(MapleCharacter::getId)
 				.toList();
 		if (characterIds.isEmpty()) {
-			return new SchedulerSummaryResponse(List.of(), List.of(), List.of(), List.of());
+			return new SchedulerSummaryResponse(List.of(), null);
 		}
-		return new SchedulerSummaryResponse(
-				dailyRecordRepository.findByCharacterIdInAndRecordDateOrderByCharacterIdAscIdAsc(characterIds, targetDate).stream()
-						.map(SchedulerDailyResponse::from)
-						.toList(),
-				weeklyRecordRepository.findByCharacterIdInAndWeekStartDateOrderByCharacterIdAscIdAsc(characterIds, weekStartDate).stream()
-						.map(SchedulerWeeklyResponse::from)
-				.toList(),
-		bossRecordRepository
-						.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(characterIds, targetDate, ResetPeriod.WEEKLY)
-						.stream()
-						.map(SchedulerBossResponse::from)
-						.toList(),
-				bossRecordRepository
-						.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(characterIds, targetDate, ResetPeriod.MONTHLY)
-						.stream()
-						.map(SchedulerBossResponse::from)
-						.toList()
-		);
+
+		List<SchedulerDailyRecord> dailyRecords = dailyRecordRepository.findByCharacterIdInAndRecordDateOrderByCharacterIdAscIdAsc(characterIds, targetDate);
+		List<SchedulerWeeklyRecord> weeklyRecords = weeklyRecordRepository.findByCharacterIdInAndWeekStartDateOrderByCharacterIdAscIdAsc(characterIds, weekStartDate);
+		List<SchedulerBossRecord> weeklyBossRecords = bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(characterIds, targetDate, ResetPeriod.WEEKLY);
+		List<SchedulerBossRecord> monthlyBossRecords = bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(characterIds, targetDate, ResetPeriod.MONTHLY);
+
+		Map<Long, List<SchedulerDailyRecord>> dailyByChar = dailyRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
+		Map<Long, List<SchedulerWeeklyRecord>> weeklyByChar = weeklyRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
+		Map<Long, List<SchedulerBossRecord>> weeklyBossByChar = weeklyBossRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
+		Map<Long, List<SchedulerBossRecord>> monthlyBossByChar = monthlyBossRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
+
+		List<SchedulerCharacterSummaryResponse> characters = favoriteCharacters.stream()
+				.map(character -> {
+					Long id = character.getId();
+					List<SchedulerDailyRecord> daily = dailyByChar.getOrDefault(id, List.of());
+					List<SchedulerWeeklyRecord> weekly = weeklyByChar.getOrDefault(id, List.of());
+					List<SchedulerBossRecord> weeklyBoss = weeklyBossByChar.getOrDefault(id, List.of());
+					List<SchedulerBossRecord> monthlyBoss = monthlyBossByChar.getOrDefault(id, List.of());
+					return new SchedulerCharacterSummaryResponse(
+							id,
+							character.getCharacterName(),
+							character.getCharacterLevel(),
+							character.getCharacterClass(),
+							character.getCharacterImage(),
+							character.getWorldName(),
+							new TaskSummary((int) daily.stream().filter(r -> r.getCompletedCount() == r.getTotalCount()).count(), daily.size()),
+							new TaskSummary((int) weekly.stream().filter(SchedulerWeeklyRecord::isCompleted).count(), weekly.size()),
+							new TaskSummary((int) weeklyBoss.stream().filter(SchedulerBossRecord::isCompleted).count(), weeklyBoss.size()),
+							new TaskSummary((int) monthlyBoss.stream().filter(SchedulerBossRecord::isCompleted).count(), monthlyBoss.size())
+					);
+				})
+				.toList();
+
+		LocalDateTime syncedAt = Stream.of(
+						dailyRecords.stream().map(SchedulerDailyRecord::getSyncedAt),
+						weeklyRecords.stream().map(SchedulerWeeklyRecord::getSyncedAt),
+						weeklyBossRecords.stream().map(SchedulerBossRecord::getSyncedAt),
+						monthlyBossRecords.stream().map(SchedulerBossRecord::getSyncedAt)
+				).flatMap(s -> s)
+				.filter(t -> t != null)
+				.max(Comparator.naturalOrder())
+				.orElse(null);
+
+		return new SchedulerSummaryResponse(characters, syncedAt);
 	}
 
 	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'daily:' + #userId + ':' + #characterId + ':' + #date")
