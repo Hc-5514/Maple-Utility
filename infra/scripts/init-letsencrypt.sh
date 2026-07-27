@@ -9,6 +9,11 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+case "$ENV_FILE" in
+  */*) ;;
+  *) ENV_FILE="./$ENV_FILE" ;;
+esac
+
 set -a
 . "$ENV_FILE"
 set +a
@@ -39,7 +44,7 @@ $COMPOSE run --rm --entrypoint sh certbot -c "
 "
 
 echo "Requesting Let's Encrypt certificate for $SERVER_NAME"
-$COMPOSE run --rm certbot certonly \
+$COMPOSE run --rm --entrypoint certbot certbot certonly \
   --webroot \
   --webroot-path /var/www/certbot \
   --email "$LETSENCRYPT_EMAIL" \
