@@ -124,6 +124,14 @@ jobs:
             APP_IMAGE='$APP_IMAGE' docker compose -f docker-compose.prod.yml --env-file .env pull app && \
             APP_IMAGE='$APP_IMAGE' docker compose -f docker-compose.prod.yml --env-file .env up -d && \
             docker compose -f docker-compose.prod.yml --env-file .env ps && \
+            for i in \$(seq 1 30); do \
+              status=\$(docker inspect --format='{{.State.Health.Status}}' maple-nginx 2>/dev/null || true); \
+              if [ \"\$status\" = 'healthy' ]; then \
+                break; \
+              fi; \
+              sleep 2; \
+            done && \
+            test \"\$(docker inspect --format='{{.State.Health.Status}}' maple-nginx)\" = 'healthy' && \
             curl -fsS http://localhost/health"
 
       - name: Print EC2 deploy diagnostics
@@ -137,4 +145,6 @@ jobs:
             cd '$DEPLOY_DIR' && \
             docker compose -f docker-compose.prod.yml --env-file .env ps && \
             docker logs --tail=200 maple-app || true && \
+            docker logs --tail=100 maple-nginx || true && \
+            docker inspect --format='{{json .State.Health}}' maple-nginx || true && \
             docker inspect --format='{{json .State.Health}}' maple-app || true"
