@@ -146,5 +146,7 @@ jobs:
             docker compose -f docker-compose.prod.yml --env-file .env ps && \
             docker logs --tail=200 maple-app || true && \
             docker logs --tail=100 maple-nginx || true && \
+            docker exec maple-nginx nginx -T || true && \
+            docker exec maple-nginx sed -n '1,220p' /etc/nginx/conf.d/default.conf || true && \
             docker inspect --format='{{json .State.Health}}' maple-nginx || true && \
             docker inspect --format='{{json .State.Health}}' maple-app || true"
