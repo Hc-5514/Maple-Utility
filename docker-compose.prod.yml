@@ -93,6 +93,7 @@ services:
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/nginx/templates:/etc/nginx/templates:ro
+      - ./infra/nginx/docker-entrypoint.d/40-reload-loop.sh:/docker-entrypoint.d/40-reload-loop.sh:ro
       - certbot_certs:/etc/letsencrypt:ro
       - certbot_webroot:/var/www/certbot:ro
     healthcheck:
