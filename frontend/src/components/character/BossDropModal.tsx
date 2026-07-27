@@ -7,12 +7,11 @@ import {
   useCreateAcquisition,
   useDeleteAcquisition,
 } from '../../hooks/useCharacterDetail'
-import type { BossMaster, SchedulerBossRecord } from '../../types'
+import type { SchedulerBossRecord } from '../../types'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
-  boss: BossMaster
   record: SchedulerBossRecord
   characterId: number
 }
@@ -29,11 +28,11 @@ const TIER_LABEL: Record<string, string> = {
   LOW:    '낮음',
 }
 
-export default function BossDropModal({ isOpen, onClose, boss, characterId }: Props) {
+export default function BossDropModal({ isOpen, onClose, record, characterId }: Props) {
   const today = new Date().toISOString().split('T')[0]
   const [pendingDates, setPendingDates] = useState<Record<number, string>>({})
 
-  const { data: dropItems, isLoading: loadingItems, isError: errorItems } = useBossDropItems(boss.id)
+  const { data: dropItems, isLoading: loadingItems, isError: errorItems } = useBossDropItems(record.bossId ?? 0)
   const { data: allAcquisitions } = useBossAcquisitions(characterId)
   const createAcq = useCreateAcquisition()
   const deleteAcq = useDeleteAcquisition()
@@ -72,12 +71,12 @@ export default function BossDropModal({ isOpen, onClose, boss, characterId }: Pr
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`${boss.bossName} 드랍 아이템`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={`${record.bossName} 드랍 아이템`}>
       <div className="mb-5 flex items-center gap-3">
-        {boss.bossImage ? (
+        {record.bossImage ? (
           <img
-            src={boss.bossImage}
-            alt={boss.bossName}
+            src={record.bossImage}
+            alt={record.bossName}
             className="h-16 w-16 rounded-lg object-contain"
           />
         ) : (
@@ -86,12 +85,12 @@ export default function BossDropModal({ isOpen, onClose, boss, characterId }: Pr
           </div>
         )}
         <div>
-          <p className="font-semibold text-white">{boss.bossName}</p>
+          <p className="font-semibold text-white">{record.bossName}</p>
           <div className="mt-1 flex items-center gap-2">
-            <DifficultyBadge difficulty={boss.difficulty} />
+            {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
             <span className="text-xs text-white/40">
-              {boss.crystalPrice > 0
-                ? `${boss.crystalPrice.toLocaleString()} 메소`
+              {(record.crystalPrice ?? 0) > 0
+                ? `${(record.crystalPrice ?? 0).toLocaleString()} 메소`
                 : '무결정'}
             </span>
           </div>

@@ -9,15 +9,6 @@ let acquisitions = [
 let nextAcqId = 4
 
 export const bossHandlers = [
-  http.get('/api/v1/bosses', ({ request }) => {
-    const url = new URL(request.url)
-    const resetPeriod = url.searchParams.get('resetPeriod')
-    const masters = resetPeriod
-      ? bossesFixture.masters.filter(b => b.resetPeriod === resetPeriod)
-      : bossesFixture.masters
-    return HttpResponse.json({ success: true, data: masters })
-  }),
-
   http.get('/api/v1/bosses/:id', ({ params }) => {
     const boss = bossesFixture.masters.find(b => b.id === Number(params.id))
     if (!boss) {
