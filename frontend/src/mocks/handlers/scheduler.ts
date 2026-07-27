@@ -71,33 +71,52 @@ export const schedulerHandlers = [
     return HttpResponse.json({ success: true, data: records })
   }),
 
-  // 전체 요약 (BE: GET /scheduler/summary) — BE flat format 반환
+  // 전체 요약 (BE: GET /scheduler/summary) — per-character grouped format (BE-19 기준)
   http.get('/api/v1/scheduler/summary', () => {
     const today = new Date().toISOString().split('T')[0]
     const weekStart = '2026-07-13'
 
     const charDailyAll = dailyRecords.filter((r) => r.recordDate === today)
     const charWeeklyAll = weeklyRecords.filter((r) => r.weekStartDate === weekStart)
-    const allBoss = bossRecords.map((r) => ({
-      characterId: r.characterId,
-      characterName: '달빛제로',
-      ...(bossNameMap[r.bossId] ?? { bossName: `보스#${r.bossId}`, difficulty: 'NORMAL' }),
-      completed: r.isCompleted,
-      resetPeriod: r.resetPeriod,
-      syncedAt: r.syncedAt,
-    }))
+    const weeklyBossAll = bossRecords.filter((r) => r.resetPeriod === 'WEEKLY')
+    const monthlyBossAll = bossRecords.filter((r) => r.resetPeriod === 'MONTHLY')
+
+    const syncedAt =
+      [...charDailyAll, ...charWeeklyAll]
+        .map((r) => r.syncedAt)
+        .filter(Boolean)
+        .slice(-1)[0] ?? new Date().toISOString()
 
     return HttpResponse.json({
       success: true,
       data: {
-        daily: charDailyAll.map((r) => ({ ...r, characterName: '달빛제로' })),
-        weekly: charWeeklyAll.map((r) => ({
-          ...r,
-          characterName: '달빛제로',
-          completed: r.isCompleted,
-        })),
-        weeklyBoss: allBoss.filter((r) => r.resetPeriod === 'WEEKLY'),
-        monthlyBoss: allBoss.filter((r) => r.resetPeriod === 'MONTHLY'),
+        characters: [
+          {
+            characterId: 1,
+            characterName: '달빛제로',
+            characterLevel: 292,
+            characterClass: '아크메이지(썬,콜)',
+            characterImage: null,
+            worldName: '스카니아',
+            daily: {
+              completed: charDailyAll.reduce((s, r) => s + r.completedCount, 0),
+              total: charDailyAll.reduce((s, r) => s + r.totalCount, 0),
+            },
+            weekly: {
+              completed: charWeeklyAll.filter((r) => r.isCompleted).length,
+              total: charWeeklyAll.length,
+            },
+            weeklyBoss: {
+              completed: weeklyBossAll.filter((r) => r.isCompleted).length,
+              total: weeklyBossAll.length,
+            },
+            monthlyBoss: {
+              completed: monthlyBossAll.filter((r) => r.isCompleted).length,
+              total: monthlyBossAll.length,
+            },
+          },
+        ],
+        syncedAt,
       },
     })
   }),

@@ -138,13 +138,6 @@ export interface SchedulerBossRecord {
   syncedAt: string | null
 }
 
-export interface BESchedulerSummaryResponse {
-  daily: SchedulerDailyRecord[]
-  weekly: SchedulerWeeklyRecord[]
-  weeklyBoss: SchedulerBossRecord[]
-  monthlyBoss: SchedulerBossRecord[]
-}
-
 // ─── 사냥 기록 ────────────────────────────────────────────────────
 export interface HuntingRecord {
   id: number
