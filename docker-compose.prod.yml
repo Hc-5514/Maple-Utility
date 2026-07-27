@@ -99,7 +99,7 @@ services:
       - certbot_certs:/etc/letsencrypt:ro
       - certbot_webroot:/var/www/certbot:ro
     healthcheck:
-      test: ["CMD-SHELL", "nginx -t && wget -qO- http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "nginx -t && wget -qO- http://127.0.0.1/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

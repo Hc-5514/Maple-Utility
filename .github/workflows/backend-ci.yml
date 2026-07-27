@@ -132,7 +132,7 @@ jobs:
               sleep 2; \
             done && \
             test \"\$(docker inspect --format='{{.State.Health.Status}}' maple-nginx)\" = 'healthy' && \
-            curl -fsS http://localhost/health"
+            curl -fsS http://127.0.0.1/health"
 
       - name: Print EC2 deploy diagnostics
         if: failure()
