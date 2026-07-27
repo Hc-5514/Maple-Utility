@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import HuntingForm from '../components/hunting/HuntingForm'
 import { useHuntingRecord, useUpdateHunting } from '../hooks/useHunting'
@@ -6,6 +7,7 @@ export default function HuntingEditPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const numId = Number(id)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const { data: record, isLoading } = useHuntingRecord(numId)
   const updateHunting = useUpdateHunting()
@@ -26,16 +28,21 @@ export default function HuntingEditPage() {
   return (
     <div className="space-y-5">
       <h1 className="text-2xl font-bold text-white">사냥 기록 수정</h1>
+      {submitError && <p className="text-sm text-[#f87171]">{submitError}</p>}
       <HuntingForm
         initialValues={record}
         submitLabel="수정 완료"
         isSubmitting={updateHunting.isPending}
-        onSubmit={(data) =>
+        onSubmit={(data) => {
+          setSubmitError(null)
           updateHunting.mutate(
             { id: numId, ...data },
-            { onSuccess: () => navigate('/hunting') },
+            {
+              onSuccess: () => navigate('/hunting'),
+              onError: () => setSubmitError('수정 중 오류가 발생했습니다. 다시 시도해 주세요.'),
+            },
           )
-        }
+        }}
       />
     </div>
   )

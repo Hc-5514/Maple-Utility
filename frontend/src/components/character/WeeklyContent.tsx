@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function WeeklyContent({ characterId, weekStart }: Props) {
-  const { data, isLoading } = useCharacterWeekly(characterId, weekStart)
+  const { data, isLoading, isError } = useCharacterWeekly(characterId, weekStart)
 
   const allDone = data && data.length > 0 && data.every((r) => r.completed)
 
@@ -24,6 +24,8 @@ export default function WeeklyContent({ characterId, weekStart }: Props) {
             <div key={i} className="h-10 animate-pulse rounded bg-white/10" />
           ))}
         </div>
+      ) : isError ? (
+        <p className="text-sm text-[#f87171]">불러오는 중 오류가 발생했습니다.</p>
       ) : !data || data.length === 0 ? (
         <p className="text-sm text-white/40">기록 없음</p>
       ) : (

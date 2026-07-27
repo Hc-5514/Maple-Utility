@@ -6,7 +6,7 @@ interface Props {
 }
 
 export default function GuildContent({ characterId, date }: Props) {
-  const { data, isLoading } = useCharacterGuild(characterId, date)
+  const { data, isLoading, isError } = useCharacterGuild(characterId, date)
 
   return (
     <section className="rounded-xl bg-[#2d2d44] p-5">
@@ -14,6 +14,8 @@ export default function GuildContent({ characterId, date }: Props) {
 
       {isLoading ? (
         <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
+      ) : isError ? (
+        <p className="text-sm text-[#f87171]">불러오는 중 오류가 발생했습니다.</p>
       ) : !data || data.length === 0 ? (
         <p className="text-sm text-white/40">기록 없음</p>
       ) : (

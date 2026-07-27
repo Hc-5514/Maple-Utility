@@ -20,11 +20,25 @@ export default function CharacterDetailPage() {
   const today = new Date().toISOString().split('T')[0]
   const weekStart = getWeekStart(new Date())
 
-  const { data: character, isLoading: charLoading } = useCharacter(id)
+  const { data: character, isLoading: charLoading, isError: charError } = useCharacter(id)
   const toggleFav = useToggleFavorite(id)
 
   if (!id || Number.isNaN(id)) {
     return <p className="text-[#f87171]">잘못된 캐릭터 ID입니다.</p>
+  }
+
+  if (charError) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <p className="text-sm text-[#f87171]">캐릭터 정보를 불러오지 못했습니다.</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="rounded-lg bg-[#2d2d44] px-4 py-2 text-sm text-white/70 hover:text-white"
+        >
+          뒤로가기
+        </button>
+      </div>
+    )
   }
 
   return (

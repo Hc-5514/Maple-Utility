@@ -37,9 +37,9 @@ export default function StatsPage() {
       client.get<ApiResponse<Character[]>>('/characters').then((r) => r.data.data),
   })
 
-  const { data: huntingData, isLoading: loadingHunting } = useStatsHunting(params)
-  const { data: crystalData, isLoading: loadingCrystal } = useStatsCrystal(params)
-  const { data: bossItems, isLoading: loadingBossItems } = useStatsBossItems(params)
+  const { data: huntingData, isLoading: loadingHunting, isError: errorHunting } = useStatsHunting(params)
+  const { data: crystalData, isLoading: loadingCrystal, isError: errorCrystal } = useStatsCrystal(params)
+  const { data: bossItems, isLoading: loadingBossItems, isError: errorBossItems } = useStatsBossItems(params)
 
   return (
     <div className="space-y-8">
@@ -82,6 +82,8 @@ export default function StatsPage() {
               <div key={i} className="h-20 animate-pulse rounded-xl bg-white/10" />
             ))}
           </div>
+        ) : errorHunting ? (
+          <p className="text-sm text-[#f87171]">데이터를 불러오지 못했습니다.</p>
         ) : huntingData ? (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -108,6 +110,8 @@ export default function StatsPage() {
               <div key={i} className="h-20 animate-pulse rounded-xl bg-white/10" />
             ))}
           </div>
+        ) : errorCrystal ? (
+          <p className="text-sm text-[#f87171]">데이터를 불러오지 못했습니다.</p>
         ) : crystalData ? (
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -138,6 +142,8 @@ export default function StatsPage() {
               <div key={i} className="h-12 animate-pulse rounded-lg bg-white/10" />
             ))}
           </div>
+        ) : errorBossItems ? (
+          <p className="text-sm text-[#f87171]">데이터를 불러오지 못했습니다.</p>
         ) : (
           <ItemAcquisitionList items={bossItems ?? []} />
         )}

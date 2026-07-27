@@ -7,7 +7,7 @@ interface Props {
 }
 
 export default function DailyContent({ characterId, date }: Props) {
-  const { data, isLoading } = useCharacterDaily(characterId, date)
+  const { data, isLoading, isError } = useCharacterDaily(characterId, date)
 
   const allDone =
     data && data.length > 0 && data.every((r) => r.completedCount >= r.totalCount)
@@ -26,6 +26,8 @@ export default function DailyContent({ characterId, date }: Props) {
             <div key={i} className="h-8 animate-pulse rounded bg-white/10" />
           ))}
         </div>
+      ) : isError ? (
+        <p className="text-sm text-[#f87171]">불러오는 중 오류가 발생했습니다.</p>
       ) : !data || data.length === 0 ? (
         <p className="text-sm text-white/40">기록 없음</p>
       ) : (

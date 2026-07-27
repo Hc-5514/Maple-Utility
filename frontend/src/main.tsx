@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
+import ErrorBoundary from './components/common/ErrorBoundary'
 
 async function enableMocking() {
   if (import.meta.env.VITE_USE_MOCK !== 'true') return
@@ -15,7 +16,9 @@ enableMocking().then(() => {
 
   createRoot(container).render(
     <StrictMode>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </StrictMode>,
   )
 })
