@@ -9,6 +9,11 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+case "$ENV_FILE" in
+  */*) ;;
+  *) ENV_FILE="./$ENV_FILE" ;;
+esac
+
 set -a
 . "$ENV_FILE"
 set +a
