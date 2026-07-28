@@ -1,0 +1,8 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin
+
+# 일간 백업: 매일 03:00
+0 3 * * *   DEPLOY_USER   bash -c 'set -a; source DEPLOY_DIR/.env; set +a; DEPLOY_DIR/infra/scripts/backup-daily.sh' >> /var/log/maple-backup.log 2>&1
+
+# 주간 백업: 매주 일요일 04:00
+0 4 * * 0   DEPLOY_USER   bash -c 'set -a; source DEPLOY_DIR/.env; set +a; DEPLOY_DIR/infra/scripts/backup-weekly.sh' >> /var/log/maple-backup.log 2>&1
