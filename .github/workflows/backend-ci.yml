@@ -105,10 +105,11 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
         run: |
-          ssh -i ~/.ssh/maple-utility "$EC2_USER@$EC2_HOST" "mkdir -p '$DEPLOY_DIR/infra/nginx' '$DEPLOY_DIR/infra/scripts'"
+          ssh -i ~/.ssh/maple-utility "$EC2_USER@$EC2_HOST" "mkdir -p '$DEPLOY_DIR/infra/nginx' '$DEPLOY_DIR/infra/scripts' '$DEPLOY_DIR/infra/cron'"
           scp -i ~/.ssh/maple-utility docker-compose.prod.yml "$EC2_USER@$EC2_HOST:$DEPLOY_DIR/docker-compose.prod.yml"
           scp -i ~/.ssh/maple-utility -r infra/nginx "$EC2_USER@$EC2_HOST:$DEPLOY_DIR/infra/"
           scp -i ~/.ssh/maple-utility -r infra/scripts "$EC2_USER@$EC2_HOST:$DEPLOY_DIR/infra/"
+          scp -i ~/.ssh/maple-utility -r infra/cron "$EC2_USER@$EC2_HOST:$DEPLOY_DIR/infra/"
 
       - name: Deploy to EC2
         env:
