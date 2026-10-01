@@ -3,9 +3,10 @@ package com.maple.utility.security;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.maple.utility.config.OAuthProperties;
 import com.maple.utility.entity.OAuthProvider;
+
+import tools.jackson.databind.JsonNode;
 
 @Component
 public class KakaoOAuthClient extends AbstractOAuthClient {
