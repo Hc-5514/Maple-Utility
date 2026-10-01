@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import characters from '../fixtures/characters.json'
 
-let mockCharacters = [...characters]
+const mockCharacters = [...characters]
 
 export const characterHandlers = [
   http.get('/api/v1/characters', () => {

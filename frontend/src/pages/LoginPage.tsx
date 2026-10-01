@@ -9,6 +9,17 @@ const getKakaoOAuthUrl = () => {
   return `https://kauth.kakao.com/oauth/authorize?client_id=${import.meta.env.VITE_KAKAO_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&state=kakao`
 }
 
+const getKakaoOAuthConfigError = () => {
+  const clientId = (import.meta.env.VITE_KAKAO_CLIENT_ID ?? '').trim()
+  if (!clientId) {
+    return '카카오 REST API 키 환경변수를 확인해 주세요.'
+  }
+  if (/^\d+$/.test(clientId)) {
+    return '카카오 앱 ID가 아닌 REST API 키를 환경변수에 설정해 주세요.'
+  }
+  return null
+}
+
 const afterLogin = async (
   data: AuthLoginResponse,
   setUser: (u: User | null) => void,
@@ -23,7 +34,9 @@ const afterLogin = async (
       setHasApiKey(true)
       return true
     }
-  } catch {}
+  } catch {
+    return false
+  }
   return false
 }
 
@@ -50,6 +63,11 @@ export default function LoginPage() {
         setKakaoLoading(false)
       }
     } else {
+      const configError = getKakaoOAuthConfigError()
+      if (configError) {
+        setError(configError)
+        return
+      }
       sessionStorage.setItem('oauth_provider', 'kakao')
       window.location.href = getKakaoOAuthUrl()
     }

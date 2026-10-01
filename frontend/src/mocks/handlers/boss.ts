@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import bossesFixture from '../fixtures/bosses.json'
 
-let acquisitions = [
+const acquisitions = [
   { id: 1, characterId: 1, bossDropItemId: 4,  acquiredDate: '2026-07-13', memo: null, createdAt: '2026-07-13T22:00:00' },
   { id: 2, characterId: 1, bossDropItemId: 8,  acquiredDate: '2026-07-13', memo: null, createdAt: '2026-07-13T22:30:00' },
   { id: 3, characterId: 1, bossDropItemId: 32, acquiredDate: '2026-07-14', memo: '더스크 하드', createdAt: '2026-07-14T09:30:00' },
