@@ -2,10 +2,14 @@ package com.maple.utility.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -21,8 +25,21 @@ public class GlobalExceptionHandler {
 				.body(ErrorResponse.of("VALIDATION_ERROR", "요청 값 검증 실패"));
 	}
 
+	@ExceptionHandler(RestClientResponseException.class)
+	public ResponseEntity<ErrorResponse> handleRestClientResponseException(RestClientResponseException exception) {
+		log.error(
+				"External API error. status={}, body={}",
+				exception.getStatusCode(),
+				exception.getResponseBodyAsString(),
+				exception
+		);
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+				.body(ErrorResponse.of("EXTERNAL_API_ERROR", "외부 API 호출 실패"));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleException(Exception exception) {
+		log.error("Unhandled exception", exception);
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 				.body(ErrorResponse.of("INTERNAL_SERVER_ERROR", "서버 내부 오류"));
 	}
