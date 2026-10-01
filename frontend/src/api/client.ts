@@ -1,7 +1,22 @@
 import axios, { type AxiosRequestConfig } from 'axios'
+import type { ApiResponse, AuthLoginResponse } from '../types'
 
 interface RetryableAxiosRequestConfig extends AxiosRequestConfig {
   _retry?: boolean
+}
+
+const isApiResponse = <T>(data: unknown): data is ApiResponse<T> => (
+  typeof data === 'object' &&
+  data !== null &&
+  'success' in data &&
+  'data' in data
+)
+
+const normalizeApiResponse = <T>(data: T | ApiResponse<T>): ApiResponse<T> => {
+  if (isApiResponse<T>(data)) {
+    return data
+  }
+  return { success: true, data }
 }
 
 const client = axios.create({
@@ -19,7 +34,10 @@ client.interceptors.request.use((config) => {
 })
 
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    response.data = normalizeApiResponse(response.data)
+    return response
+  },
   async (error) => {
     const originalRequest = error.config as RetryableAxiosRequestConfig
 
@@ -32,7 +50,8 @@ client.interceptors.response.use(
           {},
           { withCredentials: true },
         )
-        const newToken: string = data.data.accessToken
+        const normalized = normalizeApiResponse<AuthLoginResponse>(data)
+        const newToken: string = normalized.data.accessToken
         localStorage.setItem('accessToken', newToken)
 
         if (originalRequest.headers) {
