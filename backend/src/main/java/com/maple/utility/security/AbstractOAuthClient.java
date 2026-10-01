@@ -6,8 +6,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.maple.utility.config.OAuthProperties;
+
+import tools.jackson.databind.JsonNode;
 
 abstract class AbstractOAuthClient implements OAuthClient {
 
