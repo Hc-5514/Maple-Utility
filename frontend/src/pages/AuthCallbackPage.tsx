@@ -37,7 +37,9 @@ export default function AuthCallbackPage() {
             setHasApiKey(true)
             hasKey = true
           }
-        } catch {}
+        } catch {
+          // API Key 상태 조회 실패 시 설정 페이지로 이동
+        }
 
         navigate(hasKey ? '/dashboard' : '/settings', { replace: true })
       } catch {

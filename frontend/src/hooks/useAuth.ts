@@ -9,7 +9,9 @@ export function useAuth() {
   const logout = async () => {
     try {
       await client.post('/auth/logout')
-    } catch {}
+    } catch {
+      // 서버 로그아웃 실패 시에도 클라이언트 세션은 정리
+    }
     storeLogout()
     navigate('/login')
   }
