@@ -8,11 +8,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.User;
+import com.maple.utility.exception.NexonApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.security.NexonCharacterBasic;
 import com.maple.utility.security.NexonCharacterSummary;
 import com.maple.utility.security.NexonOpenApiClient;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class CharacterSyncService {
 
@@ -39,10 +43,26 @@ public class CharacterSyncService {
 			List<NexonCharacterSummary> characterSummaries,
 			Function<NexonCharacterSummary, NexonCharacterBasic> basicFetcher
 	) {
-		for (int index = 0; index < characterSummaries.size(); index++) {
-			NexonCharacterSummary summary = characterSummaries.get(index);
-			NexonCharacterBasic basic = basicFetcher.apply(summary);
-			int sortOrder = index + 1;
+		int sortOrder = 1;
+		for (NexonCharacterSummary summary : characterSummaries) {
+			NexonCharacterBasic basic;
+			try {
+				basic = basicFetcher.apply(summary);
+			} catch (NexonApiException exception) {
+				if (isInvalidCharacterId(exception)) {
+					log.warn(
+							"Skipping Nexon character basic sync. userId={}, characterName={}, ocid={}, nexonErrorName={}, nexonErrorMessage={}",
+							user.getId(),
+							summary.characterName(),
+							summary.ocid(),
+							exception.getNexonErrorName(),
+							exception.getNexonErrorMessage()
+					);
+					continue;
+				}
+				throw exception;
+			}
+			int currentSortOrder = sortOrder;
 			MapleCharacter character = characterRepository.findByUserIdAndOcid(user.getId(), summary.ocid())
 					.orElseGet(() -> characterRepository.save(MapleCharacter.create(
 							user,
@@ -51,7 +71,7 @@ public class CharacterSyncService {
 							valueOrFallback(basic.worldName(), summary.worldName()),
 							valueOrFallback(basic.characterClass(), summary.characterClass()),
 							valueOrFallback(basic.characterLevel(), summary.characterLevel()),
-							sortOrder
+							currentSortOrder
 					)));
 			character.updateDetails(
 					valueOrFallback(basic.characterName(), summary.characterName()),
@@ -60,10 +80,16 @@ public class CharacterSyncService {
 					valueOrFallback(basic.characterLevel(), summary.characterLevel()),
 					basic.characterImage(),
 					basic.guildName(),
-					sortOrder
+					currentSortOrder
 			);
+			sortOrder++;
 		}
 		return characterRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId());
+	}
+
+	private boolean isInvalidCharacterId(NexonApiException exception) {
+		return "NEXON_PARAMETER_ERROR".equals(exception.getCode())
+				&& "OPENAPI00003".equals(exception.getNexonErrorName());
 	}
 
 	private String valueOrFallback(String value, String fallback) {

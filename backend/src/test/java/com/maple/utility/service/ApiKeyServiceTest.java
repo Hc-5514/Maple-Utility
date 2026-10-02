@@ -92,6 +92,32 @@ class ApiKeyServiceTest {
 	}
 
 	@Test
+	void registerNormalizesApiKeyBeforeValidationAndStorage() {
+		User user = user();
+		UserApiKey savedApiKey = UserApiKey.create(user, "encrypted-api-key", null);
+		List<NexonCharacterSummary> characters = List.of();
+
+		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+		when(nexonOpenApiClient.getCharacters(1L, "plain-api-key")).thenReturn(characters);
+		when(apiKeyCryptoService.encrypt("plain-api-key")).thenReturn("encrypted-api-key");
+		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.empty());
+		when(userApiKeyRepository.save(any(UserApiKey.class))).thenReturn(savedApiKey);
+
+		apiKeyService.register(1L, "  plain-api-key  ");
+
+		verify(nexonOpenApiClient).getCharacters(1L, "plain-api-key");
+		verify(apiKeyCryptoService).encrypt("plain-api-key");
+		verify(characterSyncService).syncCharacters(user, characters, "plain-api-key");
+	}
+
+	@Test
+	void registerRejectsBlankApiKey() {
+		assertThatThrownBy(() -> apiKeyService.register(1L, "   "))
+				.isInstanceOfSatisfying(ApiException.class, exception ->
+						assertThat(exception.getCode()).isEqualTo("API_KEY_REQUIRED"));
+	}
+
+	@Test
 	void registerReplacesExistingApiKey() {
 		User user = user();
 		UserApiKey existingApiKey = UserApiKey.create(user, "old-encrypted-api-key", null);

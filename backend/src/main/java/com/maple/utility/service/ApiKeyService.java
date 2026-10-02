@@ -46,17 +46,18 @@ public class ApiKeyService {
 
 	@Transactional
 	public ApiKeyStatusResponse register(Long userId, String apiKey) {
+		String normalizedApiKey = normalizeApiKey(apiKey);
 		User user = findUser(userId);
 		List<NexonCharacterSummary> characters;
 		try {
-			characters = nexonOpenApiClient.getCharacters(userId, apiKey);
+			characters = nexonOpenApiClient.getCharacters(userId, normalizedApiKey);
 		} catch (ApiException exception) {
 			if ("API_KEY_INVALID".equals(exception.getCode())) {
 				markInvalid(userId);
 			}
 			throw exception;
 		}
-		String encryptedKey = apiKeyCryptoService.encrypt(apiKey);
+		String encryptedKey = apiKeyCryptoService.encrypt(normalizedApiKey);
 		LocalDateTime verifiedAt = LocalDateTime.now(clock);
 
 		UserApiKey userApiKey = userApiKeyRepository.findByUserId(userId)
@@ -66,7 +67,7 @@ public class ApiKeyService {
 		} else {
 			userApiKey.replaceKey(encryptedKey, verifiedAt);
 		}
-		characterSyncService.syncCharacters(user, characters, apiKey);
+		characterSyncService.syncCharacters(user, characters, normalizedApiKey);
 
 		return ApiKeyStatusResponse.registered(userApiKey);
 	}
@@ -91,5 +92,13 @@ public class ApiKeyService {
 	private User findUser(Long userId) {
 		return userRepository.findById(userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "사용자 없음"));
+	}
+
+	private String normalizeApiKey(String apiKey) {
+		String normalizedApiKey = apiKey == null ? "" : apiKey.strip();
+		if (normalizedApiKey.isBlank()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_REQUIRED", "Nexon API Key 입력 필요");
+		}
+		return normalizedApiKey;
 	}
 }

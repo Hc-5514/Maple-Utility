@@ -77,16 +77,16 @@ public class NexonOpenApiClient {
 			return;
 		}
 		for (JsonNode character : characterList) {
-			String ocid = character.path("ocid").asText(null);
-			String characterName = character.path("character_name").asText(null);
+			String ocid = text(character, "ocid");
+			String characterName = text(character, "character_name");
 			if (ocid == null || characterName == null) {
 				continue;
 			}
 			characters.add(new NexonCharacterSummary(
 					ocid,
 					characterName,
-					character.path("world_name").asText(null),
-					character.path("character_class").asText(null),
+					text(character, "world_name"),
+					text(character, "character_class"),
 					character.path("character_level").isNumber() ? character.path("character_level").asInt() : null
 			));
 		}
@@ -203,7 +203,7 @@ public class NexonOpenApiClient {
 		for (String fieldName : fieldNames) {
 			JsonNode value = node.path(fieldName);
 			if (value.isTextual() && !value.asText().isBlank()) {
-				return value.asText();
+				return value.asText().strip();
 			}
 		}
 		return null;
