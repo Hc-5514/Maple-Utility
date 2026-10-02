@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 import com.maple.utility.config.NexonProperties;
 import com.maple.utility.config.RedisPolicyProperties;
@@ -22,12 +23,15 @@ import com.maple.utility.entity.SyncType;
 import com.maple.utility.entity.User;
 import com.maple.utility.entity.UserApiKey;
 import com.maple.utility.exception.ApiException;
+import com.maple.utility.exception.NexonApiException;
 import com.maple.utility.repository.DataSyncLogRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
 import com.maple.utility.util.NexonApiCallCounter;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Component
 public class NexonApiGateway {
 
@@ -180,35 +184,59 @@ public class NexonApiGateway {
 
 	private String callWithRetry(String uri, String apiKey) {
 		int attempts = 0;
-		while (true) {
-			attempts++;
-			GatewayResponse response = webClient.get()
-					.uri(uri)
-					.header(NEXON_API_KEY_HEADER, apiKey)
-					.exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class)
-							.defaultIfEmpty("")
-							.map(body -> new GatewayResponse(clientResponse.statusCode().value(), body)))
-					.switchIfEmpty(Mono.just(new GatewayResponse(502, "")))
-					.block();
-			if (response == null) {
-				throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_API_ERROR", "Nexon OpenAPI 응답 없음");
+		try {
+			while (true) {
+				attempts++;
+				GatewayResponse response = webClient.get()
+						.uri(uri)
+						.header(NEXON_API_KEY_HEADER, apiKey)
+						.exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class)
+								.defaultIfEmpty("")
+								.map(body -> new GatewayResponse(clientResponse.statusCode().value(), body)))
+						.switchIfEmpty(Mono.just(new GatewayResponse(502, "")))
+						.block();
+				if (response == null) {
+					throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_API_ERROR", "Nexon OpenAPI 응답 없음");
+				}
+				HttpStatus status = HttpStatus.resolve(response.status());
+				if (status != null && status.is2xxSuccessful()) {
+					return response.body() == null ? "{}" : response.body();
+				}
+				ApiException mappedException = mapException(status, uri, response.body());
+				if (shouldRetry(status, attempts)) {
+					sleepBackoff(attempts);
+					continue;
+				}
+				throw mappedException;
 			}
-			HttpStatus status = HttpStatus.resolve(response.status());
-			if (status != null && status.is2xxSuccessful()) {
-				return response.body() == null ? "{}" : response.body();
+		} catch (WebClientRequestException exception) {
+			if (exception.getCause() instanceof IllegalArgumentException) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_INVALID_FORMAT", "Nexon API Key 형식 오류");
 			}
-			ApiException mappedException = mapException(status);
-			if (shouldRetry(status, attempts)) {
-				sleepBackoff(attempts);
-				continue;
-			}
-			throw mappedException;
+			throw exception;
 		}
 	}
 
-	private ApiException mapException(HttpStatus status) {
+	private ApiException mapException(HttpStatus status, String uri, String body) {
+		NexonError nexonError = parseNexonError(body);
+		if (status != null && !status.is2xxSuccessful()) {
+			log.warn(
+					"Nexon API non-2xx response. status={}, uri={}, nexonErrorName={}, nexonErrorMessage={}, body={}",
+					status,
+					uri,
+					nexonError.name(),
+					nexonError.message(),
+					body
+			);
+		}
 		if (status == HttpStatus.BAD_REQUEST) {
-			return new ApiException(HttpStatus.BAD_REQUEST, "NEXON_PARAMETER_ERROR", "Nexon API 파라미터 오류");
+			return new NexonApiException(
+					HttpStatus.BAD_REQUEST,
+					"NEXON_PARAMETER_ERROR",
+					"Nexon API 파라미터 오류",
+					nexonError.name(),
+					nexonError.message()
+			);
 		}
 		if (status == HttpStatus.UNAUTHORIZED) {
 			return new ApiException(HttpStatus.UNAUTHORIZED, "API_KEY_INVALID", "유효하지 않은 Nexon API Key");
@@ -220,6 +248,21 @@ public class NexonApiGateway {
 			return new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_SERVER_ERROR", "Nexon API 서버 오류");
 		}
 		return new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_API_ERROR", "Nexon OpenAPI 호출 실패");
+	}
+
+	private NexonError parseNexonError(String body) {
+		if (body == null || body.isBlank()) {
+			return NexonError.empty();
+		}
+		try {
+			JsonNode error = objectMapper.readTree(body).path("error");
+			return new NexonError(
+					error.path("name").asText(null),
+					error.path("message").asText(null)
+			);
+		} catch (Exception exception) {
+			return NexonError.empty();
+		}
 	}
 
 	private boolean shouldRetry(HttpStatus status, int attempts) {
@@ -281,5 +324,11 @@ public class NexonApiGateway {
 	}
 
 	private record GatewayResponse(int status, String body) {
+	}
+
+	private record NexonError(String name, String message) {
+		private static NexonError empty() {
+			return new NexonError(null, null);
+		}
 	}
 }

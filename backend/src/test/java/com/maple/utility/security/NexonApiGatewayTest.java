@@ -33,6 +33,7 @@ import com.maple.utility.entity.SyncType;
 import com.maple.utility.entity.User;
 import com.maple.utility.entity.UserApiKey;
 import com.maple.utility.exception.ApiException;
+import com.maple.utility.exception.NexonApiException;
 import com.maple.utility.repository.DataSyncLogRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
@@ -170,6 +171,32 @@ class NexonApiGatewayTest {
 		assertThatThrownBy(() -> gateway.get(1L, "plain-api-key", "https://example.test", NexonRequestMode.REALTIME))
 				.isInstanceOf(ApiException.class);
 		assertThat(userApiKey.getKeyStatus().name()).isEqualTo("INVALID");
+	}
+
+	@Test
+	void getMapsNexonBadRequestBodyToNexonApiException() {
+		WebClient webClient = WebClient.builder()
+				.exchangeFunction(request -> Mono.just(ClientResponse.create(HttpStatus.BAD_REQUEST)
+						.body("{\"error\":{\"name\":\"OPENAPI00003\",\"message\":\"Please input valid id\"}}")
+						.build()))
+				.build();
+		NexonApiGateway gateway = gateway(webClient, millis -> {
+		});
+		User user = user();
+
+		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+		when(valueOperations.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+		when(apiCallCounter.getCount("1")).thenReturn(0L);
+		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
+
+		assertThatThrownBy(() -> gateway.get(1L, "plain-api-key", "https://example.test/character/basic?ocid=invalid", NexonRequestMode.REALTIME))
+				.isInstanceOfSatisfying(NexonApiException.class, exception -> {
+					assertThat(exception.getCode()).isEqualTo("NEXON_PARAMETER_ERROR");
+					assertThat(exception.getNexonErrorName()).isEqualTo("OPENAPI00003");
+					assertThat(exception.getNexonErrorMessage()).isEqualTo("Please input valid id");
+				});
 	}
 
 	@Test

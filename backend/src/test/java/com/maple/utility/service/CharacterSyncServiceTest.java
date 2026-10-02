@@ -13,11 +13,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
+import com.maple.utility.exception.NexonApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.security.NexonCharacterBasic;
 import com.maple.utility.security.NexonCharacterSummary;
@@ -80,6 +82,37 @@ class CharacterSyncServiceTest {
 		assertThat(existingCharacter.getGuildName()).isEqualTo("길드");
 		assertThat(existingCharacter.isFavorite()).isTrue();
 		assertThat(existingCharacter.getSortOrder()).isEqualTo(1);
+	}
+
+	@Test
+	void syncCharactersSkipsInvalidNexonCharacterId() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		User user = user();
+		List<NexonCharacterSummary> summaries = List.of(
+				new NexonCharacterSummary("invalid-ocid", "꼬농닉화긱", "엘리시움", "엔젤릭버스터", 250),
+				new NexonCharacterSummary("valid-ocid", "정상캐릭터", "스카니아", "히어로", 280)
+		);
+		when(nexonOpenApiClient.getCharacterBasic(1L, "plain-api-key", "invalid-ocid"))
+				.thenThrow(new NexonApiException(
+						HttpStatus.BAD_REQUEST,
+						"NEXON_PARAMETER_ERROR",
+						"Nexon API 파라미터 오류",
+						"OPENAPI00003",
+						"Please input valid id"
+				));
+		when(nexonOpenApiClient.getCharacterBasic(1L, "plain-api-key", "valid-ocid"))
+				.thenReturn(new NexonCharacterBasic("valid-ocid", "정상캐릭터", "스카니아", "히어로", 280, "image-url", "길드"));
+		when(characterRepository.findByUserIdAndOcid(1L, "valid-ocid")).thenReturn(Optional.empty());
+		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
+
+		service.syncCharacters(user, summaries, "plain-api-key");
+
+		ArgumentCaptor<MapleCharacter> captor = ArgumentCaptor.forClass(MapleCharacter.class);
+		verify(characterRepository).save(captor.capture());
+		MapleCharacter savedCharacter = captor.getValue();
+		assertThat(savedCharacter.getOcid()).isEqualTo("valid-ocid");
+		assertThat(savedCharacter.getSortOrder()).isEqualTo(1);
 	}
 
 	private User user() {
