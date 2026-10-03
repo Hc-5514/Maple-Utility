@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -22,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.maple.utility.dto.response.SchedulerCharacterSummaryResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
+import com.maple.utility.dto.response.SyncJobResponse;
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
@@ -36,6 +38,7 @@ import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
+import com.maple.utility.repository.SyncJobRepository;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerServiceTest {
@@ -60,6 +63,9 @@ class SchedulerServiceTest {
 	@Mock
 	private SchedulerSyncService schedulerSyncService;
 
+	@Mock
+	private SyncJobRepository syncJobRepository;
+
 	private SchedulerService schedulerService;
 
 	@BeforeEach
@@ -70,8 +76,22 @@ class SchedulerServiceTest {
 				weeklyRecordRepository,
 				bossRecordRepository,
 				schedulerSyncService,
+				syncJobRepository,
 				CLOCK
 		);
+	}
+
+	@Test
+	void getSummaryUsesCompletedJobTimeWhenNoRecordsExist() {
+		LocalDateTime completedAt = LocalDateTime.of(2026, 7, 14, 21, 0);
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
+		when(syncJobRepository.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(
+				new SyncJobResponse(1L, "SCHEDULER", "COMPLETED", 0, 0, 0, null,
+						completedAt.minusSeconds(1), completedAt)));
+
+		SchedulerSummaryResponse response = schedulerService.getSummary(1L, LocalDate.of(2026, 7, 14));
+
+		assertThat(response.syncedAt()).isEqualTo(completedAt);
 	}
 
 	@Test

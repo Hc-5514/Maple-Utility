@@ -50,12 +50,21 @@ public class NexonOpenApiClient {
 		return parseScheduler(response);
 	}
 
+	public NexonSchedulerResponse getCharacterScheduler(Long userId, String ocid, boolean force) {
+		if (!force) {
+			return getCharacterScheduler(userId, ocid);
+		}
+		JsonNode response = nexonApiGateway.getWithStoredKey(userId, characterSchedulerUri(ocid), NexonRequestMode.REALTIME, SyncType.SCHEDULER_REALTIME, !force);
+		return parseScheduler(response);
+	}
+
 	public NexonSchedulerResponse getCharacterSchedulerForBatch(Long userId, String ocid) {
 		JsonNode response = nexonApiGateway.getWithStoredKey(
 				userId,
 				characterSchedulerUri(ocid),
 				NexonRequestMode.BATCH,
-				SyncType.SCHEDULER_BATCH
+				SyncType.SCHEDULER_BATCH,
+				false
 		);
 		return parseScheduler(response);
 	}
