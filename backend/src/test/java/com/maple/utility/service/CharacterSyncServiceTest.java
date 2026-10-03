@@ -2,6 +2,7 @@ package com.maple.utility.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -80,6 +81,45 @@ class CharacterSyncServiceTest {
 		assertThat(existingCharacter.getCharacterLevel()).isEqualTo(280);
 		assertThat(existingCharacter.getCharacterImage()).isEqualTo("image-url");
 		assertThat(existingCharacter.getGuildName()).isEqualTo("길드");
+		assertThat(existingCharacter.isFavorite()).isTrue();
+		assertThat(existingCharacter.getSortOrder()).isEqualTo(1);
+	}
+
+	@Test
+	void syncSummariesCreatesCharactersWithoutBasicApiCall() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		User user = user();
+		when(characterRepository.findByUserIdAndOcid(1L, "ocid")).thenReturn(Optional.empty());
+		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
+
+		service.syncSummaries(user, List.of(new NexonCharacterSummary("ocid", "캐릭터", "스카니아", "히어로", 280)));
+
+		ArgumentCaptor<MapleCharacter> captor = ArgumentCaptor.forClass(MapleCharacter.class);
+		verify(characterRepository).save(captor.capture());
+		MapleCharacter savedCharacter = captor.getValue();
+		assertThat(savedCharacter.getOcid()).isEqualTo("ocid");
+		assertThat(savedCharacter.getCharacterName()).isEqualTo("캐릭터");
+		assertThat(savedCharacter.getCharacterImage()).isNull();
+		assertThat(savedCharacter.getGuildName()).isNull();
+		verify(nexonOpenApiClient, never()).getCharacterBasic(1L, "ocid");
+	}
+
+	@Test
+	void syncSummariesUpdatesExistingCharacterAndKeepsFavorite() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		User user = user();
+		MapleCharacter existingCharacter = MapleCharacter.create(user, "ocid", "이전", "리부트", "팔라딘", 270, 3);
+		existingCharacter.toggleFavorite();
+		when(characterRepository.findByUserIdAndOcid(1L, "ocid")).thenReturn(Optional.of(existingCharacter));
+		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(existingCharacter));
+
+		service.syncSummaries(user, List.of(new NexonCharacterSummary("ocid", "캐릭터", "스카니아", "히어로", 280)));
+
+		assertThat(existingCharacter.getCharacterName()).isEqualTo("캐릭터");
+		assertThat(existingCharacter.getWorldName()).isEqualTo("스카니아");
+		assertThat(existingCharacter.getCharacterClass()).isEqualTo("히어로");
+		assertThat(existingCharacter.getCharacterLevel()).isEqualTo(280);
 		assertThat(existingCharacter.isFavorite()).isTrue();
 		assertThat(existingCharacter.getSortOrder()).isEqualTo(1);
 	}

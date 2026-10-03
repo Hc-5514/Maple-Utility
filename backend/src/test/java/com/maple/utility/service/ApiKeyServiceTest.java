@@ -3,6 +3,7 @@ package com.maple.utility.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -88,7 +89,8 @@ class ApiKeyServiceTest {
 
 		assertThat(response.registered()).isTrue();
 		assertThat(response.keyStatus()).isEqualTo(ApiKeyStatus.ACTIVE);
-		verify(characterSyncService).syncCharacters(user, characters, "plain-api-key");
+		verify(characterSyncService).syncSummaries(user, characters);
+		verify(characterSyncService, never()).syncCharacters(user, characters, "plain-api-key");
 	}
 
 	@Test
@@ -107,7 +109,7 @@ class ApiKeyServiceTest {
 
 		verify(nexonOpenApiClient).getCharacters(1L, "plain-api-key");
 		verify(apiKeyCryptoService).encrypt("plain-api-key");
-		verify(characterSyncService).syncCharacters(user, characters, "plain-api-key");
+		verify(characterSyncService).syncSummaries(user, characters);
 	}
 
 	@Test
