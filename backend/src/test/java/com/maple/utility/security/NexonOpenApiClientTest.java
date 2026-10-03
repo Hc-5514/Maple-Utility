@@ -138,6 +138,13 @@ class NexonOpenApiClientTest {
 						      "cycle": "WEEKLY",
 						      "registration_flag": "true",
 						      "complete_flag": "true"
+						    },
+						    {
+						      "content_name": "일간 보스",
+						      "difficulty": "NORMAL",
+						      "cycle": "DAILY",
+						      "registration_flag": "true",
+						      "complete_flag": "false"
 						    }
 						  ]
 						}
