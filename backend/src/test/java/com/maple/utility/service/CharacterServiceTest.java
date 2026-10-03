@@ -7,7 +7,9 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.Clock;
 
+import org.springframework.cache.CacheManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +42,9 @@ class CharacterServiceTest {
 	@Mock
 	private CharacterSyncService characterSyncService;
 
+	@Mock
+	private CacheManager cacheManager;
+
 	private CharacterService characterService;
 
 	@BeforeEach
@@ -48,7 +53,9 @@ class CharacterServiceTest {
 				characterRepository,
 				userRepository,
 				nexonOpenApiClient,
-				characterSyncService
+				characterSyncService,
+				cacheManager,
+				Clock.systemDefaultZone()
 		);
 	}
 
