@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
+import { useCharacterStore } from '../stores/characterStore'
 import type {
   ApiResponse,
   BossDropItem,
   BossItemAcquisition,
   Character,
   GuildRecord,
-  SchedulerBossRecord,
+  SchedulerBossDetail,
   SchedulerDailyRecord,
   SchedulerWeeklyRecord,
 } from '../types'
@@ -52,7 +53,7 @@ export function useCharacterBoss(characterId: number, date: string) {
   return useQuery({
     queryKey: ['scheduler/boss', characterId, date],
     queryFn: async () => {
-      const { data } = await client.get<ApiResponse<SchedulerBossRecord[]>>(
+      const { data } = await client.get<ApiResponse<SchedulerBossDetail>>(
         `/scheduler/${characterId}/boss?date=${date}`,
       )
       return data.data
@@ -83,9 +84,29 @@ export function useToggleFavorite(characterId: number) {
       )
       return data.data
     },
-    onSuccess: () => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['characters', characterId] })
+      const previous = queryClient.getQueryData<Character | null>(['characters', characterId])
+      if (previous) {
+        queryClient.setQueryData(['characters', characterId], { ...previous, favorite: !previous.favorite })
+        useCharacterStore.getState().updateFavorite(characterId, !previous.favorite)
+      }
+      return { previous }
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['characters', characterId], context.previous)
+        useCharacterStore.getState().updateFavorite(characterId, context.previous.favorite)
+      }
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['characters', characterId], updated)
+      useCharacterStore.getState().updateFavorite(characterId, updated.favorite)
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['characters', characterId] })
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
+      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
     },
   })
 }

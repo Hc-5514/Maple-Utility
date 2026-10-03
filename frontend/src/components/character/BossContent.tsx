@@ -40,8 +40,8 @@ export default function BossContent({ characterId, date }: Props) {
   const { data: bossRecords, isLoading, isError } = useCharacterBoss(characterId, date)
   const [selectedRecord, setSelectedRecord] = useState<SchedulerBossRecord | null>(null)
 
-  const weeklyRecords = (bossRecords ?? []).filter((r) => r.resetPeriod === 'WEEKLY')
-  const monthlyRecords = (bossRecords ?? []).filter((r) => r.resetPeriod === 'MONTHLY')
+  const weeklyRecords = bossRecords?.weeklyBosses ?? []
+  const monthlyRecords = bossRecords?.monthlyBosses ?? []
 
   return (
     <section className="rounded-xl bg-[#2d2d44] p-5">

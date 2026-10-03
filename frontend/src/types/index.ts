@@ -162,7 +162,24 @@ export interface CharacterSchedulerSummary {
 
 export interface SchedulerSummary {
   characters: CharacterSchedulerSummary[]
-  syncedAt: string
+  syncedAt: string | null
+}
+
+export interface SchedulerBossDetail {
+  weeklyBosses: SchedulerBossRecord[]
+  monthlyBosses: SchedulerBossRecord[]
+}
+
+export interface SyncJob {
+  id: number
+  jobType: 'CHARACTER' | 'SCHEDULER'
+  status: 'STARTED' | 'COMPLETED' | 'FAILED'
+  totalCount: number
+  completedCount: number
+  skippedCount: number
+  errorMessage: string | null
+  startedAt: string
+  completedAt: string | null
 }
 
 // ─── 길드 콘텐츠 ─────────────────────────────────────────────────

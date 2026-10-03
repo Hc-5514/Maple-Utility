@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
 import { useCharacterStore } from '../stores/characterStore'
 import Modal from '../components/common/Modal'
-import type { ApiKeyStatus, ApiKeyStatusResponse, ApiResponse, Character } from '../types'
+import type { ApiKeyStatus, ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
 
 // ─── API Key 섹션 ──────────────────────────────────────────────────────────────
 
@@ -192,9 +192,19 @@ function CharacterRow({ character }: { character: Character }) {
       )
       return data.data
     },
+    onMutate: () => {
+      updateFavorite(character.id, !character.favorite)
+      return { previousFavorite: character.favorite }
+    },
+    onError: (_error, _variables, context) => {
+      if (context) updateFavorite(character.id, context.previousFavorite)
+    },
     onSuccess: (updated) => {
       updateFavorite(character.id, updated.favorite)
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
+      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
     },
   })
 
@@ -233,6 +243,7 @@ function CharacterRow({ character }: { character: Character }) {
       >
         {character.favorite ? '★' : '☆'}
       </button>
+      {favoriteMutation.isError && <span className="text-xs text-[#f87171]">저장 실패</span>}
     </div>
   )
 }
@@ -242,6 +253,7 @@ function CharacterRow({ character }: { character: Character }) {
 function CharacterSection() {
   const queryClient = useQueryClient()
   const { characters, setCharacters } = useCharacterStore()
+  const [jobId, setJobId] = useState<number | null>(null)
 
   const { isLoading } = useQuery({
     queryKey: ['characters'],
@@ -254,14 +266,29 @@ function CharacterSection() {
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await client.post<ApiResponse<Character[]>>('/characters/sync')
+      const { data } = await client.post<ApiResponse<SyncJob>>('/characters/sync')
       return data.data
     },
-    onSuccess: (synced) => {
-      setCharacters(synced)
-      void queryClient.invalidateQueries({ queryKey: ['characters'] })
+    onSuccess: (job) => {
+      setJobId(job.id)
     },
   })
+
+  const { data: syncJob, isError: isJobError } = useQuery({
+    queryKey: ['characters/sync-jobs', jobId],
+    queryFn: async () => {
+      const { data } = await client.get<ApiResponse<SyncJob>>(`/characters/sync-jobs/${jobId}`)
+      return data.data
+    },
+    enabled: jobId !== null,
+    refetchInterval: (query) => query.state.data?.status === 'STARTED' ? 2000 : false,
+  })
+
+  useEffect(() => {
+    if (syncJob?.status === 'COMPLETED') {
+      void queryClient.invalidateQueries({ queryKey: ['characters'] })
+    }
+  }, [syncJob?.status, queryClient])
 
   const sorted = [...characters].sort((a, b) => {
     if (a.favorite === b.favorite) return a.sortOrder - b.sortOrder
@@ -279,10 +306,10 @@ function CharacterSection() {
         </h2>
         <button
           onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending}
+          disabled={syncMutation.isPending || syncJob?.status === 'STARTED'}
           className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-white/70 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
         >
-          {syncMutation.isPending ? (
+          {syncMutation.isPending || syncJob?.status === 'STARTED' ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white/80" />
           ) : (
             '↺'
@@ -290,6 +317,15 @@ function CharacterSection() {
           재동기화
         </button>
       </div>
+
+      {syncJob?.status === 'STARTED' && (
+        <p className="mb-3 text-sm text-white/60">
+          동기화 중 {syncJob.totalCount > 0 ? `${syncJob.completedCount}/${syncJob.totalCount}` : ''}
+        </p>
+      )}
+      {syncJob?.status === 'COMPLETED' && syncJob.skippedCount > 0 && (
+        <p className="mb-3 text-sm text-white/60">상세 조회 제외 {syncJob.skippedCount}명</p>
+      )}
 
       {isLoading ? (
         <div className="flex items-center gap-2 text-white/50">
@@ -308,7 +344,7 @@ function CharacterSection() {
         </div>
       )}
 
-      {syncMutation.isError && (
+      {(syncMutation.isError || isJobError || syncJob?.status === 'FAILED') && (
         <p className="mt-3 text-sm text-[#f87171]">동기화 중 오류가 발생했습니다.</p>
       )}
     </section>
