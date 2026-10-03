@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -39,8 +41,13 @@ class CharacterSyncServiceTest {
 	void syncCharactersCreatesNewCharacter() {
 		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
 		User user = user();
-		when(characterRepository.findByUserIdAndOcid(1L, "ocid")).thenReturn(Optional.empty());
-		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		Map<String, MapleCharacter> persisted = new HashMap<>();
+		when(characterRepository.findByUserIdAndOcid(1L, "ocid")).thenAnswer(invocation -> Optional.ofNullable(persisted.get("ocid")));
+		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> {
+			MapleCharacter character = invocation.getArgument(0);
+			persisted.put(character.getOcid(), character);
+			return character;
+		});
 		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
 		when(nexonOpenApiClient.getCharacterBasic(1L, "plain-api-key", "ocid"))
 				.thenReturn(new NexonCharacterBasic("ocid", "상세캐릭터", "스카니아", "히어로", 281, "image-url", "길드"));
@@ -142,17 +149,21 @@ class CharacterSyncServiceTest {
 				));
 		when(nexonOpenApiClient.getCharacterBasic(1L, "plain-api-key", "valid-ocid"))
 				.thenReturn(new NexonCharacterBasic("valid-ocid", "정상캐릭터", "스카니아", "히어로", 280, "image-url", "길드"));
-		when(characterRepository.findByUserIdAndOcid(1L, "valid-ocid")).thenReturn(Optional.empty());
-		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		Map<String, MapleCharacter> persisted = new HashMap<>();
+		when(characterRepository.findByUserIdAndOcid(1L, "invalid-ocid")).thenAnswer(invocation -> Optional.ofNullable(persisted.get("invalid-ocid")));
+		when(characterRepository.findByUserIdAndOcid(1L, "valid-ocid")).thenAnswer(invocation -> Optional.ofNullable(persisted.get("valid-ocid")));
+		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> {
+			MapleCharacter character = invocation.getArgument(0);
+			persisted.put(character.getOcid(), character);
+			return character;
+		});
 		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
 
 		service.syncCharacters(user, summaries, "plain-api-key");
 
-		ArgumentCaptor<MapleCharacter> captor = ArgumentCaptor.forClass(MapleCharacter.class);
-		verify(characterRepository).save(captor.capture());
-		MapleCharacter savedCharacter = captor.getValue();
-		assertThat(savedCharacter.getOcid()).isEqualTo("valid-ocid");
-		assertThat(savedCharacter.getSortOrder()).isEqualTo(1);
+		assertThat(persisted.keySet()).containsExactlyInAnyOrder("invalid-ocid", "valid-ocid");
+		assertThat(persisted.get("invalid-ocid").getCharacterName()).isEqualTo("꼬농닉화긱");
+		assertThat(persisted.get("valid-ocid").getSortOrder()).isEqualTo(2);
 	}
 
 	private User user() {
