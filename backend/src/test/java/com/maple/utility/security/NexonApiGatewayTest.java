@@ -200,6 +200,29 @@ class NexonApiGatewayTest {
 	}
 
 	@Test
+	void getPreservesNexonForbiddenCode() {
+		WebClient webClient = WebClient.builder()
+				.exchangeFunction(request -> Mono.just(ClientResponse.create(HttpStatus.FORBIDDEN)
+						.body("{\"error\":{\"name\":\"OPENAPI00002\",\"message\":\"Access Denied\"}}")
+						.build()))
+				.build();
+		NexonApiGateway gateway = gateway(webClient, millis -> {
+		});
+		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+		when(valueOperations.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+		when(apiCallCounter.getCount("1")).thenReturn(0L);
+		when(userRepository.findById(1L)).thenReturn(Optional.of(user()));
+		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
+
+		assertThatThrownBy(() -> gateway.get(1L, "plain-api-key", "https://example.test/scheduler/character-state?ocid=ocid", NexonRequestMode.REALTIME))
+				.isInstanceOfSatisfying(NexonApiException.class, exception -> {
+					assertThat(exception.getCode()).isEqualTo("NEXON_ACCESS_DENIED");
+					assertThat(exception.getNexonErrorName()).isEqualTo("OPENAPI00002");
+				});
+	}
+
+	@Test
 	void getWithBatchSyncTypeWritesSchedulerBatchLog() {
 		WebClient webClient = WebClient.builder()
 				.exchangeFunction(request -> Mono.just(ClientResponse.create(HttpStatus.OK).body("{}").build()))
