@@ -80,12 +80,13 @@ class SchedulerSyncServiceTest {
 		MapleCharacter character = character(user);
 		BossMaster boss = boss();
 		NexonSchedulerResponse response = new NexonSchedulerResponse(
+				LocalDate.parse("2026-07-14"),
 				List.of(new NexonSchedulerResponse.Daily(LocalDate.parse("2026-07-14"), "일일 퀘스트", 1, 3)),
 				List.of(new NexonSchedulerResponse.Weekly(LocalDate.parse("2026-07-13"), "길드 주간 미션", true, 1000)),
 				List.of(new NexonSchedulerResponse.Boss(LocalDate.parse("2026-07-14"), "스우", Difficulty.HARD, ResetPeriod.WEEKLY, true))
 		);
 
-		when(nexonOpenApiClient.getCharacterScheduler(1L, "ocid")).thenReturn(response);
+		when(nexonOpenApiClient.getCharacterScheduler(1L, "ocid", false)).thenReturn(response);
 		when(dailyRecordRepository.findByCharacterIdAndRecordDateAndContentName(10L, LocalDate.parse("2026-07-14"), "일일 퀘스트"))
 				.thenReturn(Optional.empty());
 		when(weeklyRecordRepository.findByCharacterIdAndWeekStartDateAndContentName(10L, LocalDate.parse("2026-07-13"), "길드 주간 미션"))
@@ -114,12 +115,33 @@ class SchedulerSyncServiceTest {
 	void syncCharactersForBatchUsesBatchSchedulerApi() {
 		User user = user();
 		MapleCharacter character = character(user);
-		NexonSchedulerResponse response = new NexonSchedulerResponse(List.of(), List.of(), List.of());
+		NexonSchedulerResponse response = new NexonSchedulerResponse(LocalDate.parse("2026-07-14"), List.of(), List.of(), List.of());
 		when(nexonOpenApiClient.getCharacterSchedulerForBatch(1L, "ocid")).thenReturn(response);
 
 		schedulerSyncService.syncCharactersForBatch(1L, List.of(character));
 
 		verify(nexonOpenApiClient).getCharacterSchedulerForBatch(1L, "ocid");
+	}
+
+	@Test
+	void syncOneCharacterRemovesRecordsNoLongerRegistered() {
+		MapleCharacter character = character(user());
+		LocalDate date = LocalDate.parse("2026-07-14");
+		LocalDate weekStart = LocalDate.parse("2026-07-13");
+		var staleDaily = SchedulerDailyRecord.create(character, date, "해제한 일일 콘텐츠", 0, 1, null);
+		var staleWeekly = SchedulerWeeklyRecord.create(character, weekStart, "해제한 주간 콘텐츠", false, null, null);
+		var staleBoss = SchedulerBossRecord.create(character, boss(), date, ResetPeriod.WEEKLY, false, null);
+		when(nexonOpenApiClient.getCharacterScheduler(1L, "ocid", false))
+				.thenReturn(new NexonSchedulerResponse(date, List.of(), List.of(), List.of()));
+		when(dailyRecordRepository.findByCharacterIdAndRecordDateOrderByIdAsc(10L, date)).thenReturn(List.of(staleDaily));
+		when(weeklyRecordRepository.findByCharacterIdAndWeekStartDateOrderByIdAsc(10L, weekStart)).thenReturn(List.of(staleWeekly));
+		when(bossRecordRepository.findByCharacterIdAndRecordDateOrderByBoss_SortOrderAscIdAsc(10L, date)).thenReturn(List.of(staleBoss));
+
+		schedulerSyncService.syncOneCharacter(1L, character, false, false);
+
+		verify(dailyRecordRepository).deleteAll(List.of(staleDaily));
+		verify(weeklyRecordRepository).deleteAll(List.of(staleWeekly));
+		verify(bossRecordRepository).deleteAll(List.of(staleBoss));
 	}
 
 	private User user() {

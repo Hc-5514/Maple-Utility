@@ -1,6 +1,7 @@
 package com.maple.utility.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Optional;
 
+import org.springframework.cache.Cache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,10 +23,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.CacheManager;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.http.HttpStatus;
 
+import com.maple.utility.config.RedisCacheNames;
 import com.maple.utility.dto.response.SyncJobResponse;
+import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
+import com.maple.utility.exception.NexonApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.SyncJobRepository;
 import com.maple.utility.repository.UserRepository;
@@ -111,6 +117,47 @@ class SyncJobServiceTest {
 
 		assertThat(service.startScheduler(1L, false, false)).isEqualTo(recent);
 		verify(jobs, never()).start(1L, "SCHEDULER");
+	}
+
+	@Test
+	void schedulerJobPreservesNexonForbiddenReason() {
+		MapleCharacter character = character();
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(44L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		when(characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		doThrow(new NexonApiException(HttpStatus.FORBIDDEN, "NEXON_ACCESS_DENIED", "접근 권한 없음", "OPENAPI00002", "Access Denied"))
+				.when(schedulerSync).syncOneCharacter(1L, character, false, true);
+
+		service.startScheduler(1L, true, false);
+
+		verify(jobs).fail(44L, "NEXON_ACCESS_DENIED (OPENAPI00002)", LocalDateTime.now(CLOCK));
+		verify(jobs, never()).complete(44L, LocalDateTime.now(CLOCK));
+	}
+
+	@Test
+	void completedSchedulerJobEvictsSummaryAndDetailCaches() {
+		MapleCharacter character = character();
+		Cache cache = org.mockito.Mockito.mock(Cache.class);
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(45L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		when(characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(cacheManager.getCache(RedisCacheNames.SCHEDULER)).thenReturn(cache);
+
+		service.startScheduler(1L, true, false);
+
+		verify(cache).evict("summary:1:null");
+		verify(cache).evict("summary:1:2026-10-03");
+		verify(cache).evict("daily:1:10:2026-10-03");
+		verify(cache).evict("weekly:1:10:2026-09-28");
+		verify(cache).evict("boss:1:10:null");
+		verify(cache).evict("guild:1:10:2026-10-03");
+		verify(jobs).complete(45L, LocalDateTime.now(CLOCK));
+	}
+
+	private MapleCharacter character() {
+		User user = User.create(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
+		ReflectionTestUtils.setField(user, "id", 1L);
+		MapleCharacter character = MapleCharacter.create(user, "ocid", "캐릭터", "스카니아", "히어로", 280, 1);
+		ReflectionTestUtils.setField(character, "id", 10L);
+		return character;
 	}
 
 	private SyncJobResponse job(Long id, String type, String status, int total, int completed, LocalDateTime completedAt) {

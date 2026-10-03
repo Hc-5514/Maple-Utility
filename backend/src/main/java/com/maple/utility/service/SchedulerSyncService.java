@@ -1,9 +1,14 @@
 package com.maple.utility.service;
 
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,14 +54,14 @@ public class SchedulerSyncService {
 	@Transactional
 	public void syncCharacters(Long userId, List<MapleCharacter> characters) {
 		for (MapleCharacter character : characters) {
-			syncCharacter(userId, character, false);
+			syncOneCharacter(userId, character, false, false);
 		}
 	}
 
 	@Transactional
 	public void syncCharactersForBatch(Long userId, List<MapleCharacter> characters) {
 		for (MapleCharacter character : characters) {
-			syncCharacter(userId, character, true);
+			syncOneCharacter(userId, character, true, false);
 		}
 	}
 
@@ -66,23 +71,14 @@ public class SchedulerSyncService {
 				? nexonOpenApiClient.getCharacterSchedulerForBatch(userId, character.getOcid())
 				: nexonOpenApiClient.getCharacterScheduler(userId, character.getOcid(), force);
 		LocalDateTime syncedAt = LocalDateTime.now(clock);
-		syncDailyRecords(character, scheduler.daily(), syncedAt);
-		syncWeeklyRecords(character, scheduler.weekly(), syncedAt);
-		syncBossRecords(character, scheduler.boss(), syncedAt);
-	}
-
-	private void syncCharacter(Long userId, MapleCharacter character, boolean batch) {
-		NexonSchedulerResponse scheduler = batch
-				? nexonOpenApiClient.getCharacterSchedulerForBatch(userId, character.getOcid())
-				: nexonOpenApiClient.getCharacterScheduler(userId, character.getOcid());
-		LocalDateTime syncedAt = LocalDateTime.now(clock);
-		syncDailyRecords(character, scheduler.daily(), syncedAt);
-		syncWeeklyRecords(character, scheduler.weekly(), syncedAt);
-		syncBossRecords(character, scheduler.boss(), syncedAt);
+		syncDailyRecords(character, scheduler.date(), scheduler.daily(), syncedAt);
+		syncWeeklyRecords(character, scheduler.date(), scheduler.weekly(), syncedAt);
+		syncBossRecords(character, scheduler.date(), scheduler.boss(), syncedAt);
 	}
 
 	private void syncDailyRecords(
 			MapleCharacter character,
+			LocalDate recordDate,
 			List<NexonSchedulerResponse.Daily> dailyRecords,
 			LocalDateTime syncedAt
 	) {
@@ -102,10 +98,14 @@ public class SchedulerSyncService {
 					)));
 			record.updateProgress(source.completedCount(), source.totalCount(), syncedAt);
 		}
+		Set<String> registeredNames = dailyRecords.stream().map(NexonSchedulerResponse.Daily::contentName).collect(Collectors.toSet());
+		dailyRecordRepository.deleteAll(dailyRecordRepository.findByCharacterIdAndRecordDateOrderByIdAsc(character.getId(), recordDate)
+				.stream().filter(record -> !registeredNames.contains(record.getContentName())).toList());
 	}
 
 	private void syncWeeklyRecords(
 			MapleCharacter character,
+			LocalDate recordDate,
 			List<NexonSchedulerResponse.Weekly> weeklyRecords,
 			LocalDateTime syncedAt
 	) {
@@ -125,13 +125,19 @@ public class SchedulerSyncService {
 					)));
 			record.updateProgress(source.completed(), source.score(), syncedAt);
 		}
+		LocalDate weekStartDate = recordDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		Set<String> registeredNames = weeklyRecords.stream().map(NexonSchedulerResponse.Weekly::contentName).collect(Collectors.toSet());
+		weeklyRecordRepository.deleteAll(weeklyRecordRepository.findByCharacterIdAndWeekStartDateOrderByIdAsc(character.getId(), weekStartDate)
+				.stream().filter(record -> !registeredNames.contains(record.getContentName())).toList());
 	}
 
 	private void syncBossRecords(
 			MapleCharacter character,
+			LocalDate recordDate,
 			List<NexonSchedulerResponse.Boss> bossRecords,
 			LocalDateTime syncedAt
 	) {
+		Set<Long> registeredBossIds = new HashSet<>();
 		for (NexonSchedulerResponse.Boss source : bossRecords) {
 			if (source.recordDate() == null) {
 				continue;
@@ -142,6 +148,7 @@ public class SchedulerSyncService {
 			if (boss == null) {
 				continue;
 			}
+			registeredBossIds.add(boss.getId());
 			SchedulerBossRecord record = bossRecordRepository
 					.findByCharacterIdAndBossIdAndRecordDate(character.getId(), boss.getId(), source.recordDate())
 					.orElseGet(() -> bossRecordRepository.save(SchedulerBossRecord.create(
@@ -154,5 +161,7 @@ public class SchedulerSyncService {
 					)));
 			record.updateProgress(source.completed(), syncedAt);
 		}
+		bossRecordRepository.deleteAll(bossRecordRepository.findByCharacterIdAndRecordDateOrderByBoss_SortOrderAscIdAsc(character.getId(), recordDate)
+				.stream().filter(record -> !registeredBossIds.contains(record.getBoss().getId())).toList());
 	}
 }

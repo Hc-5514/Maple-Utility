@@ -28,7 +28,7 @@ services:
       NEXON_API_KEY_SECRET: ${NEXON_API_KEY_SECRET:?NEXON_API_KEY_SECRET is required}
       NEXON_CHARACTER_LIST_URI: ${NEXON_CHARACTER_LIST_URI:-https://open.api.nexon.com/maplestory/v1/character/list}
       NEXON_CHARACTER_BASIC_URI: ${NEXON_CHARACTER_BASIC_URI:-https://open.api.nexon.com/maplestory/v1/character/basic}
-      NEXON_CHARACTER_SCHEDULER_URI: ${NEXON_CHARACTER_SCHEDULER_URI:-https://open.api.nexon.com/maplestory/v1/character/scheduler}
+      NEXON_CHARACTER_SCHEDULER_URI: ${NEXON_CHARACTER_SCHEDULER_URI:-https://open.api.nexon.com/maplestory/v1/scheduler/character-state}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:?APP_CORS_ALLOWED_ORIGINS is required}
       JAVA_TOOL_OPTIONS: -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
     healthcheck:
