@@ -13,6 +13,7 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -54,6 +55,8 @@ import com.maple.utility.service.CharacterService;
 		"management.health.redis.enabled=false"
 })
 class ApiFlowIntegrationTest {
+	@MockitoBean
+	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
 	private WebApplicationContext context;
