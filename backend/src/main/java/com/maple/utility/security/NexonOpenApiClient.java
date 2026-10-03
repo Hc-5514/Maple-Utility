@@ -1,11 +1,14 @@
 package com.maple.utility.security;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
-import java.time.LocalDate;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.MissingNode;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -13,6 +16,7 @@ import com.maple.utility.config.NexonProperties;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.entity.SyncType;
+import com.maple.utility.exception.ApiException;
 
 @Component
 public class NexonOpenApiClient {
@@ -125,87 +129,95 @@ public class NexonOpenApiClient {
 	}
 
 	private NexonSchedulerResponse parseScheduler(JsonNode response) {
-		if (response == null) {
-			return new NexonSchedulerResponse(List.of(), List.of(), List.of());
+		if (response == null || !response.isObject()) {
+			throw invalidSchedulerResponse();
+		}
+		LocalDate recordDate;
+		try {
+			recordDate = LocalDate.parse(requiredText(response, "date"));
+		} catch (DateTimeParseException exception) {
+			throw invalidSchedulerResponse();
 		}
 		return new NexonSchedulerResponse(
-				parseDailyRecords(firstArray(response, "daily", "daily_records", "scheduler_daily_records")),
-				parseWeeklyRecords(firstArray(response, "weekly", "weekly_records", "scheduler_weekly_records")),
-				parseBossRecords(firstArray(response, "boss", "boss_records", "scheduler_boss_records"))
+				recordDate,
+				parseDailyRecords(requiredArray(response, "daily_contents"), recordDate),
+				parseWeeklyRecords(requiredArray(response, "weekly_contents"), recordDate),
+				parseBossRecords(requiredArray(response, "boss_contents"), recordDate)
 		);
 	}
 
-	private List<NexonSchedulerResponse.Daily> parseDailyRecords(JsonNode records) {
+	private List<NexonSchedulerResponse.Daily> parseDailyRecords(JsonNode records, LocalDate recordDate) {
 		List<NexonSchedulerResponse.Daily> dailyRecords = new ArrayList<>();
-		if (!records.isArray()) {
-			return dailyRecords;
-		}
 		for (JsonNode record : records) {
-			String contentName = text(record, "content_name", "contentName", "name");
-			if (contentName == null) {
+			if (!flag(record, "registration_flag")) {
 				continue;
 			}
+			String contentName = requiredText(record, "content_name");
+			int nowCount = requiredInt(record, "now_count");
+			int maxCount = requiredInt(record, "max_count");
+			boolean quest = "quest".equals(text(record, "type"));
 			dailyRecords.add(new NexonSchedulerResponse.Daily(
-					date(record, "record_date", "date"),
+					recordDate,
 					contentName,
-					integer(record, 0, "completed_count", "completedCount", "current_count"),
-					integer(record, 1, "total_count", "totalCount", "max_count")
+					quest ? ("2".equals(text(record, "quest_state")) ? 1 : 0) : nowCount,
+					quest ? 1 : Math.max(maxCount, 1)
 			));
 		}
 		return dailyRecords;
 	}
 
-	private List<NexonSchedulerResponse.Weekly> parseWeeklyRecords(JsonNode records) {
+	private List<NexonSchedulerResponse.Weekly> parseWeeklyRecords(JsonNode records, LocalDate recordDate) {
 		List<NexonSchedulerResponse.Weekly> weeklyRecords = new ArrayList<>();
-		if (!records.isArray()) {
-			return weeklyRecords;
-		}
+		LocalDate weekStartDate = recordDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 		for (JsonNode record : records) {
-			String contentName = text(record, "content_name", "contentName", "name");
-			if (contentName == null) {
+			if (!flag(record, "registration_flag")) {
 				continue;
 			}
+			String contentName = requiredText(record, "content_name");
+			int nowCount = requiredInt(record, "now_count");
+			int maxCount = requiredInt(record, "max_count");
+			boolean completed = "quest".equals(text(record, "type"))
+					? "2".equals(text(record, "quest_state"))
+					: maxCount > 0 && nowCount >= maxCount;
 			weeklyRecords.add(new NexonSchedulerResponse.Weekly(
-					date(record, "week_start_date", "weekStartDate", "date"),
+					weekStartDate,
 					contentName,
-					bool(record, "is_completed", "completed", "complete"),
-					nullableInteger(record, "score")
+					completed,
+					nowCount
 			));
 		}
 		return weeklyRecords;
 	}
 
-	private List<NexonSchedulerResponse.Boss> parseBossRecords(JsonNode records) {
+	private List<NexonSchedulerResponse.Boss> parseBossRecords(JsonNode records, LocalDate recordDate) {
 		List<NexonSchedulerResponse.Boss> bossRecords = new ArrayList<>();
-		if (!records.isArray()) {
-			return bossRecords;
-		}
 		for (JsonNode record : records) {
-			String bossName = text(record, "boss_name", "bossName", "name");
-			Difficulty difficulty = difficulty(text(record, "difficulty", "boss_difficulty"));
-			ResetPeriod resetPeriod = resetPeriod(text(record, "reset_period", "resetPeriod"));
-			if (bossName == null || difficulty == null || resetPeriod == null) {
+			if (!flag(record, "registration_flag")) {
 				continue;
 			}
+			String bossName = requiredText(record, "content_name");
+			Difficulty difficulty = difficulty(requiredText(record, "difficulty"));
+			ResetPeriod resetPeriod = resetPeriod(requiredText(record, "cycle"));
+			if (difficulty == null || resetPeriod == null) {
+				throw invalidSchedulerResponse();
+			}
 			bossRecords.add(new NexonSchedulerResponse.Boss(
-					date(record, "record_date", "date"),
+					recordDate,
 					bossName,
 					difficulty,
 					resetPeriod,
-					bool(record, "is_completed", "completed", "complete")
+					flag(record, "complete_flag")
 			));
 		}
 		return bossRecords;
 	}
 
-	private JsonNode firstArray(JsonNode response, String... fieldNames) {
-		for (String fieldName : fieldNames) {
-			JsonNode node = response.path(fieldName);
-			if (node.isArray()) {
-				return node;
-			}
+	private JsonNode requiredArray(JsonNode response, String fieldName) {
+		JsonNode value = response.path(fieldName);
+		if (!value.isArray()) {
+			throw invalidSchedulerResponse();
 		}
-		return MissingNode.getInstance();
+		return value;
 	}
 
 	private String text(JsonNode node, String... fieldNames) {
@@ -218,34 +230,35 @@ public class NexonOpenApiClient {
 		return null;
 	}
 
-	private LocalDate date(JsonNode node, String... fieldNames) {
-		String value = text(node, fieldNames);
-		return value == null ? null : LocalDate.parse(value);
-	}
-
-	private Integer nullableInteger(JsonNode node, String... fieldNames) {
-		for (String fieldName : fieldNames) {
-			JsonNode value = node.path(fieldName);
-			if (value.isNumber()) {
-				return value.asInt();
-			}
+	private String requiredText(JsonNode node, String fieldName) {
+		String value = text(node, fieldName);
+		if (value == null) {
+			throw invalidSchedulerResponse();
 		}
-		return null;
+		return value;
 	}
 
-	private int integer(JsonNode node, int fallback, String... fieldNames) {
-		Integer value = nullableInteger(node, fieldNames);
-		return value == null ? fallback : value;
-	}
-
-	private boolean bool(JsonNode node, String... fieldNames) {
-		for (String fieldName : fieldNames) {
-			JsonNode value = node.path(fieldName);
-			if (value.isBoolean()) {
-				return value.asBoolean();
-			}
+	private int requiredInt(JsonNode node, String fieldName) {
+		JsonNode value = node.path(fieldName);
+		if (!value.isIntegralNumber() || !value.canConvertToInt()) {
+			throw invalidSchedulerResponse();
 		}
-		return false;
+		return value.asInt();
+	}
+
+	private boolean flag(JsonNode node, String fieldName) {
+		JsonNode value = node.path(fieldName);
+		if (value.isBoolean()) {
+			return value.asBoolean();
+		}
+		if (value.isTextual() && ("true".equalsIgnoreCase(value.asText()) || "false".equalsIgnoreCase(value.asText()))) {
+			return Boolean.parseBoolean(value.asText());
+		}
+		throw invalidSchedulerResponse();
+	}
+
+	private ApiException invalidSchedulerResponse() {
+		return new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_RESPONSE_INVALID", "Nexon 스케줄러 응답 형식 오류");
 	}
 
 	private Difficulty difficulty(String value) {

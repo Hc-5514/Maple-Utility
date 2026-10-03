@@ -7,6 +7,7 @@ import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.ResetPeriod;
 
 public record NexonSchedulerResponse(
+		LocalDate date,
 		List<Daily> daily,
 		List<Weekly> weekly,
 		List<Boss> boss

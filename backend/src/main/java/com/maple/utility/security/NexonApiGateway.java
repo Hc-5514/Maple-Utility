@@ -246,6 +246,15 @@ public class NexonApiGateway {
 					nexonError.message()
 			);
 		}
+		if (status == HttpStatus.FORBIDDEN) {
+			return new NexonApiException(
+					HttpStatus.FORBIDDEN,
+					"NEXON_ACCESS_DENIED",
+					"Nexon API 접근 권한 없음",
+					nexonError.name(),
+					nexonError.message()
+			);
+		}
 		if (status == HttpStatus.UNAUTHORIZED) {
 			return new ApiException(HttpStatus.UNAUTHORIZED, "API_KEY_INVALID", "유효하지 않은 Nexon API Key");
 		}

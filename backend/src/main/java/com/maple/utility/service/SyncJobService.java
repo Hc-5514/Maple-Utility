@@ -1,12 +1,17 @@
 package com.maple.utility.service;
 
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
@@ -139,14 +144,28 @@ public class SyncJobService {
 					jobs.advance(id, true);
 				}
 			}
+			evictSchedulerCaches(userId, favorites);
 			jobs.complete(id, LocalDateTime.now(clock));
-			var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
-			if (cache != null) {
-				cache.evict("summary:" + userId + ":null");
-				cache.evict("summary:" + userId + ":" + LocalDate.now(clock));
-			}
 		} catch (Exception exception) {
 			fail(id, exception);
+		}
+	}
+
+	private void evictSchedulerCaches(Long userId, List<MapleCharacter> favorites) {
+		var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
+		if (cache == null) {
+			return;
+		}
+		LocalDate today = LocalDate.now(clock);
+		Set<String> dates = Stream.of("null", today.toString(),
+				today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString()).collect(Collectors.toSet());
+		for (String date : dates) {
+			cache.evict("summary:" + userId + ":" + date);
+			for (MapleCharacter character : favorites) {
+				for (String view : List.of("daily", "weekly", "boss", "guild")) {
+					cache.evict(view + ":" + userId + ":" + character.getId() + ":" + date);
+				}
+			}
 		}
 	}
 
@@ -165,6 +184,9 @@ public class SyncJobService {
 	private void fail(Long id, Exception exception) {
 		log.error("Sync job failed. jobId={}", id, exception);
 		String message = exception instanceof ApiException api ? api.getCode() : "SYNC_FAILED";
+		if (exception instanceof NexonApiException nexon && nexon.getNexonErrorName() != null) {
+			message += " (" + nexon.getNexonErrorName() + ")";
+		}
 		jobs.fail(id, message, LocalDateTime.now(clock));
 	}
 }
