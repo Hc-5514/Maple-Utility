@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
+import lombok.extern.slf4j.Slf4j;
 
 import com.maple.utility.config.NexonProperties;
 import com.maple.utility.entity.Difficulty;
@@ -18,6 +19,7 @@ import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.entity.SyncType;
 import com.maple.utility.exception.ApiException;
 
+@Slf4j
 @Component
 public class NexonOpenApiClient {
 
@@ -196,10 +198,14 @@ public class NexonOpenApiClient {
 				continue;
 			}
 			String bossName = requiredText(record, "content_name");
-			Difficulty difficulty = difficulty(requiredText(record, "difficulty"));
-			ResetPeriod resetPeriod = resetPeriod(requiredText(record, "cycle"));
+			String difficultyValue = requiredText(record, "difficulty");
+			String cycleValue = requiredText(record, "cycle");
+			Difficulty difficulty = difficulty(difficultyValue);
+			ResetPeriod resetPeriod = resetPeriod(cycleValue);
 			if (difficulty == null || resetPeriod == null) {
-				throw invalidSchedulerResponse();
+				log.warn("Skipping unsupported Nexon scheduler boss. name={}, difficulty={}, cycle={}",
+						bossName, difficultyValue, cycleValue);
+				continue;
 			}
 			bossRecords.add(new NexonSchedulerResponse.Boss(
 					recordDate,
