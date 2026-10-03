@@ -1,6 +1,5 @@
 package com.maple.utility.batch;
 
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,12 +12,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
-import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.UserRepository;
-import com.maple.utility.service.SchedulerSyncService;
+import com.maple.utility.service.SyncJobService;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerBatchJobTest {
@@ -27,31 +24,25 @@ class SchedulerBatchJobTest {
 	private UserRepository userRepository;
 
 	@Mock
-	private CharacterRepository characterRepository;
-
-	@Mock
-	private SchedulerSyncService schedulerSyncService;
+	private SyncJobService syncJobService;
 
 	private SchedulerBatchJob schedulerBatchJob;
 
 	@BeforeEach
 	void setUp() {
-		schedulerBatchJob = new SchedulerBatchJob(userRepository, characterRepository, schedulerSyncService);
+		schedulerBatchJob = new SchedulerBatchJob(userRepository, syncJobService);
 	}
 
 	@Test
 	void syncDailySchedulerSyncsFavoriteCharactersByUser() {
 		User firstUser = user(1L);
 		User secondUser = user(2L);
-		MapleCharacter favorite = character(firstUser, 10L);
 		when(userRepository.findAll()).thenReturn(List.of(firstUser, secondUser));
-		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(favorite));
-		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(2L)).thenReturn(List.of());
 
 		schedulerBatchJob.syncDailyScheduler();
 
-		verify(schedulerSyncService).syncCharactersForBatch(1L, List.of(favorite));
-		verify(schedulerSyncService, never()).syncCharactersForBatch(2L, List.of());
+		verify(syncJobService).startScheduler(1L, true, true);
+		verify(syncJobService).startScheduler(2L, true, true);
 	}
 
 	private User user(Long id) {
@@ -60,9 +51,4 @@ class SchedulerBatchJobTest {
 		return user;
 	}
 
-	private MapleCharacter character(User user, Long id) {
-		MapleCharacter character = MapleCharacter.create(user, "ocid-" + id, "캐릭터", "스카니아", "히어로", 280, 1);
-		ReflectionTestUtils.setField(character, "id", id);
-		return character;
-	}
 }

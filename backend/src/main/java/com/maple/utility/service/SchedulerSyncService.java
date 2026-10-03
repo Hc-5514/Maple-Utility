@@ -60,6 +60,17 @@ public class SchedulerSyncService {
 		}
 	}
 
+	@Transactional
+	public void syncOneCharacter(Long userId, MapleCharacter character, boolean batch, boolean force) {
+		NexonSchedulerResponse scheduler = batch
+				? nexonOpenApiClient.getCharacterSchedulerForBatch(userId, character.getOcid())
+				: nexonOpenApiClient.getCharacterScheduler(userId, character.getOcid(), force);
+		LocalDateTime syncedAt = LocalDateTime.now(clock);
+		syncDailyRecords(character, scheduler.daily(), syncedAt);
+		syncWeeklyRecords(character, scheduler.weekly(), syncedAt);
+		syncBossRecords(character, scheduler.boss(), syncedAt);
+	}
+
 	private void syncCharacter(Long userId, MapleCharacter character, boolean batch) {
 		NexonSchedulerResponse scheduler = batch
 				? nexonOpenApiClient.getCharacterSchedulerForBatch(userId, character.getOcid())

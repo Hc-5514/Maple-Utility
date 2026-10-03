@@ -35,6 +35,7 @@ import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
+import com.maple.utility.repository.SyncJobRepository;
 
 @Service
 public class SchedulerService {
@@ -44,6 +45,7 @@ public class SchedulerService {
 	private final SchedulerWeeklyRecordRepository weeklyRecordRepository;
 	private final SchedulerBossRecordRepository bossRecordRepository;
 	private final SchedulerSyncService schedulerSyncService;
+	private final SyncJobRepository syncJobRepository;
 	private final Clock clock;
 
 	public SchedulerService(
@@ -52,6 +54,7 @@ public class SchedulerService {
 			SchedulerWeeklyRecordRepository weeklyRecordRepository,
 			SchedulerBossRecordRepository bossRecordRepository,
 			SchedulerSyncService schedulerSyncService,
+			SyncJobRepository syncJobRepository,
 			Clock clock
 	) {
 		this.characterRepository = characterRepository;
@@ -59,6 +62,7 @@ public class SchedulerService {
 		this.weeklyRecordRepository = weeklyRecordRepository;
 		this.bossRecordRepository = bossRecordRepository;
 		this.schedulerSyncService = schedulerSyncService;
+		this.syncJobRepository = syncJobRepository;
 		this.clock = clock;
 	}
 
@@ -72,7 +76,7 @@ public class SchedulerService {
 				.map(MapleCharacter::getId)
 				.toList();
 		if (characterIds.isEmpty()) {
-			return new SchedulerSummaryResponse(List.of(), null);
+			return new SchedulerSummaryResponse(List.of(), latestCompletedAt(userId));
 		}
 
 		List<SchedulerDailyRecord> dailyRecords = dailyRecordRepository.findByCharacterIdInAndRecordDateOrderByCharacterIdAscIdAsc(characterIds, targetDate);
@@ -107,7 +111,7 @@ public class SchedulerService {
 				})
 				.toList();
 
-		LocalDateTime syncedAt = Stream.of(
+		LocalDateTime recordSyncedAt = Stream.of(
 						dailyRecords.stream().map(SchedulerDailyRecord::getSyncedAt),
 						weeklyRecords.stream().map(SchedulerWeeklyRecord::getSyncedAt),
 						weeklyBossRecords.stream().map(SchedulerBossRecord::getSyncedAt),
@@ -116,8 +120,16 @@ public class SchedulerService {
 				.filter(t -> t != null)
 				.max(Comparator.naturalOrder())
 				.orElse(null);
+		LocalDateTime jobCompletedAt = latestCompletedAt(userId);
+		LocalDateTime syncedAt = recordSyncedAt == null ? jobCompletedAt
+				: jobCompletedAt == null || recordSyncedAt.isAfter(jobCompletedAt) ? recordSyncedAt : jobCompletedAt;
 
 		return new SchedulerSummaryResponse(characters, syncedAt);
+	}
+
+	private LocalDateTime latestCompletedAt(Long userId) {
+		return syncJobRepository.latestCompleted(userId, "SCHEDULER")
+				.map(job -> job.completedAt()).orElse(null);
 	}
 
 	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'daily:' + #userId + ':' + #characterId + ':' + #date")

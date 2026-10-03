@@ -23,6 +23,12 @@ const bossInfoMap: Record<number, { bossName: string; difficulty: string; bossIm
 }
 
 export const schedulerHandlers = [
+  http.post('/api/v1/scheduler/sync', () => {
+    return HttpResponse.json({ success: true, data: { id: 2, jobType: 'SCHEDULER', status: 'STARTED', totalCount: 1, completedCount: 0, skippedCount: 0, errorMessage: null, startedAt: new Date().toISOString(), completedAt: null } })
+  }),
+  http.get('/api/v1/scheduler/sync-jobs/:jobId', () => {
+    return HttpResponse.json({ success: true, data: { id: 2, jobType: 'SCHEDULER', status: 'COMPLETED', totalCount: 1, completedCount: 1, skippedCount: 0, errorMessage: null, startedAt: new Date().toISOString(), completedAt: new Date().toISOString() } })
+  }),
   // 캐릭터별 일간 기록 (BE: GET /scheduler/:characterId/daily?date=)
   http.get('/api/v1/scheduler/:characterId/daily', ({ params, request }) => {
     const characterId = Number(params.characterId)
@@ -57,7 +63,10 @@ export const schedulerHandlers = [
         ...(bossInfoMap[r.bossId] ?? { bossName: `보스#${r.bossId}`, difficulty: 'NORMAL', bossImage: null, crystalPrice: 0 }),
         completed: r.isCompleted,
       }))
-    return HttpResponse.json({ success: true, data: records })
+    return HttpResponse.json({ success: true, data: {
+      weeklyBosses: records.filter((r) => r.resetPeriod === 'WEEKLY'),
+      monthlyBosses: records.filter((r) => r.resetPeriod === 'MONTHLY'),
+    } })
   }),
 
   // 캐릭터별 길드 기록 (BE: GET /scheduler/:characterId/guild?date=)

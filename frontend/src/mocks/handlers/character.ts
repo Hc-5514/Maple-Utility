@@ -20,8 +20,12 @@ export const characterHandlers = [
 
   http.post('/api/v1/characters/sync', () => {
     return HttpResponse.json(
-      { success: true, data: mockCharacters, message: '캐릭터 동기화 완료' },
+      { success: true, data: { id: 1, jobType: 'CHARACTER', status: 'STARTED', totalCount: mockCharacters.length, completedCount: 0, skippedCount: 0, errorMessage: null, startedAt: new Date().toISOString(), completedAt: null } },
       { status: 200 },
     )
+  }),
+
+  http.get('/api/v1/characters/sync-jobs/:jobId', () => {
+    return HttpResponse.json({ success: true, data: { id: 1, jobType: 'CHARACTER', status: 'COMPLETED', totalCount: mockCharacters.length, completedCount: mockCharacters.length, skippedCount: 0, errorMessage: null, startedAt: new Date().toISOString(), completedAt: new Date().toISOString() } })
   }),
 ]

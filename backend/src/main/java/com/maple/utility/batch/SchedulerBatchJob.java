@@ -1,42 +1,36 @@
 package com.maple.utility.batch;
 
-import java.util.List;
-
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.User;
-import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.UserRepository;
-import com.maple.utility.service.SchedulerSyncService;
+import com.maple.utility.service.SyncJobService;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 public class SchedulerBatchJob {
 
 	private final UserRepository userRepository;
-	private final CharacterRepository characterRepository;
-	private final SchedulerSyncService schedulerSyncService;
+	private final SyncJobService syncJobService;
 
 	public SchedulerBatchJob(
 			UserRepository userRepository,
-			CharacterRepository characterRepository,
-			SchedulerSyncService schedulerSyncService
+			SyncJobService syncJobService
 	) {
 		this.userRepository = userRepository;
-		this.characterRepository = characterRepository;
-		this.schedulerSyncService = schedulerSyncService;
+		this.syncJobService = syncJobService;
 	}
 
 	@Scheduled(cron = "0 0 1 * * *", zone = "Asia/Seoul")
 	public void syncDailyScheduler() {
 		for (User user : userRepository.findAll()) {
-			List<MapleCharacter> favoriteCharacters = characterRepository
-					.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(user.getId());
-			if (favoriteCharacters.isEmpty()) {
-				continue;
+			try {
+				syncJobService.startScheduler(user.getId(), true, true);
+			} catch (RuntimeException exception) {
+				log.error("Scheduler batch enqueue failed. userId={}", user.getId(), exception);
 			}
-			schedulerSyncService.syncCharactersForBatch(user.getId(), favoriteCharacters);
 		}
 	}
 }

@@ -1,12 +1,18 @@
 package com.maple.utility.service;
 
 import java.util.List;
+import java.time.Clock;
+import java.time.LocalDate;
 
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.maple.utility.dto.response.CharacterResponse;
+import com.maple.utility.config.RedisCacheNames;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
@@ -22,17 +28,23 @@ public class CharacterService {
 	private final UserRepository userRepository;
 	private final NexonOpenApiClient nexonOpenApiClient;
 	private final CharacterSyncService characterSyncService;
+	private final CacheManager cacheManager;
+	private final Clock clock;
 
 	public CharacterService(
 			CharacterRepository characterRepository,
 			UserRepository userRepository,
 			NexonOpenApiClient nexonOpenApiClient,
-			CharacterSyncService characterSyncService
+			CharacterSyncService characterSyncService,
+			CacheManager cacheManager,
+			Clock clock
 	) {
 		this.characterRepository = characterRepository;
 		this.userRepository = userRepository;
 		this.nexonOpenApiClient = nexonOpenApiClient;
 		this.characterSyncService = characterSyncService;
+		this.cacheManager = cacheManager;
+		this.clock = clock;
 	}
 
 	@Transactional(readOnly = true)
@@ -53,6 +65,23 @@ public class CharacterService {
 	public CharacterResponse toggleFavorite(Long userId, Long characterId) {
 		MapleCharacter character = findCharacter(userId, characterId);
 		character.toggleFavorite();
+		Runnable evictSummary = () -> {
+			var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
+			if (cache != null) {
+				cache.evict("summary:" + userId + ":null");
+				cache.evict("summary:" + userId + ":" + LocalDate.now(clock));
+			}
+		};
+		if (TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				evictSummary.run();
+			}
+			});
+		} else {
+			evictSummary.run();
+		}
 		return CharacterResponse.from(character);
 	}
 

@@ -65,11 +65,36 @@ public class CharacterSyncService {
 		return syncCharacters(user, characterSummaries, summary -> nexonOpenApiClient.getCharacterBasic(user.getId(), apiKey, summary.ocid()));
 	}
 
+	@Transactional
+	public boolean syncCharacterBasic(Long userId, NexonCharacterSummary summary, int sortOrder) {
+		NexonCharacterBasic basic;
+		try {
+			basic = nexonOpenApiClient.getCharacterBasic(userId, summary.ocid());
+		} catch (NexonApiException exception) {
+			if (!isInvalidCharacterId(exception)) {
+				throw exception;
+			}
+			log.warn("Skipping Nexon character basic sync. userId={}, characterName={}, ocid={}, nexonErrorName={}, nexonErrorMessage={}",
+					userId, summary.characterName(), summary.ocid(), exception.getNexonErrorName(), exception.getNexonErrorMessage());
+			return false;
+		}
+		MapleCharacter character = characterRepository.findByUserIdAndOcid(userId, summary.ocid()).orElseThrow();
+		character.updateDetails(
+				valueOrFallback(basic.characterName(), summary.characterName()),
+				valueOrFallback(basic.worldName(), summary.worldName()),
+				valueOrFallback(basic.characterClass(), summary.characterClass()),
+				valueOrFallback(basic.characterLevel(), summary.characterLevel()),
+				basic.characterImage(), basic.guildName(), sortOrder);
+		return true;
+	}
+
 	private List<MapleCharacter> syncCharacters(
 			User user,
 			List<NexonCharacterSummary> characterSummaries,
 			Function<NexonCharacterSummary, NexonCharacterBasic> basicFetcher
 	) {
+		// The list endpoint is authoritative for membership even when basic rejects an OCID.
+		syncSummaries(user, characterSummaries);
 		int sortOrder = 1;
 		for (NexonCharacterSummary summary : characterSummaries) {
 			NexonCharacterBasic basic;
@@ -85,6 +110,7 @@ public class CharacterSyncService {
 							exception.getNexonErrorName(),
 							exception.getNexonErrorMessage()
 					);
+					sortOrder++;
 					continue;
 				}
 				throw exception;

@@ -115,10 +115,14 @@ public class NexonApiGateway {
 	}
 
 	public JsonNode getWithStoredKey(Long userId, String uri, NexonRequestMode mode, SyncType syncType) {
+		return getWithStoredKey(userId, uri, mode, syncType, true);
+	}
+
+	public JsonNode getWithStoredKey(Long userId, String uri, NexonRequestMode mode, SyncType syncType, boolean useCache) {
 		UserApiKey apiKey = userApiKeyRepository.findByUserId(userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_NOT_REGISTERED", "Nexon API Key 미등록"));
 		String decryptedApiKey = apiKeyCryptoService.decrypt(apiKey.getEncryptedKey());
-		return get(userId, decryptedApiKey, uri, mode, syncType);
+		return get(userId, decryptedApiKey, uri, mode, syncType, useCache);
 	}
 
 	public JsonNode get(Long userId, String apiKey, String uri, NexonRequestMode mode) {
@@ -126,8 +130,12 @@ public class NexonApiGateway {
 	}
 
 	public JsonNode get(Long userId, String apiKey, String uri, NexonRequestMode mode, SyncType syncType) {
+		return get(userId, apiKey, uri, mode, syncType, true);
+	}
+
+	private JsonNode get(Long userId, String apiKey, String uri, NexonRequestMode mode, SyncType syncType, boolean useCache) {
 		String cacheKey = cacheKey(userId, "GET", uri);
-		String cachedResponse = redisTemplate.opsForValue().get(cacheKey);
+		String cachedResponse = useCache ? redisTemplate.opsForValue().get(cacheKey) : null;
 		if (cachedResponse != null) {
 			return readJson(cachedResponse);
 		}

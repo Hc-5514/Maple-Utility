@@ -16,17 +16,21 @@ import com.maple.utility.dto.response.SchedulerBossDetailResponse;
 import com.maple.utility.dto.response.SchedulerDailyResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SchedulerWeeklyResponse;
+import com.maple.utility.dto.response.SyncJobResponse;
 import com.maple.utility.security.JwtAuthentication;
 import com.maple.utility.service.SchedulerService;
+import com.maple.utility.service.SyncJobService;
 
 @RestController
 @RequestMapping("/api/v1/scheduler")
 public class SchedulerController {
 
 	private final SchedulerService schedulerService;
+	private final SyncJobService syncJobService;
 
-	public SchedulerController(SchedulerService schedulerService) {
+	public SchedulerController(SchedulerService schedulerService, SyncJobService syncJobService) {
 		this.schedulerService = schedulerService;
+		this.syncJobService = syncJobService;
 	}
 
 	@GetMapping("/summary")
@@ -74,8 +78,13 @@ public class SchedulerController {
 	}
 
 	@PostMapping("/sync")
-	public SchedulerSummaryResponse sync(Authentication authentication) {
-		return schedulerService.sync(currentUserId(authentication));
+	public SyncJobResponse sync(@RequestParam(defaultValue = "false") boolean force, Authentication authentication) {
+		return syncJobService.startScheduler(currentUserId(authentication), force, false);
+	}
+
+	@GetMapping("/sync-jobs/{jobId}")
+	public SyncJobResponse getSyncJob(@PathVariable Long jobId, Authentication authentication) {
+		return syncJobService.get(currentUserId(authentication), jobId);
 	}
 
 	private Long currentUserId(Authentication authentication) {

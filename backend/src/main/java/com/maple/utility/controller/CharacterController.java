@@ -14,17 +14,21 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.maple.utility.dto.request.CharacterSortOrderRequest;
 import com.maple.utility.dto.response.CharacterResponse;
+import com.maple.utility.dto.response.SyncJobResponse;
 import com.maple.utility.security.JwtAuthentication;
 import com.maple.utility.service.CharacterService;
+import com.maple.utility.service.SyncJobService;
 
 @RestController
 @RequestMapping("/api/v1/characters")
 public class CharacterController {
 
 	private final CharacterService characterService;
+	private final SyncJobService syncJobService;
 
-	public CharacterController(CharacterService characterService) {
+	public CharacterController(CharacterService characterService, SyncJobService syncJobService) {
 		this.characterService = characterService;
+		this.syncJobService = syncJobService;
 	}
 
 	@GetMapping
@@ -55,8 +59,13 @@ public class CharacterController {
 	}
 
 	@PostMapping("/sync")
-	public List<CharacterResponse> syncCharacters(Authentication authentication) {
-		return characterService.syncCharacters(currentUserId(authentication));
+	public SyncJobResponse syncCharacters(Authentication authentication) {
+		return syncJobService.startCharacters(currentUserId(authentication));
+	}
+
+	@GetMapping("/sync-jobs/{jobId}")
+	public SyncJobResponse getSyncJob(@PathVariable Long jobId, Authentication authentication) {
+		return syncJobService.get(currentUserId(authentication), jobId);
 	}
 
 	private Long currentUserId(Authentication authentication) {
