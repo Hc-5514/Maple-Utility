@@ -29,6 +29,33 @@ public class CharacterSyncService {
 	}
 
 	@Transactional
+	public List<MapleCharacter> syncSummaries(User user, List<NexonCharacterSummary> characterSummaries) {
+		int sortOrder = 1;
+		for (NexonCharacterSummary summary : characterSummaries) {
+			int currentSortOrder = sortOrder;
+			MapleCharacter character = characterRepository.findByUserIdAndOcid(user.getId(), summary.ocid())
+					.orElseGet(() -> characterRepository.save(MapleCharacter.create(
+							user,
+							summary.ocid(),
+							summary.characterName(),
+							summary.worldName(),
+							summary.characterClass(),
+							summary.characterLevel(),
+							currentSortOrder
+					)));
+			character.updateBasicInfo(
+					summary.characterName(),
+					summary.worldName(),
+					summary.characterClass(),
+					summary.characterLevel(),
+					currentSortOrder
+			);
+			sortOrder++;
+		}
+		return characterRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId());
+	}
+
+	@Transactional
 	public List<MapleCharacter> syncCharacters(User user, List<NexonCharacterSummary> characterSummaries) {
 		return syncCharacters(user, characterSummaries, summary -> nexonOpenApiClient.getCharacterBasic(user.getId(), summary.ocid()));
 	}
