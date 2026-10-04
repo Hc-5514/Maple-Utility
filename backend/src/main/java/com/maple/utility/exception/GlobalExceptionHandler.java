@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -23,6 +24,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException exception) {
 		return ResponseEntity.badRequest()
 				.body(ErrorResponse.of("VALIDATION_ERROR", "요청 값 검증 실패"));
+	}
+
+	@ExceptionHandler(MissingRequestCookieException.class)
+	public ResponseEntity<ErrorResponse> handleMissingRequestCookieException(MissingRequestCookieException exception) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ErrorResponse.of("AUTH_COOKIE_MISSING", "인증 쿠키 없음"));
 	}
 
 	@ExceptionHandler(RestClientResponseException.class)
