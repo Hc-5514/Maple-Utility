@@ -188,4 +188,40 @@ class NexonOpenApiClientTest {
 		assertThat(response.weekly()).isEmpty();
 		assertThat(response.boss()).isEmpty();
 	}
+
+	@Test
+	void getCharacterSchedulerAcceptsOffsetDateTimeDate() throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("ocid=ocid"), eq(NexonRequestMode.REALTIME)))
+				.thenReturn(objectMapper.readTree("""
+						{"date":"2026-10-05T00:00+09:00","daily_contents":[],"weekly_contents":[],"boss_contents":[]}
+						"""));
+
+		NexonSchedulerResponse response = nexonOpenApiClient.getCharacterScheduler(1L, "ocid");
+
+		assertThat(response.date()).isEqualTo(LocalDate.of(2026, 10, 5));
+	}
+
+	@Test
+	void getCharacterSchedulerAcceptsLocalDateTimeDate() throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("ocid=ocid"), eq(NexonRequestMode.REALTIME)))
+				.thenReturn(objectMapper.readTree("""
+						{"date":"2026-10-05T00:00:00","daily_contents":[],"weekly_contents":[],"boss_contents":[]}
+						"""));
+
+		NexonSchedulerResponse response = nexonOpenApiClient.getCharacterScheduler(1L, "ocid");
+
+		assertThat(response.date()).isEqualTo(LocalDate.of(2026, 10, 5));
+	}
+
+	@Test
+	void getCharacterSchedulerRejectsInvalidDateWithDedicatedCode() throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("ocid=ocid"), eq(NexonRequestMode.REALTIME)))
+				.thenReturn(objectMapper.readTree("""
+						{"date":"invalid-date","daily_contents":[],"weekly_contents":[],"boss_contents":[]}
+						"""));
+
+		assertThatThrownBy(() -> nexonOpenApiClient.getCharacterScheduler(1L, "ocid"))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("NEXON_SCHEDULER_DATE_INVALID"));
+	}
 }
