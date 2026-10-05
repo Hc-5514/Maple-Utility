@@ -2,6 +2,8 @@ package com.maple.utility.security;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
@@ -134,18 +136,32 @@ public class NexonOpenApiClient {
 		if (response == null || !response.isObject()) {
 			throw invalidSchedulerResponse();
 		}
-		LocalDate recordDate;
-		try {
-			recordDate = LocalDate.parse(requiredText(response, "date"));
-		} catch (DateTimeParseException exception) {
-			throw invalidSchedulerResponse();
-		}
+		LocalDate recordDate = parseSchedulerDate(requiredText(response, "date"));
 		return new NexonSchedulerResponse(
 				recordDate,
 				parseDailyRecords(requiredArray(response, "daily_contents"), recordDate),
 				parseWeeklyRecords(requiredArray(response, "weekly_contents"), recordDate),
 				parseBossRecords(requiredArray(response, "boss_contents"), recordDate)
 		);
+	}
+
+	private LocalDate parseSchedulerDate(String value) {
+		try {
+			return LocalDate.parse(value);
+		} catch (DateTimeParseException ignored) {
+			// Nexon scheduler responses can include an ISO date-time despite the date-only contract.
+		}
+		try {
+			return OffsetDateTime.parse(value).toLocalDate();
+		} catch (DateTimeParseException ignored) {
+			// Some ISO serializers omit an explicit offset while preserving the same calendar date.
+		}
+		try {
+			return LocalDateTime.parse(value).toLocalDate();
+		} catch (DateTimeParseException ignored) {
+			log.warn("Invalid Nexon scheduler date. value={}", value);
+			throw invalidSchedulerDate();
+		}
 	}
 
 	private List<NexonSchedulerResponse.Daily> parseDailyRecords(JsonNode records, LocalDate recordDate) {
@@ -265,6 +281,10 @@ public class NexonOpenApiClient {
 
 	private ApiException invalidSchedulerResponse() {
 		return new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_RESPONSE_INVALID", "Nexon 스케줄러 응답 형식 오류");
+	}
+
+	private ApiException invalidSchedulerDate() {
+		return new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_SCHEDULER_DATE_INVALID", "Nexon 스케줄러 날짜 형식 오류");
 	}
 
 	private Difficulty difficulty(String value) {
