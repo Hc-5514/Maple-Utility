@@ -2,6 +2,8 @@ package com.maple.utility;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -131,6 +133,23 @@ class ApiFlowIntegrationTest {
 	void 미인증_보호_엔드포인트_401() throws Exception {
 		mockMvc.perform(get("/api/v1/characters"))
 				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void 갱신_쿠키_누락_401() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/refresh"))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("AUTH_COOKIE_MISSING"));
+	}
+
+	@Test
+	void 로그아웃_쿠키_누락_401() throws Exception {
+		String token = jwtTokenProvider.createAccessToken(1L).value();
+
+		mockMvc.perform(post("/api/v1/auth/logout")
+					.header("Authorization", "Bearer " + token))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value("AUTH_COOKIE_MISSING"));
 	}
 
 	@Test
