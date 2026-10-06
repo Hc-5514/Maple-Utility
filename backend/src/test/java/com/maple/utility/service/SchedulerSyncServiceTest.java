@@ -82,14 +82,14 @@ class SchedulerSyncServiceTest {
 		NexonSchedulerResponse response = new NexonSchedulerResponse(
 				LocalDate.parse("2026-07-14"),
 				List.of(new NexonSchedulerResponse.Daily(LocalDate.parse("2026-07-14"), "일일 퀘스트", 1, 3)),
-				List.of(new NexonSchedulerResponse.Weekly(LocalDate.parse("2026-07-13"), "길드 주간 미션", true, 1000)),
+				List.of(new NexonSchedulerResponse.Weekly(LocalDate.parse("2026-07-09"), "길드 주간 미션", true, 1000)),
 				List.of(new NexonSchedulerResponse.Boss(LocalDate.parse("2026-07-14"), "스우", Difficulty.HARD, ResetPeriod.WEEKLY, true))
 		);
 
 		when(nexonOpenApiClient.getCharacterScheduler(1L, "ocid", false)).thenReturn(response);
 		when(dailyRecordRepository.findByCharacterIdAndRecordDateAndContentName(10L, LocalDate.parse("2026-07-14"), "일일 퀘스트"))
 				.thenReturn(Optional.empty());
-		when(weeklyRecordRepository.findByCharacterIdAndWeekStartDateAndContentName(10L, LocalDate.parse("2026-07-13"), "길드 주간 미션"))
+		when(weeklyRecordRepository.findByCharacterIdAndWeekStartDateAndContentName(10L, LocalDate.parse("2026-07-09"), "길드 주간 미션"))
 				.thenReturn(Optional.empty());
 		when(bossMasterRepository.findByBossNameAndDifficulty("스우", Difficulty.HARD)).thenReturn(Optional.of(boss));
 		when(bossRecordRepository.findByCharacterIdAndBossIdAndRecordDate(10L, 20L, LocalDate.parse("2026-07-14")))
@@ -127,7 +127,7 @@ class SchedulerSyncServiceTest {
 	void syncOneCharacterRemovesRecordsNoLongerRegistered() {
 		MapleCharacter character = character(user());
 		LocalDate date = LocalDate.parse("2026-07-14");
-		LocalDate weekStart = LocalDate.parse("2026-07-13");
+		LocalDate weekStart = LocalDate.parse("2026-07-09");
 		var staleDaily = SchedulerDailyRecord.create(character, date, "해제한 일일 콘텐츠", 0, 1, null);
 		var staleWeekly = SchedulerWeeklyRecord.create(character, weekStart, "해제한 주간 콘텐츠", false, null, null);
 		var staleBoss = SchedulerBossRecord.create(character, boss(), date, ResetPeriod.WEEKLY, false, null);

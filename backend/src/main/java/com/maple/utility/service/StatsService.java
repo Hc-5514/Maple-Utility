@@ -153,7 +153,7 @@ public class StatsService {
 	}
 
 	private LocalDate weekStartDate(LocalDate date) {
-		return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY));
 	}
 
 	private static class WeeklyCrystalAccumulator {

@@ -186,7 +186,7 @@ public class NexonOpenApiClient {
 
 	private List<NexonSchedulerResponse.Weekly> parseWeeklyRecords(JsonNode records, LocalDate recordDate) {
 		List<NexonSchedulerResponse.Weekly> weeklyRecords = new ArrayList<>();
-		LocalDate weekStartDate = recordDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		LocalDate weekStartDate = recordDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY));
 		for (JsonNode record : records) {
 			if (!flag(record, "registration_flag")) {
 				continue;
@@ -306,8 +306,8 @@ public class NexonOpenApiClient {
 			return null;
 		}
 		return switch (value.toUpperCase()) {
-			case "WEEKLY", "주간" -> ResetPeriod.WEEKLY;
-			case "MONTHLY", "월간" -> ResetPeriod.MONTHLY;
+			case "WEEKLY", "BOSSWEEKLY", "주간" -> ResetPeriod.WEEKLY;
+			case "MONTHLY", "BOSSMONTHLY", "월간" -> ResetPeriod.MONTHLY;
 			default -> null;
 		};
 	}

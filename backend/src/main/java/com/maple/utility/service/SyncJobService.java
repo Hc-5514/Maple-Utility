@@ -158,7 +158,7 @@ public class SyncJobService {
 		}
 		LocalDate today = LocalDate.now(clock);
 		Set<String> dates = Stream.of("null", today.toString(),
-				today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString()).collect(Collectors.toSet());
+				today.with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY)).toString()).collect(Collectors.toSet());
 		for (String date : dates) {
 			cache.evict("summary:" + userId + ":" + date);
 			for (MapleCharacter character : favorites) {
