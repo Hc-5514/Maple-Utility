@@ -188,6 +188,7 @@ class SchedulerServiceTest {
 	private MapleCharacter character(User user) {
 		MapleCharacter character = MapleCharacter.create(user, "ocid", "캐릭터", "스카니아", "히어로", 280, 1);
 		ReflectionTestUtils.setField(character, "id", 10L);
+		character.toggleFavorite();
 		return character;
 	}
 

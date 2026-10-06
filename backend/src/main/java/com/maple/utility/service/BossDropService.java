@@ -98,6 +98,9 @@ public class BossDropService {
 	public void deleteAcquisition(Long userId, Long id) {
 		BossItemAcquisition acquisition = bossItemAcquisitionRepository.findByIdAndCharacter_User_Id(id, userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOSS_ITEM_ACQUISITION_NOT_FOUND", "보스 드랍 획득 기록 없음"));
+		if (!acquisition.getCharacter().isFavorite()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "CHARACTER_NOT_FAVORITE", "즐겨찾기 캐릭터 아님");
+		}
 		bossItemAcquisitionRepository.delete(acquisition);
 	}
 
@@ -107,7 +110,11 @@ public class BossDropService {
 	}
 
 	private MapleCharacter findCharacter(Long userId, Long characterId) {
-		return characterRepository.findByIdAndUserId(characterId, userId)
+		MapleCharacter character = characterRepository.findByIdAndUserId(characterId, userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CHARACTER_NOT_FOUND", "캐릭터 없음"));
+		if (!character.isFavorite()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "CHARACTER_NOT_FAVORITE", "즐겨찾기 캐릭터 아님");
+		}
+		return character;
 	}
 }
