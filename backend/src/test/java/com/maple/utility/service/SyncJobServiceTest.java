@@ -65,14 +65,14 @@ class SyncJobServiceTest {
 		when(jobs.start(1L, "CHARACTER")).thenReturn(new SyncJobRepository.StartResult(job, true));
 		when(users.findById(1L)).thenReturn(Optional.of(user));
 		when(nexon.getCharacters(1L)).thenReturn(List.of(summary));
-		when(characterSync.syncCharacterBasic(1L, summary, 1)).thenReturn(false);
+		when(characterSync.syncCharacterBasic(1L, summary)).thenReturn(false);
 
 		service.startCharacters(1L);
 
 		var order = org.mockito.Mockito.inOrder(characterSync, jobs);
 		order.verify(characterSync).syncSummaries(user, List.of(summary));
 		order.verify(jobs).setTotal(11L, 1);
-		order.verify(characterSync).syncCharacterBasic(1L, summary, 1);
+		order.verify(characterSync).syncCharacterBasic(1L, summary);
 		order.verify(jobs).advance(11L, true);
 		order.verify(jobs).complete(11L, LocalDateTime.now(CLOCK));
 	}

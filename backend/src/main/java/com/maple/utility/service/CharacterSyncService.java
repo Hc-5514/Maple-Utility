@@ -47,8 +47,7 @@ public class CharacterSyncService {
 					summary.characterName(),
 					summary.worldName(),
 					summary.characterClass(),
-					summary.characterLevel(),
-					currentSortOrder
+					summary.characterLevel()
 			);
 			sortOrder++;
 		}
@@ -66,7 +65,7 @@ public class CharacterSyncService {
 	}
 
 	@Transactional
-	public boolean syncCharacterBasic(Long userId, NexonCharacterSummary summary, int sortOrder) {
+	public boolean syncCharacterBasic(Long userId, NexonCharacterSummary summary) {
 		NexonCharacterBasic basic;
 		try {
 			basic = nexonOpenApiClient.getCharacterBasic(userId, summary.ocid());
@@ -84,7 +83,7 @@ public class CharacterSyncService {
 				valueOrFallback(basic.worldName(), summary.worldName()),
 				valueOrFallback(basic.characterClass(), summary.characterClass()),
 				valueOrFallback(basic.characterLevel(), summary.characterLevel()),
-				basic.characterImage(), basic.guildName(), sortOrder);
+				basic.characterImage(), basic.guildName());
 		return true;
 	}
 
@@ -132,8 +131,7 @@ public class CharacterSyncService {
 					valueOrFallback(basic.characterClass(), summary.characterClass()),
 					valueOrFallback(basic.characterLevel(), summary.characterLevel()),
 					basic.characterImage(),
-					basic.guildName(),
-					currentSortOrder
+					basic.guildName()
 			);
 			sortOrder++;
 		}

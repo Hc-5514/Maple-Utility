@@ -118,7 +118,7 @@ public class SyncJobService {
 			characterSync.syncSummaries(user, summaries);
 			jobs.setTotal(id, summaries.size());
 			for (int i = 0; i < summaries.size(); i++) {
-				boolean synced = characterSync.syncCharacterBasic(userId, summaries.get(i), i + 1);
+				boolean synced = characterSync.syncCharacterBasic(userId, summaries.get(i));
 				jobs.advance(id, !synced);
 			}
 			jobs.complete(id, LocalDateTime.now(clock));
