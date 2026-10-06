@@ -116,6 +116,30 @@ class CharacterServiceTest {
 	}
 
 	@Test
+	void updateFavoriteSortOrderRejectsDuplicateCharacter() {
+		MapleCharacter favorite = character(user(), 10L, "favorite", 1);
+		favorite.toggleFavorite();
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L))
+				.thenReturn(List.of(favorite));
+
+		assertThatThrownBy(() -> characterService.updateFavoriteSortOrder(1L, List.of(10L, 10L)))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("INVALID_FAVORITE_ORDER"));
+	}
+
+	@Test
+	void updateFavoriteSortOrderRejectsOtherUserCharacter() {
+		MapleCharacter favorite = character(user(), 10L, "favorite", 1);
+		favorite.toggleFavorite();
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L))
+				.thenReturn(List.of(favorite));
+
+		assertThatThrownBy(() -> characterService.updateFavoriteSortOrder(1L, List.of(11L)))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("INVALID_FAVORITE_ORDER"));
+	}
+
+	@Test
 	void getFavoriteCharactersReturnsOnlyFavorites() {
 		User user = user();
 		MapleCharacter character = character(user, 10L, "ocid", 1);
