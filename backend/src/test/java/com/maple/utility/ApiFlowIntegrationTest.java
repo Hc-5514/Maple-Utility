@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.Collections;
+import java.time.LocalDate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ import com.maple.utility.security.NexonOpenApiClient;
 import com.maple.utility.security.RefreshTokenRedisService;
 import com.maple.utility.service.AuthService;
 import com.maple.utility.service.CharacterService;
+import com.maple.utility.service.HuntingService;
 
 @SpringBootTest(properties = {
 		"JWT_SECRET=test-jwt-secret-for-context-load-integration-test-key-32b",
@@ -122,6 +124,9 @@ class ApiFlowIntegrationTest {
 	@MockitoBean
 	private CharacterService characterService;
 
+	@MockitoBean
+	private HuntingService huntingService;
+
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.webAppContextSetup(context)
@@ -161,6 +166,23 @@ class ApiFlowIntegrationTest {
 		mockMvc.perform(get("/api/v1/characters")
 						.header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk());
+	}
+
+	@Test
+	void 캐릭터_ID_없이_사냥_전체_조회_200() throws Exception {
+		String token = jwtTokenProvider.createAccessToken(1L).value();
+		LocalDate from = LocalDate.parse("2026-10-01");
+		LocalDate to = LocalDate.parse("2026-10-06");
+		Mockito.when(huntingService.getRecords(1L, null, from, to))
+				.thenReturn(Collections.emptyList());
+
+		mockMvc.perform(get("/api/v1/hunting")
+					.param("from", from.toString())
+					.param("to", to.toString())
+					.header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk());
+
+		Mockito.verify(huntingService).getRecords(1L, null, from, to);
 	}
 
 	@Test

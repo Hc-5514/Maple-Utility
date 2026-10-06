@@ -186,8 +186,12 @@ public class SchedulerService {
 	}
 
 	private MapleCharacter findCharacter(Long userId, Long characterId) {
-		return characterRepository.findByIdAndUserId(characterId, userId)
+		MapleCharacter character = characterRepository.findByIdAndUserId(characterId, userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CHARACTER_NOT_FOUND", "캐릭터 없음"));
+		if (!character.isFavorite()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "CHARACTER_NOT_FAVORITE", "즐겨찾기 캐릭터 아님");
+		}
+		return character;
 	}
 
 	private LocalDate dateOrToday(LocalDate date) {

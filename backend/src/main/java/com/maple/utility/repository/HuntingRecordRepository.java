@@ -21,6 +21,17 @@ public interface HuntingRecordRepository extends JpaRepository<HuntingRecord, Lo
 			""")
 	List<HuntingRecord> findByCharacterIdAndRecordDateRange(Long characterId, LocalDate from, LocalDate to);
 
+	@Query("""
+			select record
+			from HuntingRecord record
+			where record.character.user.id = :userId
+			  and record.character.favorite = true
+			  and (:from is null or record.recordDate >= :from)
+			  and (:to is null or record.recordDate <= :to)
+			order by record.recordDate desc, record.id desc
+			""")
+	List<HuntingRecord> findFavoriteRecords(Long userId, LocalDate from, LocalDate to);
+
 	Optional<HuntingRecord> findByIdAndCharacter_User_Id(Long id, Long userId);
 
 	boolean existsByCharacter_IdAndRecordDate(Long characterId, LocalDate recordDate);
