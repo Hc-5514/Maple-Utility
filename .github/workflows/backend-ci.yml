@@ -16,6 +16,10 @@ on:
       - "infra/**"
       - ".github/workflows/backend-ci.yml"
 
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
@@ -126,13 +130,16 @@ jobs:
             APP_IMAGE='$APP_IMAGE' docker compose -f docker-compose.prod.yml --env-file .env up -d && \
             docker compose -f docker-compose.prod.yml --env-file .env ps && \
             for i in \$(seq 1 30); do \
-              status=\$(docker inspect --format='{{.State.Health.Status}}' maple-nginx 2>/dev/null || true); \
-              if [ \"\$status\" = 'healthy' ]; then \
+              app_status=\$(docker inspect --format='{{.State.Health.Status}}' maple-app 2>/dev/null || true); \
+              nginx_status=\$(docker inspect --format='{{.State.Health.Status}}' maple-nginx 2>/dev/null || true); \
+              if [ \"\$app_status\" = 'healthy' ] && [ \"\$nginx_status\" = 'healthy' ]; then \
                 break; \
               fi; \
               sleep 2; \
             done && \
+            test \"\$(docker inspect --format='{{.State.Health.Status}}' maple-app)\" = 'healthy' && \
             test \"\$(docker inspect --format='{{.State.Health.Status}}' maple-nginx)\" = 'healthy' && \
+            docker compose -f docker-compose.prod.yml --env-file .env exec -T app wget -qO- http://localhost:8080/actuator/health && \
             curl -fsS http://127.0.0.1/health"
 
       - name: Print EC2 deploy diagnostics
@@ -150,4 +157,4 @@ jobs:
             docker exec maple-nginx nginx -T || true && \
             docker exec maple-nginx sed -n '1,220p' /etc/nginx/conf.d/default.conf || true && \
             docker inspect --format='{{json .State.Health}}' maple-nginx || true && \
-            docker inspect --format='{{json .State.Health}}' maple-app || true"
+            docker inspect --format='{{json .State}}' maple-app || true"
