@@ -52,7 +52,7 @@ export const schedulerHandlers = [
   }),
 
   // 캐릭터별 보스 기록 (BE: GET /scheduler/:characterId/boss?date=)
-  http.get('/api/v1/scheduler/:characterId/boss', ({ params, request }) => {
+  http.get('*/api/v1/scheduler/:characterId/boss', ({ params, request }) => {
     const characterId = Number(params.characterId)
     const url = new URL(request.url)
     const date = url.searchParams.get('date') ?? new Date().toISOString().split('T')[0]
@@ -61,7 +61,6 @@ export const schedulerHandlers = [
       .map((r) => ({
         ...r,
         ...(bossInfoMap[r.bossId] ?? { bossName: `보스#${r.bossId}`, difficulty: 'NORMAL', bossImage: null, crystalPrice: 0 }),
-        completed: r.isCompleted,
       }))
     return HttpResponse.json({ success: true, data: {
       weeklyBosses: records.filter((r) => r.resetPeriod === 'WEEKLY'),

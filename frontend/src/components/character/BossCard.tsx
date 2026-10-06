@@ -37,12 +37,12 @@ export default function BossCard({ record, onClickDetail }: Props) {
         </span>
         <span
           className={`rounded px-2 py-1 text-xs font-semibold ${
-            record.completed
+            record.isCompleted
               ? 'bg-[#4ade80]/20 text-[#4ade80]'
               : 'bg-white/10 text-white/50'
           }`}
         >
-          {record.completed ? '✓ 처치' : '미처치'}
+          {record.isCompleted ? '✓ 처치' : '미처치'}
         </span>
       </div>
     </div>

@@ -86,7 +86,12 @@ export interface BossItemAcquisition {
   bossDropItemId: number
   acquiredDate: string
   memo: string | null
-  createdAt: string
+}
+
+export interface BossDropItemAcquisitionStatus {
+  dropItem: BossDropItem
+  acquired: boolean
+  acquisitions: BossItemAcquisition[]
 }
 
 // ─── 스케줄러 (일간/주간/보스) ────────────────────────────────────
@@ -123,7 +128,7 @@ export interface SchedulerBossRecord {
   crystalPrice?: number
   recordDate?: string
   resetPeriod: ResetPeriod
-  completed: boolean
+  isCompleted: boolean
   syncedAt: string | null
 }
 

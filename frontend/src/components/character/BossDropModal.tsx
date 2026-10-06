@@ -3,7 +3,6 @@ import Modal from '../common/Modal'
 import DifficultyBadge from '../common/DifficultyBadge'
 import {
   useBossAcquisitions,
-  useBossDropItems,
   useCreateAcquisition,
   useDeleteAcquisition,
 } from '../../hooks/useCharacterDetail'
@@ -32,17 +31,17 @@ export default function BossDropModal({ isOpen, onClose, record, characterId }: 
   const today = new Date().toISOString().split('T')[0]
   const [pendingDates, setPendingDates] = useState<Record<number, string>>({})
 
-  const { data: dropItems, isLoading: loadingItems, isError: errorItems } = useBossDropItems(record.bossId ?? 0)
-  const { data: allAcquisitions } = useBossAcquisitions(characterId)
+  const { data: statuses, isLoading: loadingItems, isError: errorItems } = useBossAcquisitions(
+    characterId,
+    record.bossId ?? 0,
+  )
   const createAcq = useCreateAcquisition()
   const deleteAcq = useDeleteAcquisition()
 
-  const dropItemIds = new Set((dropItems ?? []).map((d) => d.id))
-  const acquisitionMap = new Map(
-    (allAcquisitions ?? [])
-      .filter((a) => dropItemIds.has(a.bossDropItemId))
-      .map((a) => [a.bossDropItemId, a]),
-  )
+  const acquisitionMap = new Map((statuses ?? []).map((status) => [
+    status.dropItem.id,
+    status.acquisitions[0],
+  ]))
 
   const getDate = (itemId: number) => pendingDates[itemId] ?? today
 
@@ -105,13 +104,14 @@ export default function BossDropModal({ isOpen, onClose, record, characterId }: 
         </div>
       ) : errorItems ? (
         <p className="text-sm text-[#f87171]">드랍 아이템을 불러오지 못했습니다.</p>
-      ) : !dropItems || dropItems.length === 0 ? (
+      ) : !statuses || statuses.length === 0 ? (
         <p className="text-sm text-white/40">드랍 아이템 정보 없음</p>
       ) : (
         <ul className="max-h-80 space-y-2 overflow-y-auto">
-          {dropItems.map((item) => {
+          {statuses.map((status) => {
+            const item = status.dropItem
             const acq = acquisitionMap.get(item.id)
-            const isAcquired = !!acq
+            const isAcquired = status.acquired && !!acq
             return (
               <li key={item.id} className="rounded-lg bg-[#1a1a2e] px-4 py-3">
                 <div className="flex items-center gap-3">
@@ -143,6 +143,9 @@ export default function BossDropModal({ isOpen, onClose, record, characterId }: 
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
+                    {status.acquisitions.length > 1 && (
+                      <span className="text-xs text-white/50">{status.acquisitions.length}회</span>
+                    )}
                     {isAcquired && (
                       <input
                         type="date"
