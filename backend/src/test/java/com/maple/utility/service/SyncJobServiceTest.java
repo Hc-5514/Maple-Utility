@@ -146,7 +146,7 @@ class SyncJobServiceTest {
 		verify(cache).evict("summary:1:null");
 		verify(cache).evict("summary:1:2026-10-03");
 		verify(cache).evict("daily:1:10:2026-10-03");
-		verify(cache).evict("weekly:1:10:2026-09-28");
+		verify(cache).evict("weekly:1:10:2026-10-01");
 		verify(cache).evict("boss:1:10:null");
 		verify(cache).evict("guild:1:10:2026-10-03");
 		verify(jobs).complete(45L, LocalDateTime.now(CLOCK));

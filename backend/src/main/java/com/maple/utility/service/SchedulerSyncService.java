@@ -125,7 +125,7 @@ public class SchedulerSyncService {
 					)));
 			record.updateProgress(source.completed(), source.score(), syncedAt);
 		}
-		LocalDate weekStartDate = recordDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+		LocalDate weekStartDate = recordDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY));
 		Set<String> registeredNames = weeklyRecords.stream().map(NexonSchedulerResponse.Weekly::contentName).collect(Collectors.toSet());
 		weeklyRecordRepository.deleteAll(weeklyRecordRepository.findByCharacterIdAndWeekStartDateOrderByIdAsc(character.getId(), weekStartDate)
 				.stream().filter(record -> !registeredNames.contains(record.getContentName())).toList());

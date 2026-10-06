@@ -110,7 +110,7 @@ class StatsServiceTest {
 		assertThat(response.totalCrystalIncome()).isEqualTo(500L);
 		assertThat(response.weeklyAverage()).isEqualTo(250L);
 		assertThat(response.weeklyRecords()).hasSize(2);
-		assertThat(response.weeklyRecords().getFirst().weekStart()).isEqualTo(LocalDate.parse("2026-07-13"));
+		assertThat(response.weeklyRecords().getFirst().weekStart()).isEqualTo(LocalDate.parse("2026-07-09"));
 		assertThat(response.weeklyRecords().getFirst().totalIncome()).isEqualTo(200L);
 		assertThat(response.weeklyRecords().getFirst().bossDetails().getFirst().income()).isEqualTo(200L);
 	}

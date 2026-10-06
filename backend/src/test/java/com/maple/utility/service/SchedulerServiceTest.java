@@ -101,14 +101,14 @@ class SchedulerServiceTest {
 		BossMaster weeklyBoss = boss(20L, ResetPeriod.WEEKLY);
 		BossMaster monthlyBoss = boss(21L, ResetPeriod.MONTHLY);
 		SchedulerDailyRecord daily = SchedulerDailyRecord.create(character, LocalDate.parse("2026-07-14"), "일일 퀘스트", 1, 3, null);
-		SchedulerWeeklyRecord weekly = SchedulerWeeklyRecord.create(character, LocalDate.parse("2026-07-13"), "길드 주간 미션", true, 1000, null);
+		SchedulerWeeklyRecord weekly = SchedulerWeeklyRecord.create(character, LocalDate.parse("2026-07-09"), "길드 주간 미션", true, 1000, null);
 		SchedulerBossRecord weeklyBossRecord = SchedulerBossRecord.create(character, weeklyBoss, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
 		SchedulerBossRecord monthlyBossRecord = SchedulerBossRecord.create(character, monthlyBoss, LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY, false, null);
 
 		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
 		when(dailyRecordRepository.findByCharacterIdInAndRecordDateOrderByCharacterIdAscIdAsc(List.of(10L), LocalDate.parse("2026-07-14")))
 				.thenReturn(List.of(daily));
-		when(weeklyRecordRepository.findByCharacterIdInAndWeekStartDateOrderByCharacterIdAscIdAsc(List.of(10L), LocalDate.parse("2026-07-13")))
+		when(weeklyRecordRepository.findByCharacterIdInAndWeekStartDateOrderByCharacterIdAscIdAsc(List.of(10L), LocalDate.parse("2026-07-09")))
 				.thenReturn(List.of(weekly));
 		when(bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(List.of(10L), LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY))
 				.thenReturn(List.of(weeklyBossRecord));
@@ -129,11 +129,11 @@ class SchedulerServiceTest {
 	void getGuildReturnsWeeklyGuildContents() {
 		User user = user();
 		MapleCharacter character = character(user);
-		SchedulerWeeklyRecord guild = SchedulerWeeklyRecord.create(character, LocalDate.parse("2026-07-13"), "길드 주간 미션", true, 1000, null);
-		SchedulerWeeklyRecord other = SchedulerWeeklyRecord.create(character, LocalDate.parse("2026-07-13"), "무릉도장", false, null, null);
+		SchedulerWeeklyRecord guild = SchedulerWeeklyRecord.create(character, LocalDate.parse("2026-07-09"), "길드 주간 미션", true, 1000, null);
+		SchedulerWeeklyRecord other = SchedulerWeeklyRecord.create(character, LocalDate.parse("2026-07-09"), "무릉도장", false, null, null);
 
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(weeklyRecordRepository.findByCharacterIdAndWeekStartDateOrderByIdAsc(10L, LocalDate.parse("2026-07-13")))
+		when(weeklyRecordRepository.findByCharacterIdAndWeekStartDateOrderByIdAsc(10L, LocalDate.parse("2026-07-09")))
 				.thenReturn(List.of(guild, other));
 
 		assertThat(schedulerService.getGuild(1L, 10L, LocalDate.parse("2026-07-14")))
