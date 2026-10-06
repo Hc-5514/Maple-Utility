@@ -4,6 +4,9 @@ import characters from '../fixtures/characters.json'
 const mockCharacters = [...characters]
 
 export const characterHandlers = [
+  http.get('/api/v1/characters/favorites', () => {
+    return HttpResponse.json({ success: true, data: mockCharacters.filter(c => c.favorite).sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id) })
+  }),
   http.get('/api/v1/characters', () => {
     return HttpResponse.json({ success: true, data: mockCharacters })
   }),

@@ -5,13 +5,14 @@ import type { ApiResponse, Character } from '../../types'
 interface Props {
   selectedId: number | null
   onChange: (id: number) => void
+  favoritesOnly?: boolean
 }
 
-export default function CharacterSelector({ selectedId, onChange }: Props) {
+export default function CharacterSelector({ selectedId, onChange, favoritesOnly = false }: Props) {
   const { data, isLoading } = useQuery({
-    queryKey: ['characters'],
+    queryKey: favoritesOnly ? ['characters', 'favorites'] : ['characters'],
     queryFn: () =>
-      client.get<ApiResponse<Character[]>>('/characters').then((r) => r.data.data),
+      client.get<ApiResponse<Character[]>>(favoritesOnly ? '/characters/favorites' : '/characters').then((r) => r.data.data),
   })
 
   if (isLoading) {

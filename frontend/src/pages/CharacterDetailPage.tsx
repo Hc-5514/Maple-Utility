@@ -5,20 +5,15 @@ import DailyContent from '../components/character/DailyContent'
 import WeeklyContent from '../components/character/WeeklyContent'
 import BossContent from '../components/character/BossContent'
 import { useCharacter, useToggleFavorite } from '../hooks/useCharacterDetail'
-
-function getWeekStart(date: Date): string {
-  const d = new Date(date)
-  d.setDate(d.getDate() - d.getDay())
-  return d.toISOString().split('T')[0]
-}
+import { localDate, thursdayWeekStart } from '../utils/date'
 
 export default function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>()
   const navigate = useNavigate()
   const id = Number(characterId)
 
-  const today = new Date().toISOString().split('T')[0]
-  const weekStart = getWeekStart(new Date())
+  const today = localDate(new Date())
+  const weekStart = thursdayWeekStart(new Date())
 
   const { data: character, isLoading: charLoading, isError: charError } = useCharacter(id)
   const toggleFav = useToggleFavorite(id)
@@ -39,6 +34,10 @@ export default function CharacterDetailPage() {
         </button>
       </div>
     )
+  }
+
+  if (!charLoading && !character) {
+    return <p className="text-[#f87171]">즐겨찾기 캐릭터를 찾을 수 없습니다.</p>
   }
 
   return (
@@ -83,7 +82,7 @@ export default function CharacterDetailPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => toggleFav.mutate()}
+            onClick={() => toggleFav.mutate(undefined, { onSuccess: () => navigate('/dashboard') })}
             disabled={toggleFav.isPending || charLoading}
             className="text-2xl transition-opacity hover:opacity-70 disabled:opacity-40"
             aria-label={character?.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
@@ -91,6 +90,7 @@ export default function CharacterDetailPage() {
             {character?.favorite ? '★' : '☆'}
           </button>
           <CharacterSelector
+            favoritesOnly
             selectedId={id}
             onChange={(newId) => navigate(`/dashboard/${newId}`)}
           />

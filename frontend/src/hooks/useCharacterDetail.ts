@@ -14,9 +14,9 @@ import type {
 
 export function useCharacter(characterId: number) {
   return useQuery({
-    queryKey: ['characters', characterId],
+    queryKey: ['characters', 'favorites', characterId],
     queryFn: async () => {
-      const { data } = await client.get<ApiResponse<Character[]>>('/characters')
+      const { data } = await client.get<ApiResponse<Character[]>>('/characters/favorites')
       return data.data.find((c) => c.id === characterId) ?? null
     },
     enabled: characterId > 0,
@@ -85,26 +85,26 @@ export function useToggleFavorite(characterId: number) {
       return data.data
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['characters', characterId] })
-      const previous = queryClient.getQueryData<Character | null>(['characters', characterId])
+      await queryClient.cancelQueries({ queryKey: ['characters', 'favorites', characterId] })
+      const previous = queryClient.getQueryData<Character | null>(['characters', 'favorites', characterId])
       if (previous) {
-        queryClient.setQueryData(['characters', characterId], { ...previous, favorite: !previous.favorite })
+        queryClient.setQueryData(['characters', 'favorites', characterId], { ...previous, favorite: !previous.favorite })
         useCharacterStore.getState().updateFavorite(characterId, !previous.favorite)
       }
       return { previous }
     },
     onError: (_error, _variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(['characters', characterId], context.previous)
+        queryClient.setQueryData(['characters', 'favorites', characterId], context.previous)
         useCharacterStore.getState().updateFavorite(characterId, context.previous.favorite)
       }
     },
     onSuccess: (updated) => {
-      queryClient.setQueryData(['characters', characterId], updated)
+      queryClient.setQueryData(['characters', 'favorites', characterId], updated)
       useCharacterStore.getState().updateFavorite(characterId, updated.favorite)
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['characters', characterId] })
+      void queryClient.invalidateQueries({ queryKey: ['characters', 'favorites', characterId] })
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
       void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
     },
