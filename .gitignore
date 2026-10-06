@@ -36,3 +36,6 @@ build/
 backend/build/
 backend/.gradle/
 
+# Package manager local artifacts
+.pnpm-store/
+frontend/package-lock.json
