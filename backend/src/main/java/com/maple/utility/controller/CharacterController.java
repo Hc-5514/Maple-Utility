@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.maple.utility.dto.request.CharacterSortOrderRequest;
+import com.maple.utility.dto.request.FavoriteSortOrderRequest;
 import com.maple.utility.dto.response.CharacterResponse;
 import com.maple.utility.dto.response.SyncJobResponse;
 import com.maple.utility.security.JwtAuthentication;
@@ -39,6 +40,14 @@ public class CharacterController {
 	@GetMapping("/favorites")
 	public List<CharacterResponse> getFavoriteCharacters(Authentication authentication) {
 		return characterService.getFavoriteCharacters(currentUserId(authentication));
+	}
+
+	@PatchMapping("/favorites/sort-order")
+	public List<CharacterResponse> updateFavoriteSortOrder(
+			@Valid @RequestBody FavoriteSortOrderRequest request,
+			Authentication authentication
+	) {
+		return characterService.updateFavoriteSortOrder(currentUserId(authentication), request.characterIds());
 	}
 
 	@PatchMapping("/{id}/favorite")

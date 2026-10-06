@@ -89,7 +89,7 @@ class CharacterSyncServiceTest {
 		assertThat(existingCharacter.getCharacterImage()).isEqualTo("image-url");
 		assertThat(existingCharacter.getGuildName()).isEqualTo("길드");
 		assertThat(existingCharacter.isFavorite()).isTrue();
-		assertThat(existingCharacter.getSortOrder()).isEqualTo(1);
+		assertThat(existingCharacter.getSortOrder()).isEqualTo(3);
 	}
 
 	@Test
@@ -128,7 +128,7 @@ class CharacterSyncServiceTest {
 		assertThat(existingCharacter.getCharacterClass()).isEqualTo("히어로");
 		assertThat(existingCharacter.getCharacterLevel()).isEqualTo(280);
 		assertThat(existingCharacter.isFavorite()).isTrue();
-		assertThat(existingCharacter.getSortOrder()).isEqualTo(1);
+		assertThat(existingCharacter.getSortOrder()).isEqualTo(3);
 	}
 
 	@Test

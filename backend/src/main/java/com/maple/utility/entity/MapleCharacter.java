@@ -81,14 +81,12 @@ public class MapleCharacter extends BaseTimeEntity {
 			String characterName,
 			String worldName,
 			String characterClass,
-			Integer characterLevel,
-			int sortOrder
+			Integer characterLevel
 	) {
 		this.characterName = characterName;
 		this.worldName = worldName;
 		this.characterClass = characterClass;
 		this.characterLevel = characterLevel;
-		this.sortOrder = sortOrder;
 	}
 
 	public void updateDetails(
@@ -97,8 +95,7 @@ public class MapleCharacter extends BaseTimeEntity {
 			String characterClass,
 			Integer characterLevel,
 			String characterImage,
-			String guildName,
-			int sortOrder
+			String guildName
 	) {
 		this.characterName = characterName;
 		this.worldName = worldName;
@@ -106,7 +103,6 @@ public class MapleCharacter extends BaseTimeEntity {
 		this.characterLevel = characterLevel;
 		this.characterImage = characterImage;
 		this.guildName = guildName;
-		this.sortOrder = sortOrder;
 	}
 
 	public void toggleFavorite() {
