@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw'
+import characters from '../fixtures/characters.json'
 
 let huntingRecords = [
   { id: 1, characterId: 1, recordDate: '2026-07-14', mesoEarned: 350000000, solErdaEarned: 3, playDurationMin: 120, huntingGround: '아르카나', memo: null, createdAt: '2026-07-14T11:00:00', updatedAt: '2026-07-14T11:00:00' },
@@ -8,11 +9,12 @@ let huntingRecords = [
   { id: 5, characterId: 1, recordDate: '2026-07-10', mesoEarned: 450000000, solErdaEarned: 6, playDurationMin: 160, huntingGround: '셀라스',  memo: '솔에르다 많이 나옴', createdAt: '2026-07-10T11:00:00', updatedAt: '2026-07-10T11:00:00' },
 ]
 let nextId = huntingRecords.length + 1
+const isFavorite = (characterId: number) => characters.some(c => c.id === characterId && c.favorite)
 
 export const huntingHandlers = [
   http.get('/api/v1/hunting/:id', ({ params }) => {
     const record = huntingRecords.find(r => r.id === Number(params.id))
-    if (!record) {
+    if (!record || !isFavorite(record.characterId)) {
       return HttpResponse.json({ success: false, message: '기록을 찾을 수 없음' }, { status: 404 })
     }
     return HttpResponse.json({ success: true, data: record })
@@ -21,11 +23,11 @@ export const huntingHandlers = [
   http.get('/api/v1/hunting', ({ request }) => {
     const url = new URL(request.url)
     const characterId = Number(url.searchParams.get('characterId'))
-    const dateFrom = url.searchParams.get('dateFrom')
-    const dateTo = url.searchParams.get('dateTo')
+    const dateFrom = url.searchParams.get('from')
+    const dateTo = url.searchParams.get('to')
     let records = characterId
-      ? huntingRecords.filter(r => r.characterId === characterId)
-      : huntingRecords
+      ? huntingRecords.filter(r => r.characterId === characterId && isFavorite(r.characterId))
+      : huntingRecords.filter(r => isFavorite(r.characterId))
     if (dateFrom) records = records.filter(r => r.recordDate >= dateFrom)
     if (dateTo)   records = records.filter(r => r.recordDate <= dateTo)
     return HttpResponse.json({ success: true, data: records })
@@ -33,6 +35,9 @@ export const huntingHandlers = [
 
   http.post('/api/v1/hunting', async ({ request }) => {
     const body = (await request.json()) as Partial<(typeof huntingRecords)[0]>
+    if (!isFavorite(body.characterId ?? 0)) {
+      return HttpResponse.json({ success: false, message: '즐겨찾기 캐릭터 아님' }, { status: 400 })
+    }
     const newRecord = {
       id: nextId++,
       characterId: body.characterId ?? 1,
@@ -52,7 +57,7 @@ export const huntingHandlers = [
   http.put('/api/v1/hunting/:id', async ({ params, request }) => {
     const body = (await request.json()) as Partial<(typeof huntingRecords)[0]>
     const record = huntingRecords.find(r => r.id === Number(params.id))
-    if (!record) {
+    if (!record || !isFavorite(record.characterId)) {
       return HttpResponse.json({ success: false, message: '기록을 찾을 수 없음' }, { status: 404 })
     }
     Object.assign(record, body, { updatedAt: new Date().toISOString() })
@@ -60,6 +65,10 @@ export const huntingHandlers = [
   }),
 
   http.delete('/api/v1/hunting/:id', ({ params }) => {
+    const record = huntingRecords.find(r => r.id === Number(params.id))
+    if (!record || !isFavorite(record.characterId)) {
+      return HttpResponse.json({ success: false, message: '기록을 찾을 수 없음' }, { status: 404 })
+    }
     huntingRecords = huntingRecords.filter(r => r.id !== Number(params.id))
     return new HttpResponse(null, { status: 204 })
   }),

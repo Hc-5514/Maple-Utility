@@ -19,11 +19,7 @@ interface HuntingFormData {
 }
 
 export function useHuntingList(params: HuntingListParams) {
-  const query: Record<string, string> = {}
-  if (params.characterId) query.characterId = String(params.characterId)
-  if (params.dateFrom) query.dateFrom = params.dateFrom
-  if (params.dateTo) query.dateTo = params.dateTo
-  const qs = new URLSearchParams(query).toString()
+  const qs = buildHuntingQuery(params)
 
   return useQuery({
     queryKey: ['hunting', params],
@@ -34,6 +30,14 @@ export function useHuntingList(params: HuntingListParams) {
       return data.data
     },
   })
+}
+
+export function buildHuntingQuery(params: HuntingListParams): string {
+  const query: Record<string, string> = {}
+  if (params.characterId) query.characterId = String(params.characterId)
+  if (params.dateFrom) query.from = params.dateFrom
+  if (params.dateTo) query.to = params.dateTo
+  return new URLSearchParams(query).toString()
 }
 
 export function useHuntingRecord(id: number | undefined) {
@@ -56,6 +60,7 @@ export function useCreateHunting() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['hunting'] })
+      void queryClient.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('stats/') })
     },
   })
 }
@@ -69,6 +74,7 @@ export function useUpdateHunting() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['hunting'] })
+      void queryClient.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('stats/') })
     },
   })
 }
@@ -81,6 +87,7 @@ export function useDeleteHunting() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['hunting'] })
+      void queryClient.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('stats/') })
     },
   })
 }

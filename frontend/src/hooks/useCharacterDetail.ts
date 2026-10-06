@@ -107,6 +107,8 @@ export function useToggleFavorite(characterId: number) {
       void queryClient.invalidateQueries({ queryKey: ['characters', 'favorites', characterId] })
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
       void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
+      void queryClient.invalidateQueries({ queryKey: ['hunting'] })
+      void queryClient.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('stats/') })
     },
   })
 }

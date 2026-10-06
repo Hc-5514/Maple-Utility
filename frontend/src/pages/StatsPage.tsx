@@ -7,11 +7,12 @@ import ItemAcquisitionList from '../components/stats/ItemAcquisitionList'
 import { useStatsBossItems, useStatsCrystal, useStatsHunting } from '../hooks/useStats'
 import client from '../api/client'
 import type { ApiResponse, Character } from '../types'
+import { localDate } from '../utils/date'
 
 function getFirstOfMonth(): string {
   const d = new Date()
   d.setDate(1)
-  return d.toISOString().split('T')[0]
+  return localDate(d)
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
@@ -24,7 +25,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 export default function StatsPage() {
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDate(new Date())
   const [dateFrom, setDateFrom] = useState(getFirstOfMonth())
   const [dateTo, setDateTo] = useState(today)
   const [characterId, setCharacterId] = useState<number | null>(null)
@@ -32,9 +33,9 @@ export default function StatsPage() {
   const params = { characterId, dateFrom, dateTo }
 
   const { data: characters } = useQuery({
-    queryKey: ['characters'],
+    queryKey: ['characters', 'favorites'],
     queryFn: () =>
-      client.get<ApiResponse<Character[]>>('/characters').then((r) => r.data.data),
+      client.get<ApiResponse<Character[]>>('/characters/favorites').then((r) => r.data.data),
   })
 
   const { data: huntingData, isLoading: loadingHunting, isError: errorHunting } = useStatsHunting(params)
@@ -64,7 +65,7 @@ export default function StatsPage() {
           }
           className="rounded border border-white/20 bg-[#2d2d44] px-3 py-1.5 text-sm text-white"
         >
-          <option value="">전체 캐릭터</option>
+          <option value="">전체 즐겨찾기 캐릭터</option>
           {(characters ?? []).map((c) => (
             <option key={c.id} value={c.id}>
               {c.characterName}
