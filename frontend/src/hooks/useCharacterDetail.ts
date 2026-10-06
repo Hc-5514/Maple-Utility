@@ -3,7 +3,7 @@ import client from '../api/client'
 import { useCharacterStore } from '../stores/characterStore'
 import type {
   ApiResponse,
-  BossDropItem,
+  BossDropItemAcquisitionStatus,
   BossItemAcquisition,
   Character,
   GuildRecord,
@@ -111,28 +111,16 @@ export function useToggleFavorite(characterId: number) {
   })
 }
 
-export function useBossDropItems(bossId: number) {
-  return useQuery({
-    queryKey: ['boss', bossId, 'drop-items'],
-    queryFn: async () => {
-      const { data } = await client.get<ApiResponse<BossDropItem[]>>(`/boss/${bossId}/drop-items`)
-      return data.data
-    },
-    enabled: bossId > 0,
-  })
-}
-
-export function useBossAcquisitions(characterId: number, bossId?: number) {
+export function useBossAcquisitions(characterId: number, bossId: number) {
   return useQuery({
     queryKey: ['boss-acquisitions', characterId, bossId],
     queryFn: async () => {
-      const path = bossId
-        ? `/boss/${bossId}/drop-items/acquisitions?characterId=${characterId}`
-        : `/boss-acquisitions?characterId=${characterId}`
-      const { data } = await client.get<ApiResponse<BossItemAcquisition[]>>(path)
+      const { data } = await client.get<ApiResponse<BossDropItemAcquisitionStatus[]>>(
+        `/boss/${bossId}/drop-items/acquisitions?characterId=${characterId}`,
+      )
       return data.data
     },
-    enabled: characterId > 0,
+    enabled: characterId > 0 && bossId > 0,
   })
 }
 
