@@ -53,7 +53,7 @@ class StatsServiceTest {
 				new StatsHuntingDailyResponse(LocalDate.parse("2026-07-14"), 100L, 2, 60),
 				new StatsHuntingDailyResponse(LocalDate.parse("2026-07-15"), 300L, 4, 90)
 		);
-		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
 		when(statsQueryRepository.findHuntingDailyStats(
 				List.of(10L),
 				LocalDate.parse("2026-07-01"),
@@ -98,7 +98,7 @@ class StatsServiceTest {
 	@Test
 	void getCrystalStatsGroupsRowsByWeekAndBoss() {
 		MapleCharacter character = character(user(), 10L);
-		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
 		when(statsQueryRepository.findCompletedBossCrystalRows(List.of(10L), null, null)).thenReturn(List.of(
 				new CrystalIncomeRow(LocalDate.parse("2026-07-14"), "스우", Difficulty.HARD, 100L),
 				new CrystalIncomeRow(LocalDate.parse("2026-07-15"), "스우", Difficulty.HARD, 100L),
@@ -134,7 +134,7 @@ class StatsServiceTest {
 		MapleCharacter character = character(user(), 10L);
 		StatsCompletionDetailResponse daily = new StatsCompletionDetailResponse(8, 10, 80);
 		StatsCompletionDetailResponse boss = new StatsCompletionDetailResponse(3, 4, 75);
-		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
 		when(statsQueryRepository.findDailyCompletion(List.of(10L), null, null)).thenReturn(daily);
 		when(statsQueryRepository.findBossCompletion(List.of(10L), null, null)).thenReturn(boss);
 
@@ -153,6 +153,7 @@ class StatsServiceTest {
 	private MapleCharacter character(User user, Long id) {
 		MapleCharacter character = MapleCharacter.create(user, "ocid-" + id, "캐릭터", "스카니아", "히어로", 280, 1);
 		ReflectionTestUtils.setField(character, "id", id);
+		character.toggleFavorite();
 		return character;
 	}
 }

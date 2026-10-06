@@ -31,11 +31,18 @@ public class HuntingService {
 
 	@Transactional(readOnly = true)
 	public List<HuntingRecordResponse> getRecords(Long userId, Long characterId, LocalDate from, LocalDate to) {
-		MapleCharacter character = findCharacter(userId, characterId);
 		validateDateRange(from, to);
-		return huntingRecordRepository.findByCharacterIdAndRecordDateRange(character.getId(), from, to).stream()
+		List<HuntingRecord> records = characterId == null
+				? huntingRecordRepository.findFavoriteRecords(userId, from, to)
+				: huntingRecordRepository.findByCharacterIdAndRecordDateRange(findCharacter(userId, characterId).getId(), from, to);
+		return records.stream()
 				.map(HuntingRecordResponse::from)
 				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	public HuntingRecordResponse getRecord(Long userId, Long id) {
+		return HuntingRecordResponse.from(findRecord(userId, id));
 	}
 
 	@Transactional
@@ -89,13 +96,21 @@ public class HuntingService {
 	}
 
 	private MapleCharacter findCharacter(Long userId, Long characterId) {
-		return characterRepository.findByIdAndUserId(characterId, userId)
+		MapleCharacter character = characterRepository.findByIdAndUserId(characterId, userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CHARACTER_NOT_FOUND", "캐릭터 없음"));
+		if (!character.isFavorite()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "CHARACTER_NOT_FAVORITE", "즐겨찾기 캐릭터 아님");
+		}
+		return character;
 	}
 
 	private HuntingRecord findRecord(Long userId, Long id) {
-		return huntingRecordRepository.findByIdAndCharacter_User_Id(id, userId)
+		HuntingRecord record = huntingRecordRepository.findByIdAndCharacter_User_Id(id, userId)
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "HUNTING_RECORD_NOT_FOUND", "사냥 기록 없음"));
+		if (!record.getCharacter().isFavorite()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "CHARACTER_NOT_FAVORITE", "즐겨찾기 캐릭터 아님");
+		}
+		return record;
 	}
 
 	private void validateDateRange(LocalDate from, LocalDate to) {

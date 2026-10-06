@@ -68,8 +68,7 @@ public class CharacterService {
 		Runnable evictSummary = () -> {
 			var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
 			if (cache != null) {
-				cache.evict("summary:" + userId + ":null");
-				cache.evict("summary:" + userId + ":" + LocalDate.now(clock));
+				cache.clear();
 			}
 		};
 		if (TransactionSynchronizationManager.isSynchronizationActive()) {

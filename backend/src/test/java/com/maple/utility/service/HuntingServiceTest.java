@@ -68,11 +68,28 @@ class HuntingServiceTest {
 	}
 
 	@Test
-	void getRecordsRejectsInvalidDateRange() {
-		User user = user();
-		MapleCharacter character = character(user);
+	void getRecordsWithoutCharacterReturnsOnlyFavoriteRecords() {
+		MapleCharacter character = character(user());
+		HuntingRecord record = huntingRecord(100L, character, LocalDate.parse("2026-07-14"));
+		when(huntingRecordRepository.findFavoriteRecords(1L, null, null)).thenReturn(List.of(record));
+
+		assertThat(huntingService.getRecords(1L, null, null, null))
+				.extracting(HuntingRecordResponse::id).containsExactly(100L);
+	}
+
+	@Test
+	void getRecordsRejectsNonFavoriteCharacter() {
+		MapleCharacter character = character(user());
+		character.toggleFavorite();
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 
+		assertThatThrownBy(() -> huntingService.getRecords(1L, 10L, null, null))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("CHARACTER_NOT_FAVORITE"));
+	}
+
+	@Test
+	void getRecordsRejectsInvalidDateRange() {
 		assertThatThrownBy(() -> huntingService.getRecords(
 				1L,
 				10L,
@@ -214,6 +231,7 @@ class HuntingServiceTest {
 	private MapleCharacter character(User user) {
 		MapleCharacter character = MapleCharacter.create(user, "ocid", "캐릭터", "스카니아", "히어로", 280, 1);
 		ReflectionTestUtils.setField(character, "id", 10L);
+		character.toggleFavorite();
 		return character;
 	}
 
