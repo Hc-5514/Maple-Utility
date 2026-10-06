@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ArrowDown, ArrowUp, Save } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
@@ -181,7 +182,13 @@ function ApiKeySection() {
 
 // ─── 캐릭터 행 ─────────────────────────────────────────────────────────────────
 
-function CharacterRow({ character }: { character: Character }) {
+function CharacterRow({ character, disabled, reorderDisabled, onMoveUp, onMoveDown }: {
+  character: Character
+  disabled: boolean
+  reorderDisabled: boolean
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+}) {
   const queryClient = useQueryClient()
   const { updateFavorite } = useCharacterStore()
 
@@ -205,6 +212,8 @@ function CharacterRow({ character }: { character: Character }) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
       void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
+      void queryClient.invalidateQueries({ queryKey: ['hunting'] })
+      void queryClient.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('stats/') })
     },
   })
 
@@ -237,12 +246,24 @@ function CharacterRow({ character }: { character: Character }) {
 
       <button
         onClick={() => favoriteMutation.mutate()}
-        disabled={favoriteMutation.isPending}
+        disabled={favoriteMutation.isPending || disabled}
         className="text-xl transition-opacity hover:opacity-70 disabled:opacity-40"
         aria-label={character.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
       >
         {character.favorite ? '★' : '☆'}
       </button>
+      {character.favorite && (
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={onMoveUp} disabled={reorderDisabled || !onMoveUp} title="위로 이동" aria-label="위로 이동"
+            className="rounded p-1.5 text-white/70 hover:bg-white/10 disabled:opacity-30">
+            <ArrowUp size={17} />
+          </button>
+          <button type="button" onClick={onMoveDown} disabled={reorderDisabled || !onMoveDown} title="아래로 이동" aria-label="아래로 이동"
+            className="rounded p-1.5 text-white/70 hover:bg-white/10 disabled:opacity-30">
+            <ArrowDown size={17} />
+          </button>
+        </div>
+      )}
       {favoriteMutation.isError && <span className="text-xs text-[#f87171]">저장 실패</span>}
     </div>
   )
@@ -254,6 +275,7 @@ function CharacterSection() {
   const queryClient = useQueryClient()
   const { characters, setCharacters } = useCharacterStore()
   const [jobId, setJobId] = useState<number | null>(null)
+  const [draftOrder, setDraftOrder] = useState<number[] | null>(null)
 
   const { isLoading } = useQuery({
     queryKey: ['characters'],
@@ -290,10 +312,35 @@ function CharacterSection() {
     }
   }, [syncJob?.status, queryClient])
 
-  const sorted = [...characters].sort((a, b) => {
-    if (a.favorite === b.favorite) return a.sortOrder - b.sortOrder
-    return a.favorite ? -1 : 1
+  const favorites = characters.filter(c => c.favorite).sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
+  const savedOrder = favorites.map(c => c.id)
+  const currentOrder = draftOrder ?? savedOrder
+  const favoriteById = new Map(favorites.map(c => [c.id, c]))
+  const orderedFavorites = currentOrder.map(id => favoriteById.get(id)).filter((c): c is Character => c !== undefined)
+  const remaining = characters.filter(c => !c.favorite).sort((a, b) =>
+    (b.characterLevel ?? -1) - (a.characterLevel ?? -1) || a.id - b.id,
+  )
+  const sorted = [...orderedFavorites, ...remaining]
+  const isDirty = draftOrder !== null && draftOrder.some((id, index) => id !== savedOrder[index])
+
+  const saveOrder = useMutation({
+    mutationFn: async (characterIds: number[]) => {
+      const { data } = await client.patch<ApiResponse<Character[]>>('/characters/favorites/sort-order', { characterIds })
+      return data.data
+    },
+    onSuccess: () => {
+      setDraftOrder(null)
+      void queryClient.invalidateQueries({ queryKey: ['characters'] })
+      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
+    },
   })
+
+  const move = (index: number, direction: -1 | 1) => {
+    const next = [...currentOrder]
+    const other = index + direction
+    ;[next[index], next[other]] = [next[other], next[index]]
+    setDraftOrder(next)
+  }
 
   return (
     <section className="rounded-xl bg-[#2d2d44] p-6">
@@ -306,7 +353,7 @@ function CharacterSection() {
         </h2>
         <button
           onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending || syncJob?.status === 'STARTED'}
+          disabled={isDirty || syncMutation.isPending || syncJob?.status === 'STARTED'}
           className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-white/70 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
         >
           {syncMutation.isPending || syncJob?.status === 'STARTED' ? (
@@ -339,8 +386,21 @@ function CharacterSection() {
       ) : (
         <div className="space-y-2">
           {sorted.map((char) => (
-            <CharacterRow key={char.id} character={char} />
+            <CharacterRow key={char.id} character={char} disabled={isDirty || saveOrder.isPending}
+              reorderDisabled={saveOrder.isPending}
+              onMoveUp={char.favorite && currentOrder.indexOf(char.id) > 0
+                ? () => move(currentOrder.indexOf(char.id), -1) : undefined}
+              onMoveDown={char.favorite && currentOrder.indexOf(char.id) < currentOrder.length - 1
+                ? () => move(currentOrder.indexOf(char.id), 1) : undefined} />
           ))}
+          <div className="flex justify-end pt-2">
+            <button type="button" onClick={() => saveOrder.mutate(currentOrder)} disabled={!isDirty || saveOrder.isPending}
+              title="즐겨찾기 순서 저장" aria-label="즐겨찾기 순서 저장"
+              className="rounded border border-white/20 bg-[#4ade80] p-2 text-[#1a1a2e] disabled:opacity-40">
+              <Save size={18} />
+            </button>
+          </div>
+          {saveOrder.isError && <p className="text-sm text-[#f87171]">순서를 저장하지 못했습니다.</p>}
         </div>
       )}
 
