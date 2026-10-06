@@ -1,6 +1,8 @@
 package com.maple.utility.service;
 
 import java.util.List;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.time.Clock;
 import java.time.LocalDate;
 
@@ -50,6 +52,18 @@ public class CharacterService {
 	@Transactional(readOnly = true)
 	public List<CharacterResponse> getCharacters(Long userId) {
 		return characterRepository.findByUserIdOrderBySortOrderAscIdAsc(userId).stream()
+				.sorted((left, right) -> {
+					if (left.isFavorite() != right.isFavorite()) {
+						return left.isFavorite() ? -1 : 1;
+					}
+					if (left.isFavorite()) {
+						int order = Integer.compare(left.getSortOrder(), right.getSortOrder());
+						return order != 0 ? order : left.getId().compareTo(right.getId());
+					}
+					int level = Comparator.nullsLast(Comparator.<Integer>reverseOrder())
+							.compare(left.getCharacterLevel(), right.getCharacterLevel());
+					return level != 0 ? level : left.getId().compareTo(right.getId());
+				})
 				.map(CharacterResponse::from)
 				.toList();
 	}
@@ -64,11 +78,17 @@ public class CharacterService {
 	@Transactional
 	public CharacterResponse toggleFavorite(Long userId, Long characterId) {
 		MapleCharacter character = findCharacter(userId, characterId);
+		if (!character.isFavorite()) {
+			int lastOrder = characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId).stream()
+					.mapToInt(MapleCharacter::getSortOrder).max().orElse(0);
+			character.updateSortOrder(lastOrder + 1);
+		}
 		character.toggleFavorite();
 		Runnable evictSummary = () -> {
 			var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
 			if (cache != null) {
-				cache.clear();
+				cache.evict("summary:" + userId + ":null");
+				cache.evict("summary:" + userId + ":" + LocalDate.now(clock));
 			}
 		};
 		if (TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -82,6 +102,37 @@ public class CharacterService {
 			evictSummary.run();
 		}
 		return CharacterResponse.from(character);
+	}
+
+	@Transactional
+	public List<CharacterResponse> updateFavoriteSortOrder(Long userId, List<Long> characterIds) {
+		List<MapleCharacter> favorites = characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
+		if (characterIds == null || characterIds.stream().anyMatch(id -> id == null || id <= 0)
+				|| new HashSet<>(characterIds).size() != characterIds.size()
+				|| !new HashSet<>(characterIds).equals(favorites.stream().map(MapleCharacter::getId).collect(java.util.stream.Collectors.toSet()))) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_FAVORITE_ORDER", "즐겨찾기 순서 오류");
+		}
+		var byId = favorites.stream().collect(java.util.stream.Collectors.toMap(MapleCharacter::getId, character -> character));
+		for (int index = 0; index < characterIds.size(); index++) {
+			byId.get(characterIds.get(index)).updateSortOrder(index + 1);
+		}
+		Runnable evict = () -> {
+			var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
+			if (cache != null) {
+				cache.clear();
+			}
+		};
+		if (TransactionSynchronizationManager.isSynchronizationActive()) {
+			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+				@Override
+				public void afterCommit() {
+					evict.run();
+				}
+			});
+		} else {
+			evict.run();
+		}
+		return characterIds.stream().map(id -> CharacterResponse.from(byId.get(id))).toList();
 	}
 
 	@Transactional
