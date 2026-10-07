@@ -9,4 +9,6 @@ import com.maple.utility.entity.BossDropItem;
 public interface BossDropItemRepository extends JpaRepository<BossDropItem, Long> {
 
 	List<BossDropItem> findByBossIdOrderByIdAsc(Long bossId);
+
+	List<BossDropItem> findByBossIdAndActiveTrueOrderByIdAsc(Long bossId);
 }

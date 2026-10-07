@@ -41,4 +41,14 @@ public class BossDropItem extends BaseTimeEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(name = "drop_rate_tier", length = 20)
 	private DropRateTier dropRateTier;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "item_kind", nullable = false)
+	private BossItemKind itemKind;
+
+	@Column(name = "default_quantity", nullable = false)
+	private int defaultQuantity;
+
+	@Column(name = "is_active", nullable = false)
+	private boolean active;
 }

@@ -12,6 +12,7 @@ import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.QBossItemAcquisition;
 import com.maple.utility.entity.QHuntingRecord;
 import com.maple.utility.entity.QSchedulerBossRecord;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.QSchedulerDailyRecord;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
@@ -68,20 +69,22 @@ public class StatsQueryRepository {
 			return List.of();
 		}
 
-		QSchedulerBossRecord record = QSchedulerBossRecord.schedulerBossRecord;
+		QBossItemAcquisition record = QBossItemAcquisition.bossItemAcquisition;
 		return queryFactory
-				.select(record.recordDate, record.boss.bossName, record.boss.difficulty, record.boss.crystalPrice)
+				.select(record.acquiredDate, record.bossDropItem.boss.bossName,
+						record.bossDropItem.boss.difficulty, record.mesoAmount)
 				.from(record)
-				.where(bossCondition(record, characterIds, dateFrom, dateTo)
-						.and(record.completed.isTrue()))
-				.orderBy(record.recordDate.asc(), record.boss.sortOrder.asc(), record.id.asc())
+				.where(bossItemCondition(record, characterIds, dateFrom, dateTo)
+						.and(record.bossDropItem.itemKind.eq(BossItemKind.CRYSTAL))
+						.and(record.mesoAmount.isNotNull()))
+				.orderBy(record.acquiredDate.asc(), record.bossDropItem.boss.sortOrder.asc(), record.id.asc())
 				.fetch()
 				.stream()
 				.map(tuple -> new CrystalIncomeRow(
-						tuple.get(record.recordDate),
-						tuple.get(record.boss.bossName),
-						tuple.get(record.boss.difficulty),
-						valueOrZero(tuple.get(record.boss.crystalPrice))
+						tuple.get(record.acquiredDate),
+						tuple.get(record.bossDropItem.boss.bossName),
+						tuple.get(record.bossDropItem.boss.difficulty),
+						valueOrZero(tuple.get(record.mesoAmount))
 				))
 				.toList();
 	}
