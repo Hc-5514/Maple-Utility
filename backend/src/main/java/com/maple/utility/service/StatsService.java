@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.dto.response.StatsBossItemResponse;
+import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.dto.response.StatsCompletionResponse;
 import com.maple.utility.dto.response.StatsCrystalBossDetailResponse;
 import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
@@ -110,14 +111,19 @@ public class StatsService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<StatsBossItemResponse> getBossItemStats(
+	public PageResponse<StatsBossItemResponse> getBossItemStats(
 			Long userId,
 			Long characterId,
 			LocalDate dateFrom,
-			LocalDate dateTo
+			LocalDate dateTo,
+			int page,
+			int size
 	) {
 		validateDateRange(dateFrom, dateTo);
-		return statsQueryRepository.findBossItemStats(characterIds(userId, characterId), dateFrom, dateTo);
+		if (page < 0 || (size != 10 && size != 20 && size != 30)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAGE_REQUEST", "페이지 요청 오류");
+		}
+		return statsQueryRepository.findBossItemStats(characterIds(userId, characterId), dateFrom, dateTo, page, size);
 	}
 
 	@Transactional(readOnly = true)

@@ -6,13 +6,14 @@ import java.util.List;
 import org.springframework.stereotype.Repository;
 
 import com.maple.utility.dto.response.StatsBossItemResponse;
+import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.dto.response.StatsCompletionDetailResponse;
 import com.maple.utility.dto.response.StatsHuntingDailyResponse;
 import com.maple.utility.entity.Difficulty;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.QBossItemAcquisition;
 import com.maple.utility.entity.QHuntingRecord;
 import com.maple.utility.entity.QSchedulerBossRecord;
-import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.QSchedulerDailyRecord;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
@@ -89,17 +90,26 @@ public class StatsQueryRepository {
 				.toList();
 	}
 
-	public List<StatsBossItemResponse> findBossItemStats(
+	public PageResponse<StatsBossItemResponse> findBossItemStats(
 			List<Long> characterIds,
 			LocalDate dateFrom,
-			LocalDate dateTo
+			LocalDate dateTo,
+			int page,
+			int size
 	) {
 		if (characterIds.isEmpty()) {
-			return List.of();
+			return new PageResponse<>(List.of(), 0, 0, page, size);
 		}
 
 		QBossItemAcquisition acquisition = QBossItemAcquisition.bossItemAcquisition;
-		return queryFactory
+		BooleanBuilder condition = bossItemCondition(acquisition, characterIds, dateFrom, dateTo)
+				.and(acquisition.bossDropItem.itemKind.ne(BossItemKind.CRYSTAL));
+		Long count = queryFactory.select(acquisition.id.count())
+				.from(acquisition)
+				.where(condition)
+				.fetchOne();
+		long totalElements = count == null ? 0 : count;
+		List<StatsBossItemResponse> content = queryFactory
 				.select(
 						acquisition.acquiredDate,
 						acquisition.character.characterName,
@@ -108,8 +118,10 @@ public class StatsQueryRepository {
 						acquisition.bossDropItem.itemName
 				)
 				.from(acquisition)
-				.where(bossItemCondition(acquisition, characterIds, dateFrom, dateTo))
+				.where(condition)
 				.orderBy(acquisition.acquiredDate.desc(), acquisition.id.desc())
+				.offset((long) page * size)
+				.limit(size)
 				.fetch()
 				.stream()
 				.map(tuple -> new StatsBossItemResponse(
@@ -120,6 +132,8 @@ public class StatsQueryRepository {
 						tuple.get(acquisition.bossDropItem.itemName)
 				))
 				.toList();
+		return new PageResponse<>(content, totalElements,
+				Math.toIntExact((totalElements + size - 1) / size), page, size);
 	}
 
 	public StatsCompletionDetailResponse findDailyCompletion(

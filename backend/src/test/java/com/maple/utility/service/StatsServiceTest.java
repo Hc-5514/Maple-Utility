@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.maple.utility.dto.response.StatsBossItemResponse;
+import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.dto.response.StatsCompletionDetailResponse;
 import com.maple.utility.dto.response.StatsCompletionResponse;
 import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
@@ -122,11 +123,22 @@ class StatsServiceTest {
 				new StatsBossItemResponse(LocalDate.parse("2026-07-14"), "캐릭터", "스우", Difficulty.HARD, "아이템")
 		);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null)).thenReturn(rows);
+		PageResponse<StatsBossItemResponse> expected = new PageResponse<>(rows, 21, 3, 1, 10);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, 1, 10)).thenReturn(expected);
 
-		List<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null);
+		PageResponse<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null, 1, 10);
 
-		assertThat(response).isEqualTo(rows);
+		assertThat(response).isEqualTo(expected);
+	}
+
+	@Test
+	void getBossItemStatsRejectsInvalidPagination() {
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, -1, 10))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("페이지 요청 오류");
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, 0, 11))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("페이지 요청 오류");
 	}
 
 	@Test
