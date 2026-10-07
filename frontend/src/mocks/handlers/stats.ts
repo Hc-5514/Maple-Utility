@@ -1,5 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { previewBoss, previewCharacter, previewDate, previewPeriods } from '../fixtures/nexonPreview'
+import { previewHistory } from '../fixtures/nexonPreviewHistory'
+import type { BossDifficulty, StatsBossItem } from '../../types'
 
 function selectedPeriods(request: Request) {
   const params = new URL(request.url).searchParams
@@ -36,16 +38,38 @@ export const statsHandlers = [
     } })
   }),
 
-  http.get('*/api/v1/stats/boss-items', ({ request }) => HttpResponse.json({
-    success: true,
-    data: selectedPeriods(request).flatMap((period) => period.items
-      .filter((item) => item.acquired)
+  http.get('*/api/v1/stats/boss-items', ({ request }) => {
+    const params = new URL(request.url).searchParams
+    const page = Number(params.get('page') ?? '0')
+    const size = Number(params.get('size') ?? '10')
+    if (!Number.isInteger(page) || page < 0 || ![10, 20, 30].includes(size)) {
+      return HttpResponse.json({ code: 'INVALID_PAGE_REQUEST', message: '페이지 요청 오류' }, { status: 400 })
+    }
+
+    const characterId = params.has('characterId') ? Number(params.get('characterId')) : null
+    const from = params.get('dateFrom')
+    const to = params.get('dateTo')
+    const savedItems: StatsBossItem[] = selectedPeriods(request).flatMap((period) => period.items
+      .filter((item) => item.acquired && item.dropItem.itemKind !== 'CRYSTAL')
       .map((item) => ({
         acquiredDate: previewDate,
         characterName: previewCharacter(period.characterId)?.characterName ?? '',
         bossName: previewBoss(period.bossId)?.bossName ?? '',
-        difficulty: previewBoss(period.bossId)?.difficulty ?? 'NORMAL',
+        difficulty: (previewBoss(period.bossId)?.difficulty ?? 'NORMAL') as BossDifficulty,
         itemName: item.dropItem.itemName,
-      }))),
-  })),
+      })))
+    const rows = [...previewHistory.filter((item) =>
+      (characterId === null || item.characterName === previewCharacter(characterId)?.characterName)
+      && (!from || item.acquiredDate >= from)
+      && (!to || item.acquiredDate <= to)), ...savedItems]
+      .sort((a, b) => b.acquiredDate.localeCompare(a.acquiredDate))
+
+    return HttpResponse.json({ success: true, data: {
+      content: rows.slice(page * size, (page + 1) * size),
+      totalElements: rows.length,
+      totalPages: Math.ceil(rows.length / size),
+      page,
+      size,
+    } })
+  }),
 ]
