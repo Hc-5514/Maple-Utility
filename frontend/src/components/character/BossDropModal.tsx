@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { Package } from 'lucide-react'
 import Modal from '../common/Modal'
 import DifficultyBadge from '../common/DifficultyBadge'
+import CatalogImage from '../common/CatalogImage'
 import { useBossPeriod } from '../../hooks/useCharacterDetail'
 import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
 
@@ -51,9 +51,12 @@ export default function BossDropModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${record.bossName} 드랍 아이템`}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-white">{record.bossName}</p>
-          {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <CatalogImage src={record.bossImage} alt={record.bossName ?? '보스'} kind="boss" />
+          <div>
+            <p className="font-semibold text-white">{record.bossName}</p>
+            {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
+          </div>
         </div>
         <label className="flex items-center gap-2 text-sm text-white/70">
           파티 인원
@@ -78,7 +81,7 @@ export default function BossDropModal({
         <ul className="max-h-[60vh] space-y-1 overflow-y-auto">
           {period.items.map((item) => (
             <li key={item.dropItem.id} className="flex flex-wrap items-center gap-3 border-b border-white/10 py-3 last:border-0">
-              <Package size={20} className="shrink-0 text-white/40" aria-hidden="true" />
+              <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" className="h-8 w-8" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-white">{item.dropItem.itemName}</p>
                 {item.dropItem.itemKind === 'CRYSTAL' && period.crystalPrice === 0 && (
