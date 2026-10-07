@@ -5,6 +5,7 @@ import type {
   ApiResponse,
   BossDropItemAcquisitionStatus,
   BossItemAcquisition,
+  BossPeriod,
   Character,
   GuildRecord,
   SchedulerBossDetail,
@@ -122,6 +123,34 @@ export function useBossAcquisitions(characterId: number, bossId: number) {
     },
     enabled: characterId > 0 && bossId > 0,
   })
+}
+
+export function useBossPeriod(characterId: number, bossId: number, periodStart: string) {
+  return useQuery({
+    queryKey: ['boss-period', characterId, bossId, periodStart],
+    queryFn: async () => {
+      const { data } = await client.get<ApiResponse<BossPeriod>>(
+        `/boss/${bossId}/period?characterId=${characterId}&periodStart=${periodStart}`,
+      )
+      return data.data
+    },
+    enabled: characterId > 0 && bossId > 0,
+  })
+}
+
+export async function saveBossPeriod(period: BossPeriod): Promise<BossPeriod> {
+  const { data } = await client.put<ApiResponse<BossPeriod>>(`/boss/${period.bossId}/period`, {
+    characterId: period.characterId,
+    periodStart: period.periodStart,
+    partySize: period.partySize,
+    items: period.items.map((item) => ({
+      bossDropItemId: item.dropItem.id,
+      acquired: item.acquired,
+      quantity: item.quantity,
+      mesoAmount: item.dropItem.itemKind === 'CRYSTAL' ? item.mesoAmount : null,
+    })),
+  })
+  return data.data
 }
 
 export function useCreateAcquisition() {

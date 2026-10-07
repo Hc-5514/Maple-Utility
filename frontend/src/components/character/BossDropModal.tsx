@@ -1,171 +1,131 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import Modal from '../common/Modal'
 import DifficultyBadge from '../common/DifficultyBadge'
-import {
-  useBossAcquisitions,
-  useCreateAcquisition,
-  useDeleteAcquisition,
-} from '../../hooks/useCharacterDetail'
-import type { SchedulerBossRecord } from '../../types'
+import CatalogImage from '../common/CatalogImage'
+import { useBossPeriod } from '../../hooks/useCharacterDetail'
+import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
   record: SchedulerBossRecord
   characterId: number
+  periodStart: string
+  draft?: BossPeriodDraft
+  onLoaded: (period: BossPeriod) => void
+  onChange: (draft: BossPeriodDraft) => void
 }
 
-const TIER_COLOR: Record<string, string> = {
-  HIGH:   '#fbbf24',
-  NORMAL: '#6b7280',
-  LOW:    '#9ca3af',
-}
+export default function BossDropModal({
+  isOpen, onClose, record, characterId, periodStart, draft, onLoaded, onChange,
+}: Props) {
+  const { data, isLoading, isError } = useBossPeriod(characterId, record.bossId ?? 0, periodStart)
 
-const TIER_LABEL: Record<string, string> = {
-  HIGH:   '높음',
-  NORMAL: '보통',
-  LOW:    '낮음',
-}
+  useEffect(() => {
+    if (data) onLoaded(data)
+  }, [data, onLoaded])
 
-export default function BossDropModal({ isOpen, onClose, record, characterId }: Props) {
-  const today = new Date().toISOString().split('T')[0]
-  const [pendingDates, setPendingDates] = useState<Record<number, string>>({})
+  const period = draft ?? (data ? { ...data, dirty: false } : undefined)
 
-  const { data: statuses, isLoading: loadingItems, isError: errorItems } = useBossAcquisitions(
-    characterId,
-    record.bossId ?? 0,
-  )
-  const createAcq = useCreateAcquisition()
-  const deleteAcq = useDeleteAcquisition()
-
-  const acquisitionMap = new Map((statuses ?? []).map((status) => [
-    status.dropItem.id,
-    status.acquisitions[0],
-  ]))
-
-  const getDate = (itemId: number) => pendingDates[itemId] ?? today
-
-  const handleCheck = (itemId: number, checked: boolean) => {
-    if (checked) {
-      createAcq.mutate({ characterId, bossDropItemId: itemId, acquiredDate: getDate(itemId) })
-    } else {
-      const acq = acquisitionMap.get(itemId)
-      if (acq) deleteAcq.mutate({ id: acq.id, characterId })
-    }
+  const changePartySize = (partySize: number) => {
+    if (!period || partySize < 1 || partySize > 6) return
+    onChange({
+      ...period,
+      partySize,
+      dirty: true,
+      items: period.items.map((item) => item.dropItem.itemKind === 'CRYSTAL'
+        ? { ...item, mesoAmount: period.crystalPrice > 0 ? Math.floor(period.crystalPrice / partySize) : null }
+        : item),
+    })
   }
 
-  const handleDateChange = (itemId: number, newDate: string) => {
-    setPendingDates((prev) => ({ ...prev, [itemId]: newDate }))
-    const acq = acquisitionMap.get(itemId)
-    if (acq) {
-      deleteAcq.mutate(
-        { id: acq.id, characterId },
-        {
-          onSuccess: () => {
-            createAcq.mutate({ characterId, bossDropItemId: itemId, acquiredDate: newDate })
-          },
-        },
-      )
-    }
+  const changeItem = (itemId: number, values: Partial<BossPeriod['items'][number]>) => {
+    if (!period) return
+    onChange({
+      ...period,
+      dirty: true,
+      items: period.items.map((item) => item.dropItem.id === itemId ? { ...item, ...values } : item),
+    })
   }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`${record.bossName} 드랍 아이템`}>
-      <div className="mb-5 flex items-center gap-3">
-        {record.bossImage ? (
-          <img
-            src={record.bossImage}
-            alt={record.bossName}
-            className="h-16 w-16 rounded-lg object-contain"
-          />
-        ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#1a1a2e] text-3xl">
-            🗡️
-          </div>
-        )}
-        <div>
-          <p className="font-semibold text-white">{record.bossName}</p>
-          <div className="mt-1 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <CatalogImage src={record.bossImage} alt={record.bossName ?? '보스'} kind="boss" />
+          <div>
+            <p className="font-semibold text-white">{record.bossName}</p>
             {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
-            <span className="text-xs text-white/40">
-              {(record.crystalPrice ?? 0) > 0
-                ? `${(record.crystalPrice ?? 0).toLocaleString()} 메소`
-                : '무결정'}
-            </span>
           </div>
         </div>
+        <label className="flex items-center gap-2 text-sm text-white/70">
+          파티 인원
+          <select
+            value={period?.partySize ?? 1}
+            onChange={(event) => changePartySize(Number(event.target.value))}
+            disabled={!period}
+            className="rounded border border-white/20 bg-[#1a1a2e] px-2 py-1 text-white"
+          >
+            {[1, 2, 3, 4, 5, 6].map((size) => <option key={size} value={size}>{size}명</option>)}
+          </select>
+        </label>
       </div>
 
-      {loadingItems ? (
-        <div className="space-y-2">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-white/10" />
-          ))}
-        </div>
-      ) : errorItems ? (
+      {isLoading ? (
+        <div className="h-40 animate-pulse rounded bg-white/10" />
+      ) : isError ? (
         <p className="text-sm text-[#f87171]">드랍 아이템을 불러오지 못했습니다.</p>
-      ) : !statuses || statuses.length === 0 ? (
-        <p className="text-sm text-white/40">드랍 아이템 정보 없음</p>
+      ) : !period || period.items.length === 0 ? (
+        <p className="text-sm text-white/50">드랍 아이템 정보 없음</p>
       ) : (
-        <ul className="max-h-80 space-y-2 overflow-y-auto">
-          {statuses.map((status) => {
-            const item = status.dropItem
-            const acq = acquisitionMap.get(item.id)
-            const isAcquired = status.acquired && !!acq
-            return (
-              <li key={item.id} className="rounded-lg bg-[#1a1a2e] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  {item.itemImage ? (
-                    <img
-                      src={item.itemImage}
-                      alt={item.itemName}
-                      className="h-10 w-10 rounded object-contain"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded bg-[#2d2d44] text-xl">
-                      🎁
-                    </div>
-                  )}
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-white/90">{item.itemName}</p>
-                    {item.dropRateTier && (
-                      <span
-                        className="inline-block rounded px-1.5 py-0.5 text-xs"
-                        style={{
-                          backgroundColor: `${TIER_COLOR[item.dropRateTier] ?? '#6b7280'}20`,
-                          color: TIER_COLOR[item.dropRateTier] ?? '#6b7280',
-                        }}
-                      >
-                        {TIER_LABEL[item.dropRateTier] ?? item.dropRateTier}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-2">
-                    {status.acquisitions.length > 1 && (
-                      <span className="text-xs text-white/50">{status.acquisitions.length}회</span>
-                    )}
-                    {isAcquired && (
-                      <input
-                        type="date"
-                        value={acq.acquiredDate}
-                        onChange={(e) => handleDateChange(item.id, e.target.value)}
-                        className="rounded bg-[#2d2d44] px-2 py-1 text-xs text-white/80 focus:outline-none focus-visible:ring-1 focus-visible:ring-[#4ade80]"
-                      />
-                    )}
-                    <input
-                      type="checkbox"
-                      checked={isAcquired}
-                      onChange={(e) => handleCheck(item.id, e.target.checked)}
-                      className="h-4 w-4 cursor-pointer accent-[#4ade80]"
-                      aria-label={`${item.itemName} 획득 여부`}
-                    />
-                  </div>
-                </div>
-              </li>
-            )
-          })}
+        <ul className="max-h-[60vh] space-y-1 overflow-y-auto">
+          {period.items.map((item) => (
+            <li key={item.dropItem.id} className="flex flex-wrap items-center gap-3 border-b border-white/10 py-3 last:border-0">
+              <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" className="h-8 w-8" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-white">{item.dropItem.itemName}</p>
+                {item.dropItem.itemKind === 'CRYSTAL' && period.crystalPrice === 0 && (
+                  <span className="text-xs text-amber-300">가격 미확인</span>
+                )}
+              </div>
+              {item.dropItem.itemKind === 'FIXED' && (
+                <label className="flex items-center gap-1 text-xs text-white/60">
+                  수량
+                  <input
+                    type="number"
+                    min={1}
+                    value={item.quantity}
+                    onChange={(event) => changeItem(item.dropItem.id, { quantity: Math.max(1, Number(event.target.value) || 1) })}
+                    className="w-16 rounded border border-white/20 bg-[#1a1a2e] px-2 py-1 text-right text-white"
+                    aria-label={`${item.dropItem.itemName} 수량`}
+                  />
+                </label>
+              )}
+              {item.dropItem.itemKind === 'CRYSTAL' && (
+                <label className="flex items-center gap-1 text-xs text-white/60">
+                  메소
+                  <input
+                    type="number"
+                    min={0}
+                    value={item.mesoAmount ?? ''}
+                    placeholder={period.crystalPrice === 0 ? '가격 미확인' : undefined}
+                    onChange={(event) => changeItem(item.dropItem.id, {
+                      mesoAmount: event.target.value === '' ? null : Math.max(0, Math.floor(Number(event.target.value))),
+                    })}
+                    className="w-28 rounded border border-white/20 bg-[#1a1a2e] px-2 py-1 text-right text-white"
+                    aria-label="결정 금액"
+                  />
+                </label>
+              )}
+              <input
+                type="checkbox"
+                checked={item.acquired}
+                onChange={(event) => changeItem(item.dropItem.id, { acquired: event.target.checked })}
+                className="h-4 w-4 shrink-0 cursor-pointer accent-[#4ade80]"
+                aria-label={`${item.dropItem.itemName} 획득 여부`}
+              />
+            </li>
+          ))}
         </ul>
       )}
     </Modal>

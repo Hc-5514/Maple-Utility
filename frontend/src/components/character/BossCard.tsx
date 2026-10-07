@@ -1,4 +1,5 @@
 import DifficultyBadge from '../common/DifficultyBadge'
+import CatalogImage from '../common/CatalogImage'
 import type { SchedulerBossRecord } from '../../types'
 
 interface Props {
@@ -16,13 +17,7 @@ export default function BossCard({ record, onClickDetail }: Props) {
       className="cursor-pointer rounded-lg bg-[#1a1a2e] p-4 transition-colors hover:bg-[#252540] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4ade80]"
     >
       <div className="mb-3 flex items-start gap-3">
-        {record.bossImage ? (
-          <img src={record.bossImage} alt={record.bossName} className="h-12 w-12 rounded object-contain" />
-        ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded bg-[#2d2d44] text-2xl">
-            🗡️
-          </div>
-        )}
+        <CatalogImage src={record.bossImage} alt={record.bossName ?? '보스'} kind="boss" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-white">{record.bossName}</p>
           {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
@@ -33,7 +28,7 @@ export default function BossCard({ record, onClickDetail }: Props) {
         <span className="text-xs text-white/40">
           {(record.crystalPrice ?? 0) > 0
             ? `${(record.crystalPrice ?? 0).toLocaleString()} 메소`
-            : '무결정'}
+            : '가격 미확인'}
         </span>
         <span
           className={`rounded px-2 py-1 text-xs font-semibold ${

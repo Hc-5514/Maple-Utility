@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Constructor;
@@ -19,12 +20,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.maple.utility.dto.request.BossItemAcquisitionCreateRequest;
+import com.maple.utility.dto.request.BossPeriodSaveRequest;
 import com.maple.utility.dto.response.BossDropItemAcquisitionStatusResponse;
 import com.maple.utility.dto.response.BossDropItemResponse;
 import com.maple.utility.dto.response.BossItemAcquisitionResponse;
 import com.maple.utility.entity.BossDropItem;
 import com.maple.utility.entity.BossItemAcquisition;
 import com.maple.utility.entity.BossMaster;
+import com.maple.utility.entity.BossItemKind;
+import com.maple.utility.entity.BossPeriodEntry;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.DropRateTier;
 import com.maple.utility.entity.MapleCharacter;
@@ -35,6 +39,7 @@ import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.BossDropItemRepository;
 import com.maple.utility.repository.BossItemAcquisitionRepository;
 import com.maple.utility.repository.BossMasterRepository;
+import com.maple.utility.repository.BossPeriodEntryRepository;
 import com.maple.utility.repository.CharacterRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +57,9 @@ class BossDropServiceTest {
 	@Mock
 	private CharacterRepository characterRepository;
 
+	@Mock
+	private BossPeriodEntryRepository bossPeriodEntryRepository;
+
 	private BossDropService bossDropService;
 
 	@BeforeEach
@@ -60,7 +68,8 @@ class BossDropServiceTest {
 				bossMasterRepository,
 				bossDropItemRepository,
 				bossItemAcquisitionRepository,
-				characterRepository
+				characterRepository,
+				bossPeriodEntryRepository
 		);
 	}
 
@@ -69,7 +78,7 @@ class BossDropServiceTest {
 		BossMaster boss = boss(20L);
 		BossDropItem dropItem = dropItem(100L, boss, "아케인셰이드 무기 상자");
 		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
-		when(bossDropItemRepository.findByBossIdOrderByIdAsc(20L)).thenReturn(List.of(dropItem));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(dropItem));
 
 		List<BossDropItemResponse> response = bossDropService.getDropItems(20L);
 
@@ -90,7 +99,7 @@ class BossDropServiceTest {
 
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
-		when(bossDropItemRepository.findByBossIdOrderByIdAsc(20L)).thenReturn(List.of(firstDropItem, secondDropItem));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(firstDropItem, secondDropItem));
 		when(bossItemAcquisitionRepository.findByCharacter_IdAndBossDropItem_IdInOrderByAcquiredDateDescIdDesc(10L, List.of(100L, 101L)))
 				.thenReturn(List.of(acquisition));
 
@@ -167,6 +176,76 @@ class BossDropServiceTest {
 				.hasMessageContaining("보스 드랍 획득 기록 없음");
 	}
 
+	@Test
+	void periodRejectsNonThursdayStart() {
+		MapleCharacter character = character(user());
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss(20L)));
+
+		assertThatThrownBy(() -> bossDropService.getPeriod(1L, 20L, 10L, LocalDate.parse("2026-10-07")))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("기간 시작일 오류");
+	}
+
+	@Test
+	void periodRejectsOtherUserCharacter() {
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> bossDropService.getPeriod(1L, 20L, 10L, LocalDate.parse("2026-10-08")))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("캐릭터 없음");
+	}
+
+	@Test
+	void savePeriodFloorsCrystalPrice() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 48_900_001L);
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.empty());
+		when(bossPeriodEntryRepository.save(any(BossPeriodEntry.class))).thenAnswer(invocation -> {
+			BossPeriodEntry saved = invocation.getArgument(0);
+			ReflectionTestUtils.setField(saved, "id", 50L);
+			return saved;
+		});
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2,
+				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, null)));
+
+		bossDropService.savePeriod(1L, 20L, request);
+
+		verify(bossItemAcquisitionRepository).save(org.mockito.ArgumentMatchers.argThat(
+				acquisition -> acquisition.getMesoAmount() == 24_450_000L));
+	}
+
+	@Test
+	void savePeriodUpdatesExistingAcquisitionWithoutInsert() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-10-08"), 1);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		BossItemAcquisition existing = BossItemAcquisition.createForPeriod(entry, crystal, 1, 48_900_000L);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.of(entry));
+		when(bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(50L)).thenReturn(List.of(existing));
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2,
+				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, 24_450_000L)));
+
+		bossDropService.savePeriod(1L, 20L, request);
+
+		assertThat(existing.getMesoAmount()).isEqualTo(24_450_000L);
+		verify(bossItemAcquisitionRepository, never()).save(any(BossItemAcquisition.class));
+	}
+
 	private User user() {
 		User user = User.create(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
 		ReflectionTestUtils.setField(user, "id", 1L);
@@ -199,6 +278,8 @@ class BossDropServiceTest {
 		ReflectionTestUtils.setField(dropItem, "itemImage", "https://example.com/item.png");
 		ReflectionTestUtils.setField(dropItem, "itemDescription", "드랍 아이템");
 		ReflectionTestUtils.setField(dropItem, "dropRateTier", DropRateTier.LOW);
+		ReflectionTestUtils.setField(dropItem, "itemKind", BossItemKind.RANDOM);
+		ReflectionTestUtils.setField(dropItem, "defaultQuantity", 1);
 		return dropItem;
 	}
 

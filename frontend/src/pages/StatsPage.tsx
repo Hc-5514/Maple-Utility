@@ -4,15 +4,13 @@ import DateRangePicker from '../components/common/DateRangePicker'
 import HuntingChart from '../components/stats/HuntingChart'
 import CrystalChart from '../components/stats/CrystalChart'
 import ItemAcquisitionList from '../components/stats/ItemAcquisitionList'
-import { useStatsBossItems, useStatsCrystal, useStatsHunting } from '../hooks/useStats'
+import { useStatsBossItems, useStatsCrystal, useStatsHunting, type BossItemPageSize } from '../hooks/useStats'
 import client from '../api/client'
 import type { ApiResponse, Character } from '../types'
 
-function getFirstOfMonth(): string {
-  const d = new Date()
-  d.setDate(1)
-  return d.toISOString().split('T')[0]
-}
+const today = import.meta.env.VITE_USE_MOCK === 'true' && import.meta.env.VITE_PREVIEW_DATE
+  ? import.meta.env.VITE_PREVIEW_DATE
+  : new Date().toISOString().split('T')[0]
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -24,10 +22,11 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 export default function StatsPage() {
-  const today = new Date().toISOString().split('T')[0]
-  const [dateFrom, setDateFrom] = useState(getFirstOfMonth())
+  const [dateFrom, setDateFrom] = useState(`${today.slice(0, 7)}-01`)
   const [dateTo, setDateTo] = useState(today)
   const [characterId, setCharacterId] = useState<number | null>(null)
+  const [bossPage, setBossPage] = useState(0)
+  const [bossPageSize, setBossPageSize] = useState<BossItemPageSize>(10)
 
   const params = { characterId, dateFrom, dateTo }
 
@@ -39,7 +38,9 @@ export default function StatsPage() {
 
   const { data: huntingData, isLoading: loadingHunting, isError: errorHunting } = useStatsHunting(params)
   const { data: crystalData, isLoading: loadingCrystal, isError: errorCrystal } = useStatsCrystal(params)
-  const { data: bossItems, isLoading: loadingBossItems, isError: errorBossItems } = useStatsBossItems(params)
+  const { data: bossItems, isLoading: loadingBossItems, isError: errorBossItems } = useStatsBossItems({
+    ...params, page: bossPage, size: bossPageSize,
+  })
 
   return (
     <div className="space-y-8">
@@ -55,13 +56,15 @@ export default function StatsPage() {
           onChange={(start, end) => {
             setDateFrom(start)
             setDateTo(end)
+            setBossPage(0)
           }}
         />
         <select
           value={characterId ?? ''}
-          onChange={(e) =>
+          onChange={(e) => {
             setCharacterId(e.target.value === '' ? null : Number(e.target.value))
-          }
+            setBossPage(0)
+          }}
           className="rounded border border-white/20 bg-[#2d2d44] px-3 py-1.5 text-sm text-white"
         >
           <option value="">전체 캐릭터</option>
@@ -145,7 +148,11 @@ export default function StatsPage() {
         ) : errorBossItems ? (
           <p className="text-sm text-[#f87171]">데이터를 불러오지 못했습니다.</p>
         ) : (
-          <ItemAcquisitionList items={bossItems ?? []} />
+          <ItemAcquisitionList
+            page={bossItems ?? { content: [], totalElements: 0, totalPages: 0, page: bossPage, size: bossPageSize }}
+            onPageChange={setBossPage}
+            onPageSizeChange={(size) => { setBossPageSize(size); setBossPage(0) }}
+          />
         )}
       </section>
     </div>
