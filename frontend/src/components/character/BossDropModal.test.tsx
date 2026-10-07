@@ -1,38 +1,66 @@
 // @vitest-environment jsdom
+import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { AxiosResponse } from 'axios'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import client from '../../api/client'
-import type { BossDropItemAcquisitionStatus, SchedulerBossRecord } from '../../types'
+import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
 import BossDropModal from './BossDropModal'
 
 const record: SchedulerBossRecord = {
   characterId: 1,
   bossId: 5,
-  bossName: '데미안',
+  bossName: '스우',
   difficulty: 'HARD',
   resetPeriod: 'WEEKLY',
   isCompleted: true,
-  syncedAt: '2026-10-07T01:00:00',
+  syncedAt: '2026-10-08T01:00:00',
 }
 
-const dropItem = {
-  id: 10,
+const period: BossPeriod = {
   bossId: 5,
-  itemName: '마력이 깃든 장비',
-  itemImage: null,
-  itemDescription: null,
-  dropRateTier: 'NORMAL' as const,
+  characterId: 1,
+  periodStart: '2026-10-08',
+  partySize: 1,
+  crystalPrice: 48_900_000,
+  savedAt: null,
+  items: [
+    {
+      dropItem: {
+        id: 10, bossId: 5, itemName: '강렬한 힘의 결정', itemImage: null,
+        itemDescription: null, dropRateTier: 'HIGH', itemKind: 'CRYSTAL', defaultQuantity: 1,
+      },
+      acquired: false, quantity: 1, mesoAmount: 48_900_000,
+    },
+    {
+      dropItem: {
+        id: 11, bossId: 5, itemName: '솔 에르다의 기운', itemImage: null,
+        itemDescription: null, dropRateTier: null, itemKind: 'FIXED', defaultQuantity: 3,
+      },
+      acquired: false, quantity: 3, mesoAmount: null,
+    },
+  ],
 }
 
 function renderModal() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <BossDropModal isOpen onClose={vi.fn()} record={record} characterId={1} />
-    </QueryClientProvider>,
-  )
+  function Wrapper() {
+    const [draft, setDraft] = useState<BossPeriodDraft>()
+    return (
+      <BossDropModal
+        isOpen
+        onClose={vi.fn()}
+        record={record}
+        characterId={1}
+        periodStart="2026-10-08"
+        draft={draft}
+        onLoaded={(loaded) => setDraft((previous) => previous ?? { ...loaded, dirty: false })}
+        onChange={setDraft}
+      />
+    )
+  }
+  render(<QueryClientProvider client={queryClient}><Wrapper /></QueryClientProvider>)
 }
 
 afterEach(() => {
@@ -41,61 +69,25 @@ afterEach(() => {
 })
 
 describe('BossDropModal', () => {
-  it('loads the boss-specific status response and shows its drop item', async () => {
-    const statuses: BossDropItemAcquisitionStatus[] = [
-      { dropItem, acquired: false, acquisitions: [] },
-    ]
-    const get = vi.spyOn(client, 'get').mockResolvedValue({ data: { success: true, data: statuses } } as AxiosResponse)
+  it('loads a period and edits party share without a write request', async () => {
+    const get = vi.spyOn(client, 'get').mockResolvedValue({ data: { success: true, data: period } } as AxiosResponse)
+    const put = vi.spyOn(client, 'put')
 
     renderModal()
 
-    expect(await screen.findByText(dropItem.itemName)).toBeTruthy()
-    expect(get).toHaveBeenCalledWith('/boss/5/drop-items/acquisitions?characterId=1')
-    expect(screen.getByRole('checkbox', { name: `${dropItem.itemName} 획득 여부` })).toHaveProperty('checked', false)
+    expect(await screen.findByText('강렬한 힘의 결정')).toBeTruthy()
+    expect(get).toHaveBeenCalledWith('/boss/5/period?characterId=1&periodStart=2026-10-08')
+    fireEvent.change(screen.getByLabelText('파티 인원'), { target: { value: '2' } })
+    await waitFor(() => expect(screen.getByLabelText('결정 금액')).toHaveProperty('value', '24450000'))
+    fireEvent.click(screen.getByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }))
+    expect(put).not.toHaveBeenCalled()
   })
 
-  it('deletes only the latest acquisition when an item has history', async () => {
-    let acquisitions = [
-      { id: 20, characterId: 1, bossDropItemId: 10, acquiredDate: '2026-10-07', memo: null },
-      { id: 10, characterId: 1, bossDropItemId: 10, acquiredDate: '2026-10-01', memo: null },
-    ]
-    vi.spyOn(client, 'get').mockImplementation(async () => ({
-      data: { success: true, data: [{ dropItem, acquired: acquisitions.length > 0, acquisitions }] },
-    } as AxiosResponse))
-    const remove = vi.spyOn(client, 'delete').mockImplementation(async () => {
-      acquisitions = acquisitions.slice(1)
-      return {} as AxiosResponse
-    })
+  it('uses the fixed item default quantity', async () => {
+    vi.spyOn(client, 'get').mockResolvedValue({ data: { success: true, data: period } } as AxiosResponse)
 
     renderModal()
 
-    expect(await screen.findByText('2회')).toBeTruthy()
-    fireEvent.click(screen.getByRole('checkbox', { name: `${dropItem.itemName} 획득 여부` }))
-
-    await waitFor(() => expect(remove).toHaveBeenCalledWith('/boss/item-acquisition/20'))
-    await waitFor(() => expect(screen.queryByText('2회')).toBeNull())
-    expect(screen.getByRole('checkbox', { name: `${dropItem.itemName} 획득 여부` })).toHaveProperty('checked', true)
-  })
-
-  it('registers an acquisition and refreshes the item status', async () => {
-    let acquisitions: BossDropItemAcquisitionStatus['acquisitions'] = []
-    vi.spyOn(client, 'get').mockImplementation(async () => ({
-      data: { success: true, data: [{ dropItem, acquired: acquisitions.length > 0, acquisitions }] },
-    } as AxiosResponse))
-    const create = vi.spyOn(client, 'post').mockImplementation(async () => {
-      acquisitions = [{ id: 30, characterId: 1, bossDropItemId: 10, acquiredDate: '2026-10-07', memo: null }]
-      return { data: { success: true, data: acquisitions[0] } } as AxiosResponse
-    })
-
-    renderModal()
-
-    const checkbox = await screen.findByRole('checkbox', { name: `${dropItem.itemName} 획득 여부` })
-    fireEvent.click(checkbox)
-
-    await waitFor(() => expect(create).toHaveBeenCalledWith('/boss/item-acquisition', expect.objectContaining({
-      characterId: 1,
-      bossDropItemId: 10,
-    })))
-    await waitFor(() => expect(checkbox).toHaveProperty('checked', true))
+    expect(await screen.findByLabelText('솔 에르다의 기운 수량')).toHaveProperty('value', '3')
   })
 })

@@ -1,5 +1,33 @@
 import { http, HttpResponse } from 'msw'
 import bossesFixture from '../fixtures/bosses.json'
+import type { BossPeriod, DropRateTier } from '../../types'
+
+const periods = new Map<string, BossPeriod>()
+
+function periodKey(characterId: number, bossId: number, periodStart: string) {
+  return `${characterId}:${bossId}:${periodStart}`
+}
+
+function initialPeriod(characterId: number, bossId: number, periodStart: string): BossPeriod {
+  const boss = bossesFixture.masters.find((entry) => entry.id === bossId)
+  const crystalPrice = boss?.crystalPrice ?? 0
+  return {
+    bossId, characterId, periodStart, partySize: 1, crystalPrice, savedAt: null,
+    items: bossesFixture.dropItems
+      .filter((item) => item.bossId === bossId && item.itemName !== '솔 에르다 조각')
+      .map((item) => ({
+        dropItem: {
+          ...item,
+          dropRateTier: item.dropRateTier as DropRateTier | null,
+          itemKind: item.itemName === '강렬한 힘의 결정' ? 'CRYSTAL' as const : 'RANDOM' as const,
+          defaultQuantity: 1,
+        },
+        acquired: false,
+        quantity: 1,
+        mesoAmount: item.itemName === '강렬한 힘의 결정' && crystalPrice > 0 ? crystalPrice : null,
+      })),
+  }
+}
 
 const acquisitions = [
   { id: 1, characterId: 1, bossDropItemId: 4,  acquiredDate: '2026-07-13', memo: null },
@@ -9,6 +37,42 @@ const acquisitions = [
 let nextAcqId = 4
 
 export const bossHandlers = [
+  http.get('*/api/v1/boss/:bossId/period', ({ params, request }) => {
+    const url = new URL(request.url)
+    const bossId = Number(params.bossId)
+    const characterId = Number(url.searchParams.get('characterId'))
+    const periodStart = url.searchParams.get('periodStart') ?? ''
+    const key = periodKey(characterId, bossId, periodStart)
+    return HttpResponse.json({ success: true, data: periods.get(key) ?? initialPeriod(characterId, bossId, periodStart) })
+  }),
+
+  http.put('*/api/v1/boss/:bossId/period', async ({ params, request }) => {
+    const bossId = Number(params.bossId)
+    const body = await request.json() as {
+      characterId: number
+      periodStart: string
+      partySize: number
+      items: { bossDropItemId: number; acquired: boolean; quantity: number; mesoAmount: number | null }[]
+    }
+    if (body.partySize < 1 || body.partySize > 6) {
+      return HttpResponse.json({ success: false }, { status: 400 })
+    }
+    const key = periodKey(body.characterId, bossId, body.periodStart)
+    const previous = periods.get(key) ?? initialPeriod(body.characterId, bossId, body.periodStart)
+    const changed = new Map(body.items.map((item) => [item.bossDropItemId, item]))
+    const saved: BossPeriod = {
+      ...previous,
+      partySize: body.partySize,
+      savedAt: new Date().toISOString(),
+      items: previous.items.map((item) => {
+        const edit = changed.get(item.dropItem.id)
+        return edit ? { ...item, acquired: edit.acquired, quantity: edit.quantity, mesoAmount: edit.mesoAmount } : item
+      }),
+    }
+    periods.set(key, saved)
+    return HttpResponse.json({ success: true, data: saved })
+  }),
+
   http.get('*/api/v1/boss/:bossId/drop-items', ({ params }) => {
     const items = bossesFixture.dropItems.filter(i => i.bossId === Number(params.bossId))
     return HttpResponse.json({ success: true, data: items })
