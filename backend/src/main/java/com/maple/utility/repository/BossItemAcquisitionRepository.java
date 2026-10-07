@@ -15,4 +15,10 @@ public interface BossItemAcquisitionRepository extends JpaRepository<BossItemAcq
 	);
 
 	Optional<BossItemAcquisition> findByIdAndCharacter_User_Id(Long id, Long userId);
+
+	List<BossItemAcquisition> findByPeriodEntry_IdOrderByIdAsc(Long periodEntryId);
+
+	List<BossItemAcquisition> findByCharacter_IdAndBossDropItem_Boss_IdOrderByAcquiredDateDescIdDesc(
+			Long characterId, Long bossId
+	);
 }
