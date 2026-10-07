@@ -1,0 +1,1173 @@
+[
+  {
+    "id": 1001,
+    "bossName": "스우",
+    "difficulty": "EXTREME",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 545000000,
+    "dropItems": [
+      {
+        "id": 1001001,
+        "bossId": 1001,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1001002,
+        "bossId": 1001,
+        "itemName": "섬멸병기 스우로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1001003,
+        "bossId": 1001,
+        "itemName": "루즈 컨트롤 머신 마크",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1001004,
+        "bossId": 1001,
+        "itemName": "컴플리트 언더컨트롤",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1001005,
+        "bossId": 1001,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1002,
+    "bossName": "더스크",
+    "difficulty": "CHAOS",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 66300000,
+    "dropItems": [
+      {
+        "id": 1002001,
+        "bossId": 1002,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1002002,
+        "bossId": 1002,
+        "itemName": "아케인셰이드 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1002003,
+        "bossId": 1002,
+        "itemName": "아케인셰이드 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1002004,
+        "bossId": 1002,
+        "itemName": "에스텔라 이어링",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1002005,
+        "bossId": 1002,
+        "itemName": "거대한 공포",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1002006,
+        "bossId": 1002,
+        "itemName": "흑옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1003,
+    "bossName": "진 힐라",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 100000000,
+    "dropItems": [
+      {
+        "id": 1003001,
+        "bossId": 1003,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1003002,
+        "bossId": 1003,
+        "itemName": "아케인셰이드 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1003003,
+        "bossId": 1003,
+        "itemName": "아케인셰이드 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1003004,
+        "bossId": 1003,
+        "itemName": "데이브레이크 펜던트",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1003005,
+        "bossId": 1003,
+        "itemName": "고통의 근원",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1003006,
+        "bossId": 1003,
+        "itemName": "흑옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1004,
+    "bossName": "듄켈",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 89600000,
+    "dropItems": [
+      {
+        "id": 1004001,
+        "bossId": 1004,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1004002,
+        "bossId": 1004,
+        "itemName": "아케인셰이드 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1004003,
+        "bossId": 1004,
+        "itemName": "아케인셰이드 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1004004,
+        "bossId": 1004,
+        "itemName": "에스텔라 이어링",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1004005,
+        "bossId": 1004,
+        "itemName": "커맨더 포스 이어링",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1004006,
+        "bossId": 1004,
+        "itemName": "흑옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1005,
+    "bossName": "검은 마법사",
+    "difficulty": "EXTREME",
+    "resetPeriod": "MONTHLY",
+    "crystalPrice": 5680000000,
+    "dropItems": [
+      {
+        "id": 1005001,
+        "bossId": 1005,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1005002,
+        "bossId": 1005,
+        "itemName": "아케인셰이드 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1005003,
+        "bossId": 1005,
+        "itemName": "아케인셰이드 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1005004,
+        "bossId": 1005,
+        "itemName": "창세의 뱃지",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1005005,
+        "bossId": 1005,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1005006,
+        "bossId": 1005,
+        "itemName": "익셉셔널 해머(벨트)",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1006,
+    "bossName": "선택받은 세렌",
+    "difficulty": "EXTREME",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 1840000000,
+    "dropItems": [
+      {
+        "id": 1006001,
+        "bossId": 1006,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1006002,
+        "bossId": 1006,
+        "itemName": "미트라의 코어 젬스톤",
+        "itemKind": "FIXED",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1006003,
+        "bossId": 1006,
+        "itemName": "데이브레이크 펜던트",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1006004,
+        "bossId": 1006,
+        "itemName": "미트라의 분노 선택 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1006005,
+        "bossId": 1006,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1006006,
+        "bossId": 1006,
+        "itemName": "익셉셔널 해머(얼굴장식)",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1006007,
+        "bossId": 1006,
+        "itemName": "영롱한 달빛 포션",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1007,
+    "bossName": "감시자 칼로스",
+    "difficulty": "CHAOS",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 1230000000,
+    "dropItems": [
+      {
+        "id": 1007001,
+        "bossId": 1007,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1007002,
+        "bossId": 1007,
+        "itemName": "남겨진 칼로스의 의지",
+        "itemKind": "FIXED",
+        "defaultQuantity": 5
+      },
+      {
+        "id": 1007003,
+        "bossId": 1007,
+        "itemName": "니키로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1007004,
+        "bossId": 1007,
+        "itemName": "의지의 에테르넬 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1007005,
+        "bossId": 1007,
+        "itemName": "생명의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1007006,
+        "bossId": 1007,
+        "itemName": "생명의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1008,
+    "bossName": "카링",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 1560000000,
+    "dropItems": [
+      {
+        "id": 1008001,
+        "bossId": 1008,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1008002,
+        "bossId": 1008,
+        "itemName": "뒤엉킨 흉수의 고리",
+        "itemKind": "FIXED",
+        "defaultQuantity": 7
+      },
+      {
+        "id": 1008003,
+        "bossId": 1008,
+        "itemName": "카링로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1008004,
+        "bossId": 1008,
+        "itemName": "흉수의 에테르넬 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1008005,
+        "bossId": 1008,
+        "itemName": "혼돈의 칠흑 장신구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1008006,
+        "bossId": 1008,
+        "itemName": "신념의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1008007,
+        "bossId": 1008,
+        "itemName": "생명의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1008008,
+        "bossId": 1008,
+        "itemName": "1단계 소울 에테르",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1009,
+    "bossName": "림보",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 2385000000,
+    "dropItems": [
+      {
+        "id": 1009001,
+        "bossId": 1009,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1009002,
+        "bossId": 1009,
+        "itemName": "왜곡된 욕망의 결정",
+        "itemKind": "FIXED",
+        "defaultQuantity": 2
+      },
+      {
+        "id": 1009003,
+        "bossId": 1009,
+        "itemName": "림보로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1009004,
+        "bossId": 1009,
+        "itemName": "욕망의 에테르넬 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1009005,
+        "bossId": 1009,
+        "itemName": "근원의 속삭임",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1009006,
+        "bossId": 1009,
+        "itemName": "혼돈의 칠흑 장신구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1009007,
+        "bossId": 1009,
+        "itemName": "신념의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1009008,
+        "bossId": 1009,
+        "itemName": "생명의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1009009,
+        "bossId": 1009,
+        "itemName": "3단계 소울 에테르",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1010,
+    "bossName": "발드릭스",
+    "difficulty": "NORMAL",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 1320000000,
+    "dropItems": [
+      {
+        "id": 1010001,
+        "bossId": 1010,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1010002,
+        "bossId": 1010,
+        "itemName": "영원한 충성의 흔적",
+        "itemKind": "FIXED",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1010003,
+        "bossId": 1010,
+        "itemName": "발드릭스로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1010004,
+        "bossId": 1010,
+        "itemName": "혼돈의 칠흑 장신구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1010005,
+        "bossId": 1010,
+        "itemName": "신념의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1010006,
+        "bossId": 1010,
+        "itemName": "생명의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1010007,
+        "bossId": 1010,
+        "itemName": "3단계 소울 에테르",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1011,
+    "bossName": "최초의 대적자",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 1390000000,
+    "dropItems": [
+      {
+        "id": 1011001,
+        "bossId": 1011,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1011002,
+        "bossId": 1011,
+        "itemName": "이어진 고대의 결의",
+        "itemKind": "FIXED",
+        "defaultQuantity": 6
+      },
+      {
+        "id": 1011003,
+        "bossId": 1011,
+        "itemName": "대적자로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1011004,
+        "bossId": 1011,
+        "itemName": "고대의 에테르넬 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1011005,
+        "bossId": 1011,
+        "itemName": "불멸의 유산",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1011006,
+        "bossId": 1011,
+        "itemName": "생명의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1011007,
+        "bossId": 1011,
+        "itemName": "생명의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1011008,
+        "bossId": 1011,
+        "itemName": "1단계 소울 에테르",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1012,
+    "bossName": "찬란한 흉성",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 2678000000,
+    "dropItems": [
+      {
+        "id": 1012001,
+        "bossId": 1012,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1012002,
+        "bossId": 1012,
+        "itemName": "황홀한 환상의 단편",
+        "itemKind": "FIXED",
+        "defaultQuantity": 18
+      },
+      {
+        "id": 1012003,
+        "bossId": 1012,
+        "itemName": "흉성로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1012004,
+        "bossId": 1012,
+        "itemName": "환상의 에테르넬 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1012005,
+        "bossId": 1012,
+        "itemName": "황홀한 악몽",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1012006,
+        "bossId": 1012,
+        "itemName": "혼돈의 칠흑 장신구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1012007,
+        "bossId": 1012,
+        "itemName": "신념의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1012008,
+        "bossId": 1012,
+        "itemName": "생명의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1012009,
+        "bossId": 1012,
+        "itemName": "2단계 소울 에테르",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1013,
+    "bossName": "벨로나",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 2950000000,
+    "dropItems": [
+      {
+        "id": 1013001,
+        "bossId": 1013,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1013002,
+        "bossId": 1013,
+        "itemName": "저주받은 원혼의 잔재",
+        "itemKind": "FIXED",
+        "defaultQuantity": 2
+      },
+      {
+        "id": 1013003,
+        "bossId": 1013,
+        "itemName": "생명의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1013004,
+        "bossId": 1013,
+        "itemName": "벨로나로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1013005,
+        "bossId": 1013,
+        "itemName": "신념의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1013006,
+        "bossId": 1013,
+        "itemName": "혼돈의 칠흑 장신구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1013007,
+        "bossId": 1013,
+        "itemName": "광기의 에테르넬 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1013008,
+        "bossId": 1013,
+        "itemName": "굶주리는 핏빛 원혼",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1013009,
+        "bossId": 1013,
+        "itemName": "2단계 소울 에테르",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1014,
+    "bossName": "데미안",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 46400000,
+    "dropItems": [
+      {
+        "id": 1014001,
+        "bossId": 1014,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1014002,
+        "bossId": 1014,
+        "itemName": "루인 포스실드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1014003,
+        "bossId": 1014,
+        "itemName": "앱솔랩스 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1014004,
+        "bossId": 1014,
+        "itemName": "앱솔랩스 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1014005,
+        "bossId": 1014,
+        "itemName": "데미안로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1014006,
+        "bossId": 1014,
+        "itemName": "마력이 깃든 안대",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1014007,
+        "bossId": 1014,
+        "itemName": "홍옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1015,
+    "bossName": "루시드",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 59700000,
+    "dropItems": [
+      {
+        "id": 1015001,
+        "bossId": 1015,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1015002,
+        "bossId": 1015,
+        "itemName": "아케인셰이드 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1015003,
+        "bossId": 1015,
+        "itemName": "아케인셰이드 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1015004,
+        "bossId": 1015,
+        "itemName": "루시드로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1015005,
+        "bossId": 1015,
+        "itemName": "트와일라이트 마크",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1015006,
+        "bossId": 1015,
+        "itemName": "몽환의 벨트",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1015007,
+        "bossId": 1015,
+        "itemName": "홍옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1016,
+    "bossName": "윌",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 73200000,
+    "dropItems": [
+      {
+        "id": 1016001,
+        "bossId": 1016,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1016002,
+        "bossId": 1016,
+        "itemName": "거울세계의 코어 젬스톤",
+        "itemKind": "FIXED",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1016003,
+        "bossId": 1016,
+        "itemName": "아케인셰이드 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1016004,
+        "bossId": 1016,
+        "itemName": "아케인셰이드 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1016005,
+        "bossId": 1016,
+        "itemName": "트와일라이트 마크",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1016006,
+        "bossId": 1016,
+        "itemName": "저주받은 마도서 선택 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1016007,
+        "bossId": 1016,
+        "itemName": "홍옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1017,
+    "bossName": "검은 마법사",
+    "difficulty": "HARD",
+    "resetPeriod": "MONTHLY",
+    "crystalPrice": 465000000,
+    "dropItems": [
+      {
+        "id": 1017001,
+        "bossId": 1017,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1017002,
+        "bossId": 1017,
+        "itemName": "아케인셰이드 방어구 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1017003,
+        "bossId": 1017,
+        "itemName": "아케인셰이드 무기 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1017004,
+        "bossId": 1017,
+        "itemName": "창세의 뱃지",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1017005,
+        "bossId": 1017,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1018,
+    "bossName": "선택받은 세렌",
+    "difficulty": "HARD",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 302000000,
+    "dropItems": [
+      {
+        "id": 1018001,
+        "bossId": 1018,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1018002,
+        "bossId": 1018,
+        "itemName": "미트라의 코어 젬스톤",
+        "itemKind": "FIXED",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1018003,
+        "bossId": 1018,
+        "itemName": "데이브레이크 펜던트",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1018004,
+        "bossId": 1018,
+        "itemName": "미트라의 분노 선택 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1018005,
+        "bossId": 1018,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1019,
+    "bossName": "감시자 칼로스",
+    "difficulty": "NORMAL",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 479000000,
+    "dropItems": [
+      {
+        "id": 1019001,
+        "bossId": 1019,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1019002,
+        "bossId": 1019,
+        "itemName": "남겨진 칼로스의 의지 조각",
+        "itemKind": "FIXED",
+        "defaultQuantity": 3
+      },
+      {
+        "id": 1019003,
+        "bossId": 1019,
+        "itemName": "니키로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1019004,
+        "bossId": 1019,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1019005,
+        "bossId": 1019,
+        "itemName": "생명의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1020,
+    "bossName": "카링",
+    "difficulty": "EASY",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 320000000,
+    "dropItems": [
+      {
+        "id": 1020001,
+        "bossId": 1020,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1020002,
+        "bossId": 1020,
+        "itemName": "뒤엉킨 흉수의 고리 조각",
+        "itemKind": "FIXED",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1020003,
+        "bossId": 1020,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1021,
+    "bossName": "최초의 대적자",
+    "difficulty": "NORMAL",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 532000000,
+    "dropItems": [
+      {
+        "id": 1021001,
+        "bossId": 1021,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1021002,
+        "bossId": 1021,
+        "itemName": "이어진 고대의 결의 조각",
+        "itemKind": "FIXED",
+        "defaultQuantity": 4
+      },
+      {
+        "id": 1021003,
+        "bossId": 1021,
+        "itemName": "대적자로이드",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1021004,
+        "bossId": 1021,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1021005,
+        "bossId": 1021,
+        "itemName": "생명의 연마석",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1021006,
+        "bossId": 1021,
+        "itemName": "1단계 소울 에테르",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  },
+  {
+    "id": 1022,
+    "bossName": "벨로나",
+    "difficulty": "EASY",
+    "resetPeriod": "WEEKLY",
+    "crystalPrice": 396000000,
+    "dropItems": [
+      {
+        "id": 1022001,
+        "bossId": 1022,
+        "itemName": "강렬한 힘의 결정",
+        "itemKind": "CRYSTAL",
+        "defaultQuantity": 1
+      },
+      {
+        "id": 1022002,
+        "bossId": 1022,
+        "itemName": "백옥의 보스 반지 상자",
+        "itemKind": "RANDOM",
+        "defaultQuantity": 1
+      }
+    ]
+  }
+]

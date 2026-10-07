@@ -70,6 +70,7 @@ export interface Character {
 export type BossDifficulty = 'EASY' | 'NORMAL' | 'HARD' | 'CHAOS' | 'EXTREME'
 export type ResetPeriod = 'WEEKLY' | 'MONTHLY'
 export type DropRateTier = 'HIGH' | 'NORMAL' | 'LOW'
+export type BossItemKind = 'CRYSTAL' | 'FIXED' | 'RANDOM'
 
 export interface BossDropItem {
   id: number
@@ -78,6 +79,29 @@ export interface BossDropItem {
   itemImage: string | null
   itemDescription: string | null
   dropRateTier: DropRateTier | null
+  itemKind: BossItemKind
+  defaultQuantity: number
+}
+
+export interface BossPeriodItem {
+  dropItem: BossDropItem
+  acquired: boolean
+  quantity: number
+  mesoAmount: number | null
+}
+
+export interface BossPeriod {
+  bossId: number
+  characterId: number
+  periodStart: string
+  partySize: number
+  crystalPrice: number
+  savedAt: string | null
+  items: BossPeriodItem[]
+}
+
+export interface BossPeriodDraft extends BossPeriod {
+  dirty: boolean
 }
 
 export interface BossItemAcquisition {

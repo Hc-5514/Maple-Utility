@@ -1,7 +1,6 @@
 package com.maple.utility.controller;
 
 import java.time.LocalDate;
-import java.util.List;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
@@ -11,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.maple.utility.dto.response.StatsBossItemResponse;
+import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.dto.response.StatsCompletionResponse;
 import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
 import com.maple.utility.dto.response.StatsHuntingSummaryResponse;
@@ -48,13 +48,15 @@ public class StatsController {
 	}
 
 	@GetMapping("/boss-items")
-	public List<StatsBossItemResponse> getBossItemStats(
+	public PageResponse<StatsBossItemResponse> getBossItemStats(
 			@RequestParam(required = false) Long characterId,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
 			Authentication authentication
 	) {
-		return statsService.getBossItemStats(currentUserId(authentication), characterId, dateFrom, dateTo);
+		return statsService.getBossItemStats(currentUserId(authentication), characterId, dateFrom, dateTo, page, size);
 	}
 
 	@GetMapping("/completion")

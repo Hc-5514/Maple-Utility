@@ -39,6 +39,16 @@ public class BossItemAcquisition extends BaseTimeEntity {
 	@Column(name = "memo", length = 255)
 	private String memo;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "boss_period_entry_id")
+	private BossPeriodEntry periodEntry;
+
+	@Column(name = "quantity", nullable = false)
+	private int quantity = 1;
+
+	@Column(name = "meso_amount")
+	private Long mesoAmount;
+
 	public static BossItemAcquisition create(
 			MapleCharacter character,
 			BossDropItem bossDropItem,
@@ -51,5 +61,20 @@ public class BossItemAcquisition extends BaseTimeEntity {
 		acquisition.acquiredDate = acquiredDate;
 		acquisition.memo = memo;
 		return acquisition;
+	}
+
+	public static BossItemAcquisition createForPeriod(
+			BossPeriodEntry periodEntry, BossDropItem dropItem, int quantity, Long mesoAmount
+	) {
+		BossItemAcquisition acquisition = create(periodEntry.getCharacter(), dropItem, periodEntry.getPeriodStart(), null);
+		acquisition.periodEntry = periodEntry;
+		acquisition.quantity = quantity;
+		acquisition.mesoAmount = mesoAmount;
+		return acquisition;
+	}
+
+	public void updateForPeriod(int quantity, Long mesoAmount) {
+		this.quantity = quantity;
+		this.mesoAmount = mesoAmount;
 	}
 }

@@ -4,7 +4,7 @@ const mockUser = {
   id: 1,
   oauthProvider: 'KAKAO' as const,
   email: 'mock@example.com',
-  nickname: '달빛유저',
+  nickname: '미리보기',
 }
 
 const mockAuthToken = {
@@ -14,18 +14,18 @@ const mockAuthToken = {
 }
 
 export const authHandlers = [
-  http.post('/api/v1/auth/kakao', () => {
+  http.post('*/api/v1/auth/kakao', () => {
     localStorage.setItem('accessToken', mockAuthToken.accessToken)
     return HttpResponse.json({
       success: true,
       data: {
         ...mockAuthToken,
-        user: { id: 1, nickname: '달빛유저', email: 'mock@example.com', isNewUser: false },
+        user: { id: 1, nickname: '미리보기', email: 'mock@example.com', isNewUser: false },
       },
     })
   }),
 
-  http.post('/api/v1/auth/nexon-apikey', () => {
+  http.post('*/api/v1/auth/nexon-apikey', () => {
     localStorage.setItem('accessToken', mockAuthToken.accessToken)
     return HttpResponse.json({
       success: true,
@@ -36,18 +36,18 @@ export const authHandlers = [
     })
   }),
 
-  http.post('/api/v1/auth/refresh', () => {
+  http.post('*/api/v1/auth/refresh', () => {
     const refreshed = { ...mockAuthToken, accessToken: 'mock-refreshed-token-xyz' }
     localStorage.setItem('accessToken', refreshed.accessToken)
     return HttpResponse.json({ success: true, data: refreshed })
   }),
 
-  http.post('/api/v1/auth/logout', () => {
+  http.post('*/api/v1/auth/logout', () => {
     localStorage.removeItem('accessToken')
     return new HttpResponse(null, { status: 204 })
   }),
 
-  http.get('/api/v1/auth/me', () => {
+  http.get('*/api/v1/auth/me', () => {
     return HttpResponse.json({ success: true, data: mockUser })
   }),
 ]

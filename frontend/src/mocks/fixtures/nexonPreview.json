@@ -1,0 +1,344 @@
+{
+  "snapshotDate": "2026-10-07",
+  "source": "Nexon Open API scheduler/character-state and character/basic",
+  "characters": [
+    {
+      "id": 1,
+      "characterName": "꼬농",
+      "worldName": "엘리시움",
+      "characterClass": "아크메이지(썬,콜)",
+      "characterLevel": 294,
+      "characterImage": "https://open.api.nexon.com/static/maplestory/character/look/IJPFPHALJLKPODJEKGBNJCLMIICNGLLHLMEOMDECIDAMDDDAJGDNMBGFEPNGKGJGJIKOBAJJMOEFHFOPPPANFPMLCFBHCACEOONIFOJHFGBCGKJFIIFOBAPGFFNFPIHMGFPGNOPCKNGNECNLLOBJBKFFEABFENGABEIAHEEKCEGOCGIIKIOAGLOKODPFELCLPBJKHLDDIPNIMFKPOFMLDMMJAEINKCOPFPKHEANEDBBBADFKNECNEJFBGMCPBEAHADAFPFCNCLJIDHCLLFMJHMMCEOHHNJPNEALBCIGMIMKFACOJHENHEBPMFEANHNGEKJHADCGPNFCNBOAMGMMBMLLCNHBMKLFCAGKAFBPCLKNNADNLCCJFABIMIJGFLOPAEIEOEHDJHBJHMOIOPBMNPBGEECNPDFCOHBCIBFPIDPEJOPLOPCODPLFLIDKHJOJKPJFPMOICJEEMONNIGHELJMJPLIDBOBCEDCLEHBHEJHDLEAKAAMHMMFCGNALMJADGEILINEIIBPKOKGDJGIFPOPDPAMHCEOOIDNJONGMJILGBKNEMPMPLLPJNGIPMHGNDHDECFBBKHKJGCNHJAEJCADLGIJHBALPPGMOGEJPGJHANJFMMAOFMCNKHCDNEGDIJEADJOGFHNNPHLAGLIBEAKLAOJICOHHFECPPPBKOPBEKMBJPJGOAGACIIICFKIIGNHPLCMODODLNFOCFBCJFBGJALKLIFGKPGPGPPONOAINPIFGGJKHGOENHLAGALHCJKAFGJDAIPGMIBHOIPNCILOFLMJLGMOFBPCDBLCBDPAOJDCCLIPMCNIKCAGEJENMPKPBMNCFONFNHKBAJGKKMLGKKFIHGOGEAHNFENHAEKCPEFFADFPIIGHEJAGGFALKALAPPONNIDGBHHPIJPNMDGJCENEEPAFJEEBFDJKMAGIDDAGELCLLIDKIGLAAHOPIAOEIBOCAFOGAAMJGHKEMOMMGMGPDEBMKMLLHIMPBDGOEOGHKDNOJCFOIBKLLMDHDPA?wmotion=W00",
+      "guildName": "Disney",
+      "daily": [
+        {
+          "contentName": "몬스터파크",
+          "nowCount": 0,
+          "maxCount": 14,
+          "questState": null
+        },
+        {
+          "contentName": "[일일 퀘스트] 탈라하트 고대신의 힘 조사",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        }
+      ],
+      "weekly": [
+        {
+          "contentName": "에픽 던전 : 앵글러 컴퍼니",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": null
+        },
+        {
+          "contentName": "에픽 던전 : 악몽선경",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": null
+        },
+        {
+          "contentName": "에픽 던전 : 아우룸 레기스",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": null
+        },
+        {
+          "contentName": "[몬스터파크] 익스트림 몬스터파커에 도전해보겠나?",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[길드] 지하 수로",
+          "nowCount": 108631,
+          "maxCount": 0,
+          "questState": null
+        }
+      ],
+      "bosses": [
+        {
+          "bossName": "스우",
+          "difficulty": "EXTREME",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 35
+        },
+        {
+          "bossName": "더스크",
+          "difficulty": "CHAOS",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 47
+        },
+        {
+          "bossName": "진 힐라",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 49
+        },
+        {
+          "bossName": "듄켈",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 51
+        },
+        {
+          "bossName": "검은 마법사",
+          "difficulty": "EXTREME",
+          "resetPeriod": "MONTHLY",
+          "isCompleted": false,
+          "listOrder": 53
+        },
+        {
+          "bossName": "선택받은 세렌",
+          "difficulty": "EXTREME",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 56
+        },
+        {
+          "bossName": "감시자 칼로스",
+          "difficulty": "CHAOS",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 59
+        },
+        {
+          "bossName": "카링",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 63
+        },
+        {
+          "bossName": "림보",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 66
+        },
+        {
+          "bossName": "발드릭스",
+          "difficulty": "NORMAL",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 67
+        },
+        {
+          "bossName": "최초의 대적자",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 72
+        },
+        {
+          "bossName": "찬란한 흉성",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 77
+        },
+        {
+          "bossName": "벨로나",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 84
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "characterName": "말랑꼬농",
+      "worldName": "엘리시움",
+      "characterClass": "윈드브레이커",
+      "characterLevel": 285,
+      "characterImage": "https://open.api.nexon.com/static/maplestory/character/look/JPOBIBGKPHLHNHHECLIKGPJAAEIFBIBKJEMGKBCGEBBIPAHPLFPEMNHNNILMHBKACPIBKLHPCKANLDHAPMKBOAMJCLNLBHHDKFCHCHPNECLDPIKIGHLAKJFAELPPOFAHHFIMDFEJGJNDKNDLDHKONHKCPBHBKKMCHHCKAGBKFANHOOBFIHHDNICDKFHBBKPNCIBCNOAOEAOFOEOKINMBGCKKNJDOIDOJJJBEPGEMKCLCEOKACDGKADCAKPGGMPHOCIMICBIGIEGMDLBPOEJMJONBKGFMNLAFJHLBKDEFMHGMIEKKNOLCEJPKPBDKHGMOPDBOEGPJAGDMCNMILBNJDAEOFCNEINGCADNJICCOPOCFIIHJLNMANIDOBLDEMDMBFDIONEHDNKCMJFKMBOFBFLHJBNGHMJEIMDAJGBJCCBILKIFFBGJGOJHNJFANAHMACHEBANDPDBEDDJGAAKOFJNNFBIPJJANHNKLOPAHBCLKLPPGBKIIAAKFHKOAEIDPJBDJCJHLBCAGBGOEGDELNBOIDPIEFLBCDMFKNNGOPCEBILAOAIOCFAFJNHOELGJCHCEJGBMFMAICCLCNIAPJJJCBKPLMCGIKPLNMOGFKLIJGGKFECDMDMBDDAINIAACACIADGEALBAIOIJKFALOPJKKMFKCAOPNIKOANBBEPKGCDJKFHKKPDFHMOKBLONBODGMAMMOIPBFPINHLLFHBMCNPNKFLIOCJHMILMDPMLBJBJAFHFKEIOOJPPDHAJNLIJKGDIIGLKJNGMOLHIJPEPDEIPEBGMOHHHHEBAPKCMJBBONBNDOAAMNPAKJKNIOABKEONLABGPOGEKOPMHAHFJNALFEJAOFEAFNPEGIKDAPJPIDKDHACJKLKKEOJKMAHAONIHOLLPKNIDPLOFGILGBLDHAHAGHFNFGPDLOCKIHFKDIBBPKODIHLAOEKEOBBCOCGIELCEKNOJCAIIMMKALNMEBFCMGKHPOGGLFMOGDMLGDKDGEIBPDAEGHGEKKCHIJMN?wmotion=W00",
+      "guildName": "Disney",
+      "daily": [
+        {
+          "contentName": "몬스터파크",
+          "nowCount": 0,
+          "maxCount": 14,
+          "questState": null
+        },
+        {
+          "contentName": "[일일 퀘스트] 세르니움 조사",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[일일 퀘스트] 호텔 아르크스 주변 청소",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[일일 퀘스트] 오디움 일대 탐사",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[일일 퀘스트] 도원경 오염 정화",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[일일 퀘스트] 아르테리아 잔당 처치",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[일일 퀘스트] 카르시온 복구 지원",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[일일 퀘스트] 탈라하트 고대신의 힘 조사",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[일일 퀘스트] 기어드락 크로노스의 잔재 수집",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        }
+      ],
+      "weekly": [
+        {
+          "contentName": "에픽 던전 : 앵글러 컴퍼니",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": null
+        },
+        {
+          "contentName": "에픽 던전 : 악몽선경",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": null
+        },
+        {
+          "contentName": "에픽 던전 : 아우룸 레기스",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": null
+        },
+        {
+          "contentName": "[몬스터파크] 익스트림 몬스터파커에 도전해보겠나?",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": "0"
+        },
+        {
+          "contentName": "[길드] 지하 수로",
+          "nowCount": 0,
+          "maxCount": 0,
+          "questState": null
+        }
+      ],
+      "bosses": [
+        {
+          "bossName": "스우",
+          "difficulty": "EXTREME",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 35
+        },
+        {
+          "bossName": "데미안",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 37
+        },
+        {
+          "bossName": "루시드",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 42
+        },
+        {
+          "bossName": "윌",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 45
+        },
+        {
+          "bossName": "더스크",
+          "difficulty": "CHAOS",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 47
+        },
+        {
+          "bossName": "진 힐라",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 49
+        },
+        {
+          "bossName": "듄켈",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 51
+        },
+        {
+          "bossName": "검은 마법사",
+          "difficulty": "HARD",
+          "resetPeriod": "MONTHLY",
+          "isCompleted": false,
+          "listOrder": 52
+        },
+        {
+          "bossName": "선택받은 세렌",
+          "difficulty": "HARD",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 55
+        },
+        {
+          "bossName": "감시자 칼로스",
+          "difficulty": "NORMAL",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 58
+        },
+        {
+          "bossName": "카링",
+          "difficulty": "EASY",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 61
+        },
+        {
+          "bossName": "최초의 대적자",
+          "difficulty": "NORMAL",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 71
+        },
+        {
+          "bossName": "벨로나",
+          "difficulty": "EASY",
+          "resetPeriod": "WEEKLY",
+          "isCompleted": true,
+          "listOrder": 82
+        }
+      ]
+    }
+  ]
+}
