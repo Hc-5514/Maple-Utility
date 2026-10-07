@@ -91,4 +91,35 @@ describe('Nexon preview contracts', () => {
     expect(second).toBeGreaterThan(0)
     expect(all).toBe(first + second)
   })
+
+  it('paginates forty simulated item acquisitions without crystals', async () => {
+    const base = 'http://localhost/api/v1/stats/boss-items?dateFrom=2026-10-01&dateTo=2026-10-07'
+    const first = (await (await fetch(`${base}&page=0&size=10`)).json()).data
+    const last = (await (await fetch(`${base}&page=3&size=10`)).json()).data
+    const twenty = (await (await fetch(`${base}&page=1&size=20`)).json()).data
+    const thirty = (await (await fetch(`${base}&page=1&size=30`)).json()).data
+
+    expect(first).toMatchObject({ totalElements: 40, totalPages: 4, page: 0, size: 10 })
+    expect(first.content).toHaveLength(10)
+    expect(last.content).toHaveLength(10)
+    expect(twenty.content).toHaveLength(20)
+    expect(thirty.content).toHaveLength(10)
+    expect(first.content.every((item: { itemName: string }) => !item.itemName.includes('결정'))).toBe(true)
+    expect((await (await fetch(`${base}&page=4&size=10`)).json()).data.content).toEqual([])
+  })
+
+  it('filters dummy history by character and date before counting pages', async () => {
+    const base = 'http://localhost/api/v1/stats/boss-items?dateFrom=2026-10-01&dateTo=2026-10-07'
+    const first = (await (await fetch(`${base}&characterId=1&size=10`)).json()).data
+    const second = (await (await fetch(`${base}&characterId=2&size=10`)).json()).data
+    const singleDate = (await (await fetch('http://localhost/api/v1/stats/boss-items?dateFrom=2026-10-07&dateTo=2026-10-07&characterId=1')).json()).data
+
+    expect(first.totalElements).toBe(20)
+    expect(second.totalElements).toBe(20)
+    expect(first.content.every((item: { characterName: string }) => item.characterName === '꼬농')).toBe(true)
+    expect(second.content.every((item: { characterName: string }) => item.characterName === '말랑꼬농')).toBe(true)
+    expect(singleDate.totalElements).toBe(2)
+    expect(singleDate.content.every((item: { acquiredDate: string }) => item.acquiredDate === '2026-10-07')).toBe(true)
+    expect((await fetch(`${base}&size=11`)).status).toBe(400)
+  })
 })
