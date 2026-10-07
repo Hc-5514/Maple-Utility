@@ -1,128 +1,51 @@
 import { http, HttpResponse } from 'msw'
+import { previewBoss, previewCharacter, previewDate, previewPeriods } from '../fixtures/nexonPreview'
 
-const huntingTrend = Array.from({ length: 30 }, (_, i) => {
-  const d = new Date('2026-07-14')
-  d.setDate(d.getDate() - (29 - i))
-  return {
-    date: d.toISOString().split('T')[0],
-    mesoEarned: Math.floor(280_000_000 + ((i * 7919) % 200_000_000)),
-    solErdaEarned: 2 + (i % 5),
-    playDurationMin: 90 + (i % 90) as number | null,
-  }
-})
-
-const totalMeso = huntingTrend.reduce((s, r) => s + r.mesoEarned, 0)
-const totalSolErda = huntingTrend.reduce((s, r) => s + r.solErdaEarned, 0)
-
-const crystalSummary = {
-  totalCrystalIncome: 9_800_000_000,
-  weeklyAverage: 2_450_000_000,
-  weeklyRecords: [
-    {
-      weekStart: '2026-06-23',
-      totalIncome: 2_100_000_000,
-      bossDetails: [
-        { bossName: '스우',   difficulty: 'HARD',  income: 600_000_000 },
-        { bossName: '데미안', difficulty: 'HARD',  income: 750_000_000 },
-        { bossName: '루시드', difficulty: 'HARD',  income: 450_000_000 },
-        { bossName: '더스크', difficulty: 'CHAOS', income: 300_000_000 },
-      ],
-    },
-    {
-      weekStart: '2026-06-30',
-      totalIncome: 2_550_000_000,
-      bossDetails: [
-        { bossName: '스우',   difficulty: 'HARD',  income: 600_000_000 },
-        { bossName: '데미안', difficulty: 'HARD',  income: 750_000_000 },
-        { bossName: '루시드', difficulty: 'HARD',  income: 450_000_000 },
-        { bossName: '칼로스', difficulty: 'CHAOS', income: 750_000_000 },
-      ],
-    },
-    {
-      weekStart: '2026-07-07',
-      totalIncome: 2_300_000_000,
-      bossDetails: [
-        { bossName: '스우',   difficulty: 'HARD',  income: 600_000_000 },
-        { bossName: '윌',     difficulty: 'HARD',  income: 500_000_000 },
-        { bossName: '루시드', difficulty: 'HARD',  income: 450_000_000 },
-        { bossName: '더스크', difficulty: 'CHAOS', income: 750_000_000 },
-      ],
-    },
-    {
-      weekStart: '2026-07-14',
-      totalIncome: 2_850_000_000,
-      bossDetails: [
-        { bossName: '스우',   difficulty: 'HARD',  income: 600_000_000 },
-        { bossName: '데미안', difficulty: 'HARD',  income: 750_000_000 },
-        { bossName: '칼로스', difficulty: 'CHAOS', income: 750_000_000 },
-        { bossName: '세렌',   difficulty: 'CHAOS', income: 750_000_000 },
-      ],
-    },
-  ],
+function selectedPeriods(request: Request) {
+  const params = new URL(request.url).searchParams
+  const characterId = params.has('characterId') ? Number(params.get('characterId')) : null
+  const from = params.get('dateFrom')
+  const to = params.get('dateTo')
+  if (from && previewDate < from || to && previewDate > to) return []
+  return previewPeriods(characterId)
 }
 
-const bossItems = [
-  { acquiredDate: '2026-07-14', characterName: '라이트닝브레이커', bossName: '더스크',   difficulty: 'HARD',  itemName: '아케인포스 장비' },
-  { acquiredDate: '2026-07-13', characterName: '라이트닝브레이커', bossName: '루시드',   difficulty: 'HARD',  itemName: '앱솔랩스 장비' },
-  { acquiredDate: '2026-07-11', characterName: '라이트닝브레이커', bossName: '스우',     difficulty: 'HARD',  itemName: '제네시스 장비' },
-  { acquiredDate: '2026-07-09', characterName: '라이트닝브레이커', bossName: '칼로스',   difficulty: 'CHAOS', itemName: '아케인포스 장비' },
-  { acquiredDate: '2026-07-06', characterName: '라이트닝브레이커', bossName: '데미안',   difficulty: 'HARD',  itemName: '제네시스 장비' },
-]
-
 export const statsHandlers = [
-  http.get('/api/v1/stats/summary', () =>
-    HttpResponse.json({
-      success: true,
-      data: {
-        totalMeso: 11_400_000_000,
-        bossesCleared: 23,
-        avgPlayTime: 128,
-        topHuntingGround: '모라스',
-      },
-    }),
-  ),
+  http.get('*/api/v1/stats/hunting', () => HttpResponse.json({
+    success: true,
+    data: {
+      totalMeso: 0, totalSolErda: 0, avgDailyMeso: 0,
+      avgDailySolErda: 0, dailyRecords: [],
+    },
+  })),
 
-  http.get('/api/v1/stats/hunting', () =>
-    HttpResponse.json({
-      success: true,
-      data: {
-        totalMeso,
-        totalSolErda,
-        avgDailyMeso: Math.floor(totalMeso / huntingTrend.length),
-        avgDailySolErda: Math.floor(totalSolErda / huntingTrend.length),
-        dailyRecords: huntingTrend,
-      },
-    }),
-  ),
+  http.get('*/api/v1/stats/crystal', ({ request }) => {
+    const details = selectedPeriods(request).flatMap((period) => {
+      const crystal = period.items.find((item) => item.dropItem.itemKind === 'CRYSTAL')
+      const boss = previewBoss(period.bossId)
+      if (!crystal?.acquired || crystal.mesoAmount === null || !boss) return []
+      return [{ bossName: boss.bossName, difficulty: boss.difficulty, income: crystal.mesoAmount }]
+    })
+    const totalIncome = details.reduce((sum, detail) => sum + detail.income, 0)
+    return HttpResponse.json({ success: true, data: {
+      totalCrystalIncome: totalIncome,
+      weeklyAverage: totalIncome,
+      weeklyRecords: details.length ? [{
+        weekStart: '2026-10-01', totalIncome, bossDetails: details,
+      }] : [],
+    } })
+  }),
 
-  http.get('/api/v1/stats/crystal', () =>
-    HttpResponse.json({ success: true, data: crystalSummary }),
-  ),
-
-  http.get('/api/v1/stats/boss-items', () =>
-    HttpResponse.json({ success: true, data: bossItems }),
-  ),
-
-  http.get('/api/v1/stats/meso', () =>
-    HttpResponse.json({
-      success: true,
-      data: huntingTrend.map(r => ({ date: r.date, meso: r.mesoEarned })),
-    }),
-  ),
-
-  http.get('/api/v1/stats/boss', () =>
-    HttpResponse.json({
-      success: true,
-      data: [
-        { bossName: '스우',       difficulty: 'HARD',   clearCount: 4, totalCount: 4, clearRate: 100 },
-        { bossName: '데미안',     difficulty: 'HARD',   clearCount: 4, totalCount: 4, clearRate: 100 },
-        { bossName: '루시드',     difficulty: 'HARD',   clearCount: 3, totalCount: 4, clearRate: 75  },
-        { bossName: '윌',         difficulty: 'HARD',   clearCount: 4, totalCount: 4, clearRate: 100 },
-        { bossName: '더스크',     difficulty: 'CHAOS',  clearCount: 2, totalCount: 4, clearRate: 50  },
-        { bossName: '칼로스',     difficulty: 'CHAOS',  clearCount: 3, totalCount: 4, clearRate: 75  },
-        { bossName: '세렌',       difficulty: 'CHAOS',  clearCount: 1, totalCount: 4, clearRate: 25  },
-        { bossName: '검은마법사', difficulty: 'NORMAL', clearCount: 2, totalCount: 4, clearRate: 50  },
-      ],
-    }),
-  ),
+  http.get('*/api/v1/stats/boss-items', ({ request }) => HttpResponse.json({
+    success: true,
+    data: selectedPeriods(request).flatMap((period) => period.items
+      .filter((item) => item.acquired)
+      .map((item) => ({
+        acquiredDate: previewDate,
+        characterName: previewCharacter(period.characterId)?.characterName ?? '',
+        bossName: previewBoss(period.bossId)?.bossName ?? '',
+        difficulty: previewBoss(period.bossId)?.difficulty ?? 'NORMAL',
+        itemName: item.dropItem.itemName,
+      }))),
+  })),
 ]
