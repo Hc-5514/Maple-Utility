@@ -15,7 +15,7 @@ export default function WeeklyContent({ characterId, weekStart }: Props) {
       <div className="mb-3 flex items-center gap-2">
         <h2 className="font-semibold text-white">주간 컨텐츠</h2>
         {allDone && <span className="text-[#4ade80]">✓</span>}
-        <span className="ml-auto text-xs text-white/40">주간 {weekStart} ~</span>
+		<span className="ml-auto text-xs text-white/40">{weekStart}</span>
       </div>
 
       {isLoading ? (
@@ -38,7 +38,7 @@ export default function WeeklyContent({ characterId, weekStart }: Props) {
               <span
                 className={`text-lg leading-none ${record.completed ? 'text-[#4ade80]' : 'text-white/20'}`}
               >
-                {record.completed ? '✓' : '─'}
+				{record.completed ? '✓' : '○'}
               </span>
               <span className={`flex-1 text-sm ${record.completed ? 'text-white/60 line-through' : 'text-white/80'}`}>
                 {record.contentName}

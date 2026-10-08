@@ -158,7 +158,7 @@ class NexonOpenApiClientTest {
 				new NexonSchedulerResponse.Daily(response.date(), "일일 콘텐츠", 1, 3));
 		assertThat(response.weekly()).containsExactly(
 				new NexonSchedulerResponse.Weekly(LocalDate.of(2026, 7, 9), "길드 주간 미션", true, 1000),
-				new NexonSchedulerResponse.Weekly(LocalDate.of(2026, 7, 9), "주간 퀘스트", false, 0));
+				new NexonSchedulerResponse.Weekly(LocalDate.of(2026, 7, 9), "주간 퀘스트", false, null));
 		assertThat(response.boss()).containsExactly(new NexonSchedulerResponse.Boss(response.date(), "스우", Difficulty.HARD, ResetPeriod.WEEKLY, true));
 	}
 
