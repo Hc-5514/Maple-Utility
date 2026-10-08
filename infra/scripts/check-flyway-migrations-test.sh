@@ -28,6 +28,19 @@ addition_commit="$(git -C "$test_repo" rev-parse HEAD)"
   "$guard_script" "$baseline_commit" "$addition_commit"
 )
 
+printf '%s\n' 'SELECT 1;' > "$migration_dir/V0__late_earlier_version.sql"
+git -C "$test_repo" add .
+git -C "$test_repo" commit -q -m 'add late earlier version'
+late_version_commit="$(git -C "$test_repo" rev-parse HEAD)"
+
+if (
+  cd "$test_repo"
+  "$guard_script" "$addition_commit" "$late_version_commit"
+); then
+  echo 'Expected a newly added lower migration version to fail.' >&2
+  exit 1
+fi
+
 printf '%s\n' '-- changed' >> "$migration_dir/V1__init.sql"
 git -C "$test_repo" add .
 git -C "$test_repo" commit -q -m 'modify migration'
