@@ -1,4 +1,4 @@
--- Static catalog from docs/boss_drop_items.md; only weekly/monthly bosses.
+-- Static boss drop catalog; only weekly/monthly bosses.
 ALTER TABLE boss_drop_items
     ADD COLUMN item_kind VARCHAR(16) NOT NULL DEFAULT 'RANDOM',
     ADD COLUMN default_quantity INTEGER NOT NULL DEFAULT 1,
