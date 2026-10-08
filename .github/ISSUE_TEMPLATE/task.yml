@@ -1,11 +1,15 @@
-name: "작업 요청"
-description: "Claude / Codex 에이전트 작업 생성"
-title: "[작업 요청] "
+name: "작업 이슈"
+description: "기능, 오류, 운영 작업 등록"
 labels: []
 body:
   - type: markdown
     attributes:
       value: |
+        **이슈 제목 작성 기준:**
+        - 접두어 없이 작업 내용만 한국어 체언종결형으로 작성
+        - 예: `대시보드 동기화 시각 공백 표시 수정`
+        - `fix(ops):` 같은 형식은 커밋·PR 제목에만 사용
+
         **등록 후 라벨 추가 필수:**
         - 도구: `claude` 또는 `codex`
         - 역할: `frontend` / `backend` / `db` / `devops` / `tester` / `docs`
