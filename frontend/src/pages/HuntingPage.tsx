@@ -36,40 +36,34 @@ export default function HuntingPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">사냥 기록</h1>
-        <Link
+		<div className="flex flex-wrap items-center gap-4">
+			<h1 className="text-2xl font-bold text-white">사냥 기록</h1>
+		</div>
+
+		<div className="flex flex-wrap items-center gap-3">
+			<DateRangePicker
+				startDate={dateFrom}
+				endDate={dateTo}
+				onChange={(start, end) => {
+					setDateFrom(start)
+					setDateTo(end)
+				}}
+			/>
+			<select
+				value={characterId ?? ''}
+				onChange={(e) => setCharacterId(e.target.value === '' ? null : Number(e.target.value))}
+				className="rounded border border-white/20 bg-[#2d2d44] px-3 py-1.5 text-sm text-white"
+			>
+				<option value="">전체 캐릭터</option>
+				{(characters ?? []).map((c) => <option key={c.id} value={c.id}>{c.characterName}</option>)}
+			</select>
+			<Link
           to="/hunting/new"
           className="rounded-lg bg-[#4ade80] px-4 py-2 text-sm font-semibold text-[#1a1a2e] hover:opacity-80"
         >
           + 기록 추가
-        </Link>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <DateRangePicker
-          startDate={dateFrom}
-          endDate={dateTo}
-          onChange={(start, end) => {
-            setDateFrom(start)
-            setDateTo(end)
-          }}
-        />
-        <select
-          value={characterId ?? ''}
-          onChange={(e) =>
-            setCharacterId(e.target.value === '' ? null : Number(e.target.value))
-          }
-          className="rounded border border-white/20 bg-[#2d2d44] px-3 py-1.5 text-sm text-white"
-        >
-          <option value="">전체 캐릭터</option>
-          {(characters ?? []).map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.characterName}
-            </option>
-          ))}
-        </select>
-      </div>
+			</Link>
+		</div>
 
       {isLoading ? (
         <div className="space-y-2">

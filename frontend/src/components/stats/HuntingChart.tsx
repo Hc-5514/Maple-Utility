@@ -24,12 +24,13 @@ export default function HuntingChart({ data }: Props) {
 
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+		<LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
         <XAxis
           dataKey="date"
           tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }}
-          tickLine={false}
+			tickLine={false}
+			tickMargin={8}
           interval="preserveStartEnd"
         />
         <YAxis

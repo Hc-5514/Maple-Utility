@@ -78,7 +78,7 @@ export default function StatsPage() {
 
       {/* 사냥 통계 */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-white">사냥 통계</h2>
+		<h2 className="rounded border border-[#4ade80]/30 bg-[#4ade80]/10 px-3 py-2 text-lg font-semibold text-white">사냥 통계</h2>
         {loadingHunting ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[...Array(4)].map((_, i) => (
@@ -106,7 +106,7 @@ export default function StatsPage() {
 
       {/* 결정석 수익 */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-white">결정석 수익</h2>
+		<h2 className="rounded border border-[#facc15]/30 bg-[#facc15]/10 px-3 py-2 text-lg font-semibold text-white">결정석 수익</h2>
         {loadingCrystal ? (
           <div className="grid grid-cols-2 gap-3">
             {[...Array(2)].map((_, i) => (
@@ -138,7 +138,7 @@ export default function StatsPage() {
 
       {/* 보스 아이템 획득 이력 */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-white">보스 아이템 획득 이력</h2>
+		<h2 className="rounded border border-[#60a5fa]/30 bg-[#60a5fa]/10 px-3 py-2 text-lg font-semibold text-white">보스 아이템 획득 이력</h2>
         {loadingBossItems ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (

@@ -9,6 +9,7 @@ import CharacterSlider from '../components/dashboard/CharacterSlider'
 export default function DashboardPage() {
   const queryClient = useQueryClient()
   const [jobId, setJobId] = useState<number | null>(null)
+  const [world, setWorld] = useState('')
   const { data, isLoading, isError } = useSchedulerSummary()
 
   const syncMutation = useMutation({
@@ -59,9 +60,16 @@ export default function DashboardPage() {
     )
   }
 
+  const worlds = [...new Set(
+    data.characters
+      .map((character) => character.worldName)
+      .filter((value): value is string => Boolean(value)),
+  )].sort()
+  const characters = data.characters.filter((character) => !world || character.worldName === world)
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-white">대시보드</h1>
         <div className="flex items-center gap-3">
           <span className="text-xs text-white/50">
@@ -80,13 +88,17 @@ export default function DashboardPage() {
             <RefreshCw size={16} />
           </button>
         </div>
+        <select value={world} onChange={(event) => setWorld(event.target.value)} className="rounded border border-white/20 bg-[#2d2d44] px-3 py-1.5 text-sm text-white">
+          <option value="">전체 월드</option>
+          {worlds.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
       </div>
 
       {(syncMutation.isError || syncJob?.status === 'FAILED') && (
         <p className="text-sm text-[#f87171]">동기화에 실패했습니다.</p>
       )}
 
-      <CharacterSlider characters={data.characters} />
+      <CharacterSlider characters={characters} />
     </div>
   )
 }
