@@ -201,10 +201,14 @@ public class NexonOpenApiClient {
 					weekStartDate,
 					contentName,
 					completed,
-					nowCount
+					isGuildContent(contentName) ? nowCount : null
 			));
 		}
 		return weeklyRecords;
+	}
+
+	private boolean isGuildContent(String contentName) {
+		return contentName.contains("길드") || contentName.toLowerCase().contains("guild");
 	}
 
 	private List<NexonSchedulerResponse.Boss> parseBossRecords(JsonNode records, LocalDate recordDate) {
