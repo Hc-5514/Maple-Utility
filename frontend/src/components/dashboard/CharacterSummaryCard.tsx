@@ -29,7 +29,7 @@ export default function CharacterSummaryCard({ character }: Props) {
           <img
             src={character.characterImage}
             alt={character.characterName}
-            className="h-16 w-16 rounded-lg object-contain"
+			className="h-16 w-16 rounded-lg object-cover object-top"
           />
         ) : (
           <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#1a1a2e] text-3xl">

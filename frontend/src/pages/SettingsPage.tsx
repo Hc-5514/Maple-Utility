@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, Save } from 'lucide-react'
+import { ArrowDown, ArrowUp, RefreshCw, Save } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
 import { useAuthStore } from '../stores/authStore'
@@ -94,7 +94,7 @@ function ApiKeySection() {
             </p>
           )}
 
-          <div className="flex gap-2">
+			<div className="flex gap-2">
             {!isActive && (
               <div className="flex flex-1 gap-2">
                 <input
@@ -113,9 +113,9 @@ function ApiKeySection() {
                 </button>
               </div>
             )}
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="rounded-lg border border-[#f87171]/40 px-4 py-2 text-sm font-semibold text-[#f87171] transition-colors hover:bg-[#f87171]/10"
+			<button
+				onClick={() => setShowDeleteModal(true)}
+				className="ml-auto rounded-lg border border-[#f87171]/40 px-4 py-2 text-sm font-semibold text-[#f87171] transition-colors hover:bg-[#f87171]/10"
             >
               삭제
             </button>
@@ -223,7 +223,7 @@ function CharacterRow({ character, disabled, reorderDisabled, onMoveUp, onMoveDo
         <img
           src={character.characterImage}
           alt={character.characterName}
-          className="h-16 w-16 rounded-lg object-contain"
+			className="h-16 w-16 rounded-lg object-cover object-top"
         />
       ) : (
         <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#3a3a5c] text-2xl">
@@ -274,8 +274,9 @@ function CharacterRow({ character, disabled, reorderDisabled, onMoveUp, onMoveDo
 function CharacterSection() {
   const queryClient = useQueryClient()
   const { characters, setCharacters } = useCharacterStore()
-  const [jobId, setJobId] = useState<number | null>(null)
-  const [draftOrder, setDraftOrder] = useState<number[] | null>(null)
+	const [jobId, setJobId] = useState<number | null>(null)
+	const [draftOrder, setDraftOrder] = useState<number[] | null>(null)
+	const [world, setWorld] = useState('')
 
   const { isLoading } = useQuery({
     queryKey: ['characters'],
@@ -320,7 +321,8 @@ function CharacterSection() {
   const remaining = characters.filter(c => !c.favorite).sort((a, b) =>
     (b.characterLevel ?? -1) - (a.characterLevel ?? -1) || a.id - b.id,
   )
-  const sorted = [...orderedFavorites, ...remaining]
+	const sorted = [...orderedFavorites, ...remaining].filter((character) => !world || character.worldName === world)
+	const worlds = [...new Set(characters.map((character) => character.worldName).filter((value): value is string => Boolean(value)))].sort()
   const isDirty = draftOrder !== null && draftOrder.some((id, index) => id !== savedOrder[index])
 
   const saveOrder = useMutation({
@@ -344,26 +346,37 @@ function CharacterSection() {
 
   return (
     <section className="rounded-xl bg-[#2d2d44] p-6">
-      <div className="mb-4 flex items-center justify-between">
+		<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-white">
           캐릭터 관리
           {characters.length > 0 && (
             <span className="ml-2 text-sm font-normal text-white/40">{characters.length}명</span>
           )}
         </h2>
-        <button
+		<div className="flex items-center gap-2">
+		<button
           onClick={() => syncMutation.mutate()}
           disabled={isDirty || syncMutation.isPending || syncJob?.status === 'STARTED'}
-          className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-white/70 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
+			className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-white/70 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
         >
           {syncMutation.isPending || syncJob?.status === 'STARTED' ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white/80" />
           ) : (
-            '↺'
-          )}
-          재동기화
-        </button>
-      </div>
+			<RefreshCw size={16} aria-hidden="true" />
+			)}
+			재동기화
+		</button>
+		<button type="button" onClick={() => saveOrder.mutate(currentOrder)} disabled={!isDirty || saveOrder.isPending}
+			title="즐겨찾기 순서 저장" aria-label="즐겨찾기 순서 저장"
+			className="rounded border border-white/20 bg-[#4ade80] p-2 text-[#1a1a2e] disabled:opacity-40">
+			<Save size={18} />
+		</button>
+		</div>
+		</div>
+		<select value={world} onChange={(event) => setWorld(event.target.value)} className="mb-4 rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white">
+			<option value="">전체 월드</option>
+			{worlds.map((name) => <option key={name} value={name}>{name}</option>)}
+		</select>
 
       {syncJob?.status === 'STARTED' && (
         <p className="mb-3 text-sm text-white/60">
@@ -393,13 +406,6 @@ function CharacterSection() {
               onMoveDown={char.favorite && currentOrder.indexOf(char.id) < currentOrder.length - 1
                 ? () => move(currentOrder.indexOf(char.id), 1) : undefined} />
           ))}
-          <div className="flex justify-end pt-2">
-            <button type="button" onClick={() => saveOrder.mutate(currentOrder)} disabled={!isDirty || saveOrder.isPending}
-              title="즐겨찾기 순서 저장" aria-label="즐겨찾기 순서 저장"
-              className="rounded border border-white/20 bg-[#4ade80] p-2 text-[#1a1a2e] disabled:opacity-40">
-              <Save size={18} />
-            </button>
-          </div>
           {saveOrder.isError && <p className="text-sm text-[#f87171]">순서를 저장하지 못했습니다.</p>}
         </div>
       )}

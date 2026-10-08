@@ -31,10 +31,10 @@ export default function HuntingTable({ records, characterMap, onEdit, onDelete }
             <tr className="border-b border-white/10 text-left text-white/50">
               <th className="px-4 py-3 font-medium">날짜</th>
               <th className="px-4 py-3 font-medium">캐릭터</th>
-              <th className="px-4 py-3 font-medium text-right">메소</th>
-              <th className="px-4 py-3 font-medium text-right">솔 에르다</th>
+				<th className="px-4 py-3 font-medium">메소</th>
+				<th className="px-4 py-3 font-medium">솔 에르다</th>
               <th className="px-4 py-3 font-medium">사냥터</th>
-              <th className="px-4 py-3 font-medium text-right">시간(분)</th>
+				<th className="px-4 py-3 font-medium">시간(분)</th>
               <th className="px-4 py-3 font-medium">메모</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
