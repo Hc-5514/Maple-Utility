@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import CharacterSelector from '../common/CharacterSelector'
 import type { HuntingRecord } from '../../types'
 import { useHuntingGrounds, useLatestHuntingGround, useToggleHuntingGroundFavorite } from '../../hooks/useHunting'
+import { localDate } from '../../utils/date'
 
 interface FormData {
   characterId: number
@@ -21,7 +22,7 @@ interface Props {
   submitLabel: string
 }
 
-const today = new Date().toISOString().split('T')[0]
+const today = localDate(new Date())
 
 export default function HuntingForm({ initialValues, onSubmit, isSubmitting, submitLabel }: Props) {
   const [characterId, setCharacterId] = useState<number | null>(initialValues?.characterId ?? null)
@@ -80,6 +81,7 @@ export default function HuntingForm({ initialValues, onSubmit, isSubmitting, sub
               캐릭터 <span className="text-[#f87171]">*</span>
             </label>
             <CharacterSelector
+              favoritesOnly
               selectedId={characterId}
               onChange={(id) => setCharacterId(id)}
             />
