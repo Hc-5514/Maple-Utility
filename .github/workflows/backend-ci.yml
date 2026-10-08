@@ -30,6 +30,20 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.9-alpine
+        env:
+          POSTGRES_DB: maple_flyway_test
+          POSTGRES_USER: maple_test
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U maple_test -d maple_flyway_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     defaults:
       run:
         working-directory: backend
@@ -60,6 +74,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Test
+        env:
+          FLYWAY_TEST_URL: jdbc:postgresql://localhost:5432/maple_flyway_test
+          FLYWAY_TEST_USER: maple_test
+          FLYWAY_TEST_PASSWORD: test_password
         run: ./gradlew test
 
       - name: Build
