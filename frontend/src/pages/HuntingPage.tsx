@@ -6,25 +6,26 @@ import HuntingTable from '../components/hunting/HuntingTable'
 import { useDeleteHunting, useHuntingList } from '../hooks/useHunting'
 import client from '../api/client'
 import type { ApiResponse, Character } from '../types'
+import { localDate } from '../utils/date'
 
 function getFirstOfMonth(): string {
   const d = new Date()
   d.setDate(1)
-  return d.toISOString().split('T')[0]
+  return localDate(d)
 }
 
 export default function HuntingPage() {
   const navigate = useNavigate()
-  const today = new Date().toISOString().split('T')[0]
+  const today = localDate(new Date())
 
   const [dateFrom, setDateFrom] = useState(getFirstOfMonth())
   const [dateTo, setDateTo] = useState(today)
   const [characterId, setCharacterId] = useState<number | null>(null)
 
   const { data: characters } = useQuery({
-    queryKey: ['characters'],
+    queryKey: ['characters', 'favorites'],
     queryFn: () =>
-      client.get<ApiResponse<Character[]>>('/characters').then((r) => r.data.data),
+      client.get<ApiResponse<Character[]>>('/characters/favorites').then((r) => r.data.data),
   })
 
   const { data: records, isLoading, isError, refetch } = useHuntingList({ characterId, dateFrom, dateTo })
@@ -54,7 +55,7 @@ export default function HuntingPage() {
 				onChange={(e) => setCharacterId(e.target.value === '' ? null : Number(e.target.value))}
 				className="rounded border border-white/20 bg-[#2d2d44] px-3 py-1.5 text-sm text-white"
 			>
-				<option value="">전체 캐릭터</option>
+				<option value="">전체 즐겨찾기 캐릭터</option>
 				{(characters ?? []).map((c) => <option key={c.id} value={c.id}>{c.characterName}</option>)}
 			</select>
 			<Link
