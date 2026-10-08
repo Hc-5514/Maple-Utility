@@ -34,6 +34,8 @@ public interface HuntingRecordRepository extends JpaRepository<HuntingRecord, Lo
 
 	Optional<HuntingRecord> findByIdAndCharacter_User_Id(Long id, Long userId);
 
+	Optional<HuntingRecord> findFirstByCharacter_IdAndHuntingGroundCatalogIsNotNullOrderByRecordDateDescIdDesc(Long characterId);
+
 	boolean existsByCharacter_IdAndRecordDate(Long characterId, LocalDate recordDate);
 
 	boolean existsByCharacter_IdAndRecordDateAndIdNot(Long characterId, LocalDate recordDate, Long id);

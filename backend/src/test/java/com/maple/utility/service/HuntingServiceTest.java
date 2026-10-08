@@ -26,6 +26,9 @@ import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.HuntingRecordRepository;
+import com.maple.utility.repository.HuntingGroundRepository;
+import com.maple.utility.repository.UserHuntingGroundFavoriteRepository;
+import com.maple.utility.repository.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
 class HuntingServiceTest {
@@ -36,11 +39,20 @@ class HuntingServiceTest {
 	@Mock
 	private CharacterRepository characterRepository;
 
+	@Mock
+	private HuntingGroundRepository huntingGroundRepository;
+
+	@Mock
+	private UserHuntingGroundFavoriteRepository huntingGroundFavoriteRepository;
+
+	@Mock
+	private UserRepository userRepository;
+
 	private HuntingService huntingService;
 
 	@BeforeEach
 	void setUp() {
-		huntingService = new HuntingService(huntingRecordRepository, characterRepository);
+		huntingService = new HuntingService(huntingRecordRepository, characterRepository, huntingGroundRepository, huntingGroundFavoriteRepository, userRepository);
 	}
 
 	@Test
@@ -217,6 +229,7 @@ class HuntingServiceTest {
 				mesoEarned,
 				solErdaEarned,
 				60,
+				null,
 				"세르니움",
 				"메모"
 		);
@@ -243,6 +256,7 @@ class HuntingServiceTest {
 				12,
 				60,
 				"세르니움",
+				null,
 				"메모"
 		);
 		ReflectionTestUtils.setField(record, "id", id);

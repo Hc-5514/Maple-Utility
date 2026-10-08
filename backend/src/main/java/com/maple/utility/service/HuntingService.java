@@ -2,6 +2,8 @@ package com.maple.utility.service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Comparator;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -10,23 +12,40 @@ import org.springframework.transaction.annotation.Transactional;
 import com.maple.utility.dto.request.HuntingRecordRequest;
 import com.maple.utility.dto.response.HuntingRecordResponse;
 import com.maple.utility.entity.HuntingRecord;
+
+import com.maple.utility.entity.HuntingGround;
 import com.maple.utility.entity.MapleCharacter;
+import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.HuntingRecordRepository;
+import com.maple.utility.repository.HuntingGroundRepository;
+import com.maple.utility.repository.UserHuntingGroundFavoriteRepository;
+import com.maple.utility.repository.UserRepository;
+import com.maple.utility.entity.UserHuntingGroundFavorite;
+import com.maple.utility.dto.response.HuntingGroundResponse;
 
 @Service
 public class HuntingService {
 
 	private final HuntingRecordRepository huntingRecordRepository;
 	private final CharacterRepository characterRepository;
+	private final HuntingGroundRepository huntingGroundRepository;
+	private final UserHuntingGroundFavoriteRepository huntingGroundFavoriteRepository;
+	private final UserRepository userRepository;
 
 	public HuntingService(
 			HuntingRecordRepository huntingRecordRepository,
-			CharacterRepository characterRepository
+			CharacterRepository characterRepository,
+			HuntingGroundRepository huntingGroundRepository,
+			UserHuntingGroundFavoriteRepository huntingGroundFavoriteRepository,
+			UserRepository userRepository
 	) {
 		this.huntingRecordRepository = huntingRecordRepository;
 		this.characterRepository = characterRepository;
+		this.huntingGroundRepository = huntingGroundRepository;
+		this.huntingGroundFavoriteRepository = huntingGroundFavoriteRepository;
+		this.userRepository = userRepository;
 	}
 
 	@Transactional(readOnly = true)
@@ -52,6 +71,7 @@ public class HuntingService {
 		int solErdaEarned = solErdaEarned(request);
 		validateReward(mesoEarned, solErdaEarned);
 		validateDuplicate(character.getId(), request.recordDate());
+		HuntingGround ground = findGround(request.huntingGroundId());
 
 		HuntingRecord record = HuntingRecord.create(
 				character,
@@ -59,7 +79,8 @@ public class HuntingService {
 				mesoEarned,
 				solErdaEarned,
 				request.playDurationMin(),
-				request.huntingGround(),
+				ground == null ? request.huntingGround() : ground.getMapName(),
+				ground,
 				request.memo()
 		);
 		return HuntingRecordResponse.from(huntingRecordRepository.save(record));
@@ -77,16 +98,62 @@ public class HuntingService {
 		int solErdaEarned = solErdaEarned(request);
 		validateReward(mesoEarned, solErdaEarned);
 		validateDuplicateForUpdate(character.getId(), request.recordDate(), record.getId());
+		HuntingGround ground = findGround(request.huntingGroundId());
 
 		record.update(
 				request.recordDate(),
 				mesoEarned,
 				solErdaEarned,
 				request.playDurationMin(),
-				request.huntingGround(),
+				ground == null ? request.huntingGround() : ground.getMapName(),
+				ground,
 				request.memo()
 		);
 		return HuntingRecordResponse.from(record);
+	}
+
+	@Transactional(readOnly = true)
+	public List<HuntingGroundResponse> getGrounds(Long userId) {
+		var favoriteIds = huntingGroundFavoriteRepository.findByIdUserId(userId).stream()
+				.map(favorite -> favorite.getId().huntingGroundId()).collect(Collectors.toSet());
+		List<HuntingGround> grounds = huntingGroundRepository.findAll();
+		var regionalMaxLevels = grounds.stream().collect(Collectors.groupingBy(HuntingGround::getRegionName,
+				Collectors.collectingAndThen(Collectors.maxBy(Comparator.comparingInt(HuntingGround::getMaxMonsterLevel)),
+						max -> max.orElseThrow().getMaxMonsterLevel())));
+		return grounds.stream()
+				.sorted(Comparator.comparingInt((HuntingGround ground) -> regionalMaxLevels.get(ground.getRegionName())).reversed()
+						.thenComparing((HuntingGround ground) -> favoriteIds.contains(ground.getId()), Comparator.reverseOrder())
+						.thenComparing(HuntingGround::getMaxMonsterLevel, Comparator.reverseOrder())
+						.thenComparing(HuntingGround::getMapName, Comparator.reverseOrder()))
+				.map(ground -> HuntingGroundResponse.from(ground, favoriteIds.contains(ground.getId())))
+				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	public HuntingGroundResponse getLatestGround(Long userId, Long characterId) {
+		MapleCharacter character = findCharacter(userId, characterId);
+		return huntingRecordRepository.findFirstByCharacter_IdAndHuntingGroundCatalogIsNotNullOrderByRecordDateDescIdDesc(character.getId())
+				.map(record -> HuntingGroundResponse.from(record.getHuntingGroundCatalog(), true)).orElse(null);
+	}
+
+	@Transactional
+	public void favoriteGround(Long userId, Long groundId) {
+		HuntingGround ground = huntingGroundRepository.findById(groundId)
+				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "HUNTING_GROUND_NOT_FOUND", "사냥터 없음"));
+		User user = userRepository.findById(userId).orElseThrow();
+		UserHuntingGroundFavorite.Id id = new UserHuntingGroundFavorite.Id(userId, groundId);
+		if (!huntingGroundFavoriteRepository.existsById(id)) huntingGroundFavoriteRepository.save(UserHuntingGroundFavorite.create(user, ground));
+	}
+
+	@Transactional
+	public void unfavoriteGround(Long userId, Long groundId) {
+		huntingGroundFavoriteRepository.deleteById(new UserHuntingGroundFavorite.Id(userId, groundId));
+	}
+
+	private HuntingGround findGround(Long groundId) {
+		if (groundId == null) return null;
+		return huntingGroundRepository.findById(groundId)
+				.orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "HUNTING_GROUND_NOT_FOUND", "사냥터 없음"));
 	}
 
 	@Transactional

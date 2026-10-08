@@ -163,11 +163,21 @@ export interface HuntingRecord {
   recordDate: string
   mesoEarned: number
   solErdaEarned: number
-  playDurationMin: number | null
-  huntingGround: string | null
+	playDurationMin: number | null
+	huntingGroundId: number | null
+	regionName: string | null
+	huntingGround: string | null
   memo: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface HuntingGround {
+  id: number
+  regionName: string
+  mapName: string
+  maxMonsterLevel: number
+  favorite: boolean
 }
 
 // ─── 스케줄러 요약 (대시보드) ──────────────────────────────────────

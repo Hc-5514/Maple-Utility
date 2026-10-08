@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.maple.utility.dto.request.HuntingRecordRequest;
 import com.maple.utility.dto.response.HuntingRecordResponse;
+import com.maple.utility.dto.response.HuntingGroundResponse;
 import com.maple.utility.security.JwtAuthentication;
 import com.maple.utility.service.HuntingService;
 
@@ -46,6 +47,28 @@ public class HuntingController {
 	@GetMapping("/{id}")
 	public HuntingRecordResponse getRecord(@PathVariable Long id, Authentication authentication) {
 		return huntingService.getRecord(currentUserId(authentication), id);
+	}
+
+	@GetMapping("/grounds")
+	public List<HuntingGroundResponse> getGrounds(Authentication authentication) {
+		return huntingService.getGrounds(currentUserId(authentication));
+	}
+
+	@GetMapping("/latest-ground")
+	public HuntingGroundResponse getLatestGround(@RequestParam Long characterId, Authentication authentication) {
+		return huntingService.getLatestGround(currentUserId(authentication), characterId);
+	}
+
+	@PutMapping("/grounds/{groundId}/favorite")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void favoriteGround(@PathVariable Long groundId, Authentication authentication) {
+		huntingService.favoriteGround(currentUserId(authentication), groundId);
+	}
+
+	@DeleteMapping("/grounds/{groundId}/favorite")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void unfavoriteGround(@PathVariable Long groundId, Authentication authentication) {
+		huntingService.unfavoriteGround(currentUserId(authentication), groundId);
 	}
 
 	@PostMapping

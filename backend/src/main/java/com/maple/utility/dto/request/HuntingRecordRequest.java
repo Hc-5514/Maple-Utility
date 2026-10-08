@@ -12,6 +12,7 @@ public record HuntingRecordRequest(
 		@PositiveOrZero Long mesoEarned,
 		@PositiveOrZero Integer solErdaEarned,
 		@PositiveOrZero Integer playDurationMin,
+		Long huntingGroundId,
 		@Size(max = 100) String huntingGround,
 		String memo
 ) {
