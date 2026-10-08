@@ -33,6 +33,8 @@ import com.maple.utility.repository.BossPeriodEntryRepository;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.DataSyncLogRepository;
 import com.maple.utility.repository.HuntingRecordRepository;
+import com.maple.utility.repository.HuntingGroundRepository;
+import com.maple.utility.repository.UserHuntingGroundFavoriteRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
@@ -91,6 +93,12 @@ class ApiFlowIntegrationTest {
 
 	@MockitoBean
 	private HuntingRecordRepository huntingRecordRepository;
+
+	@MockitoBean
+	private HuntingGroundRepository huntingGroundRepository;
+
+	@MockitoBean
+	private UserHuntingGroundFavoriteRepository userHuntingGroundFavoriteRepository;
 
 	@MockitoBean
 	private BossMasterRepository bossMasterRepository;

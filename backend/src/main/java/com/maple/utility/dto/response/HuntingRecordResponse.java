@@ -12,6 +12,8 @@ public record HuntingRecordResponse(
 		long mesoEarned,
 		int solErdaEarned,
 		Integer playDurationMin,
+		Long huntingGroundId,
+		String regionName,
 		String huntingGround,
 		String memo
 ) implements Serializable {
@@ -24,6 +26,8 @@ public record HuntingRecordResponse(
 				record.getMesoEarned(),
 				record.getSolErdaEarned(),
 				record.getPlayDurationMin(),
+				record.getHuntingGroundCatalog() == null ? null : record.getHuntingGroundCatalog().getId(),
+				record.getHuntingGroundCatalog() == null ? null : record.getHuntingGroundCatalog().getRegionName(),
 				record.getHuntingGround(),
 				record.getMemo()
 		);

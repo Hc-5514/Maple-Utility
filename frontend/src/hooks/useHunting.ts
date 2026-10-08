@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
-import type { ApiResponse, HuntingRecord } from '../types'
+import type { ApiResponse, HuntingGround, HuntingRecord } from '../types'
 
 interface HuntingListParams {
   characterId?: number | null
@@ -14,8 +14,36 @@ interface HuntingFormData {
   mesoEarned: number
   solErdaEarned: number
   playDurationMin?: number | null
-  huntingGround?: string | null
+	huntingGround?: string | null
+	huntingGroundId?: number | null
   memo?: string | null
+}
+
+export function useHuntingGrounds() {
+	return useQuery({
+		queryKey: ['hunting-grounds'],
+		queryFn: async () => (await client.get<ApiResponse<HuntingGround[]>>('/hunting/grounds')).data.data,
+	})
+}
+
+export function useLatestHuntingGround(characterId: number | null) {
+	return useQuery({
+		queryKey: ['hunting-latest-ground', characterId],
+		queryFn: async () => (await client.get<ApiResponse<HuntingGround | null>>(`/hunting/latest-ground?characterId=${characterId}`)).data.data,
+		enabled: characterId !== null,
+		staleTime: 60_000,
+	})
+}
+
+export function useToggleHuntingGroundFavorite() {
+	const queryClient = useQueryClient()
+	return useMutation({
+		mutationFn: async ({ id, favorite }: { id: number; favorite: boolean }) => {
+			if (favorite) await client.delete(`/hunting/grounds/${id}/favorite`)
+			else await client.put(`/hunting/grounds/${id}/favorite`)
+		},
+		onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['hunting-grounds'] }),
+	})
 }
 
 export function useHuntingList(params: HuntingListParams) {

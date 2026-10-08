@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import CharacterSelector from '../common/CharacterSelector'
 import type { HuntingRecord } from '../../types'
+import { useHuntingGrounds, useLatestHuntingGround, useToggleHuntingGroundFavorite } from '../../hooks/useHunting'
 
 interface FormData {
   characterId: number
@@ -8,7 +9,8 @@ interface FormData {
   mesoEarned: number
   solErdaEarned: number
   playDurationMin: number | null
-  huntingGround: string | null
+	huntingGround: string | null
+	huntingGroundId: number | null
   memo: string | null
 }
 
@@ -25,13 +27,25 @@ export default function HuntingForm({ initialValues, onSubmit, isSubmitting, sub
   const [characterId, setCharacterId] = useState<number | null>(initialValues?.characterId ?? null)
   const [recordDate, setRecordDate] = useState(initialValues?.recordDate ?? today)
   const [mesoEarned, setMesoEarned] = useState(initialValues?.mesoEarned ?? 0)
-  const [solErdaEarned, setSolErdaEarned] = useState(initialValues?.solErdaEarned ?? 0)
+	const [solErdaEarned, setSolErdaEarned] = useState<string>(initialValues?.solErdaEarned != null ? String(initialValues.solErdaEarned) : '')
   const [playDurationMin, setPlayDurationMin] = useState<string>(
     initialValues?.playDurationMin != null ? String(initialValues.playDurationMin) : '',
   )
-  const [huntingGround, setHuntingGround] = useState(initialValues?.huntingGround ?? '')
-  const [memo, setMemo] = useState(initialValues?.memo ?? '')
-  const [error, setError] = useState<string | null>(null)
+	const [groundId, setGroundId] = useState<number | null>(initialValues?.huntingGroundId ?? null)
+	const [regionName, setRegionName] = useState(initialValues?.regionName ?? '')
+	const [memo, setMemo] = useState(initialValues?.memo ?? '')
+	const [error, setError] = useState<string | null>(null)
+	const { data: grounds = [] } = useHuntingGrounds()
+	const { data: latestGround } = useLatestHuntingGround(characterId)
+	const favoriteMutation = useToggleHuntingGroundFavorite()
+	const regions = useMemo(() => [...new Set(grounds.map((ground) => ground.regionName))], [grounds])
+	const regionalGrounds = useMemo(() => grounds.filter((ground) => ground.regionName === regionName), [grounds, regionName])
+
+	useEffect(() => {
+		if (initialValues || !latestGround || groundId !== null) return
+		setRegionName(latestGround.regionName)
+		setGroundId(latestGround.id)
+	}, [groundId, initialValues, latestGround])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +53,8 @@ export default function HuntingForm({ initialValues, onSubmit, isSubmitting, sub
       setError('캐릭터를 선택해 주세요.')
       return
     }
-    if (mesoEarned <= 0 && solErdaEarned <= 0) {
+		const parsedSolErda = solErdaEarned === '' ? 0 : Number(solErdaEarned)
+		if (mesoEarned <= 0 && parsedSolErda <= 0) {
       setError('메소 또는 솔 에르다 조각 중 최소 하나를 입력해 주세요.')
       return
     }
@@ -48,9 +63,10 @@ export default function HuntingForm({ initialValues, onSubmit, isSubmitting, sub
       characterId,
       recordDate,
       mesoEarned,
-      solErdaEarned,
+			solErdaEarned: parsedSolErda,
       playDurationMin: playDurationMin !== '' ? Number(playDurationMin) : null,
-      huntingGround: huntingGround.trim() || null,
+			huntingGroundId: groundId,
+			huntingGround: groundId === null ? null : grounds.find((ground) => ground.id === groundId)?.mapName ?? null,
       memo: memo.trim() || null,
     })
   }
@@ -106,40 +122,43 @@ export default function HuntingForm({ initialValues, onSubmit, isSubmitting, sub
             <input
               type="number"
               min={0}
-              value={solErdaEarned}
-              onChange={(e) => setSolErdaEarned(Number(e.target.value))}
+				value={solErdaEarned}
+				onChange={(e) => setSolErdaEarned(e.target.value)}
               className="w-full rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white focus:border-[#4ade80]/50 focus:outline-none"
               placeholder="0"
             />
           </div>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-white/70">사냥터</label>
-            <input
-              type="text"
-              value={huntingGround}
-              onChange={(e) => setHuntingGround(e.target.value)}
-              className="w-full rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white focus:border-[#4ade80]/50 focus:outline-none"
-              placeholder="예: 아르카나"
-            />
-          </div>
+		<div className="grid gap-5 sm:grid-cols-2">
+			<div>
+				<label className="mb-1.5 block text-sm font-medium text-white/70">지역</label>
+				<select value={regionName} onChange={(event) => { setRegionName(event.target.value); setGroundId(null) }}
+					className="w-full rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white focus:border-[#4ade80]/50 focus:outline-none"
+				>
+					<option value="">지역 선택</option>
+					{regions.map((region) => <option key={region} value={region}>{region}</option>)}
+				</select>
+			</div>
 
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-white/70">
-              플레이 시간 (분)
-            </label>
-            <input
-              type="number"
-              min={1}
-              value={playDurationMin}
-              onChange={(e) => setPlayDurationMin(e.target.value)}
-              className="w-full rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white focus:border-[#4ade80]/50 focus:outline-none"
-              placeholder="분 단위"
-            />
-          </div>
-        </div>
+			<div>
+				<label className="mb-1.5 block text-sm font-medium text-white/70">사냥터</label>
+				<div className="flex gap-2">
+					<select value={groundId ?? ''} onChange={(event) => setGroundId(event.target.value === '' ? null : Number(event.target.value))}
+					className="w-full rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white focus:border-[#4ade80]/50 focus:outline-none"
+					>
+						<option value="">사냥터 선택</option>
+						{regionalGrounds.map((ground) => <option key={ground.id} value={ground.id}>{ground.favorite ? '★ ' : ''}{ground.mapName} · Lv.{ground.maxMonsterLevel}</option>)}
+					</select>
+					{groundId !== null && (() => { const ground = grounds.find((item) => item.id === groundId); return ground ? <button type="button" onClick={() => favoriteMutation.mutate({ id: ground.id, favorite: ground.favorite })} className="rounded border border-white/20 px-3 text-lg" aria-label="사냥터 즐겨찾기">{ground.favorite ? '★' : '☆'}</button> : null })()}
+				</div>
+			</div>
+		</div>
+
+		<div>
+			<label className="mb-1.5 block text-sm font-medium text-white/70">플레이 시간 (분)</label>
+			<input type="number" min={1} value={playDurationMin} onChange={(e) => setPlayDurationMin(e.target.value)} className="w-full rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white focus:border-[#4ade80]/50 focus:outline-none" placeholder="분 단위" />
+		</div>
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-white/70">메모</label>

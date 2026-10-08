@@ -47,6 +47,10 @@ public class HuntingRecord extends BaseTimeEntity {
 	@Column(name = "hunting_ground", length = 100)
 	private String huntingGround;
 
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "hunting_ground_id")
+	private HuntingGround huntingGroundCatalog;
+
 	@Column(name = "memo")
 	private String memo;
 
@@ -57,6 +61,7 @@ public class HuntingRecord extends BaseTimeEntity {
 			int solErdaEarned,
 			Integer playDurationMin,
 			String huntingGround,
+			HuntingGround huntingGroundCatalog,
 			String memo
 	) {
 		HuntingRecord record = new HuntingRecord();
@@ -66,6 +71,7 @@ public class HuntingRecord extends BaseTimeEntity {
 		record.solErdaEarned = solErdaEarned;
 		record.playDurationMin = playDurationMin;
 		record.huntingGround = huntingGround;
+		record.huntingGroundCatalog = huntingGroundCatalog;
 		record.memo = memo;
 		return record;
 	}
@@ -76,6 +82,7 @@ public class HuntingRecord extends BaseTimeEntity {
 			int solErdaEarned,
 			Integer playDurationMin,
 			String huntingGround,
+			HuntingGround huntingGroundCatalog,
 			String memo
 	) {
 		this.recordDate = recordDate;
@@ -83,6 +90,7 @@ public class HuntingRecord extends BaseTimeEntity {
 		this.solErdaEarned = solErdaEarned;
 		this.playDurationMin = playDurationMin;
 		this.huntingGround = huntingGround;
+		this.huntingGroundCatalog = huntingGroundCatalog;
 		this.memo = memo;
 	}
 }
