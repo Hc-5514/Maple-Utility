@@ -53,4 +53,30 @@ describe('BossContent', () => {
       items: [expect.objectContaining({ bossDropItemId: 10, acquired: true })],
     })))
   })
+
+  it('saves a manually selected weekly boss when the selected week has no record', async () => {
+    vi.spyOn(client, 'get').mockImplementation(async (url) => {
+      if (url.includes('/candidates')) {
+        return { data: { success: true, data: [{
+          id: 5, bossName: '스우', difficulty: 'HARD', bossImage: null,
+          crystalPrice: 51_500_000, resetPeriod: 'WEEKLY',
+        }] } } as AxiosResponse
+      }
+      return { data: { success: true, data: { weeklyBosses: [], monthlyBosses: [] } } } as AxiosResponse
+    })
+    const post = vi.spyOn(client, 'post').mockResolvedValue({
+      data: { success: true, data: [] },
+    } as AxiosResponse)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+
+    fireEvent.click(await screen.findByRole('button', { name: '주간 보스 직접 기록' }))
+    fireEvent.click(await screen.findByRole('checkbox', { name: '스우 HARD' }))
+    fireEvent.click(screen.getByRole('button', { name: '선택 저장' }))
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/scheduler/1/boss/manual', {
+      periodStart: '2026-10-08', resetPeriod: 'WEEKLY', bossIds: [5],
+    }))
+  })
 })
