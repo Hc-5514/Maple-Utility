@@ -4,11 +4,13 @@ import { useCharacterStore } from '../stores/characterStore'
 import type {
   ApiResponse,
   BossDropItemAcquisitionStatus,
+  BossCandidate,
   BossItemAcquisition,
   BossPeriod,
   Character,
   GuildRecord,
   SchedulerBossDetail,
+  SchedulerBossRecord,
   SchedulerDailyRecord,
   SchedulerWeeklyRecord,
 } from '../types'
@@ -61,6 +63,30 @@ export function useCharacterBoss(characterId: number, date: string) {
     },
     enabled: characterId > 0,
   })
+}
+
+export function useBossCandidates(characterId: number, resetPeriod: 'WEEKLY' | 'MONTHLY' | null) {
+  return useQuery({
+    queryKey: ['scheduler/boss/candidates', characterId, resetPeriod],
+    queryFn: async () => {
+      const { data } = await client.get<ApiResponse<BossCandidate[]>>(
+        `/scheduler/${characterId}/boss/candidates?resetPeriod=${resetPeriod}`,
+      )
+      return data.data
+    },
+    enabled: characterId > 0 && resetPeriod !== null,
+  })
+}
+
+export async function saveManualBossRecords(
+  characterId: number,
+  body: { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] },
+) {
+  const { data } = await client.post<ApiResponse<SchedulerBossRecord[]>>(
+    `/scheduler/${characterId}/boss/manual`,
+    body,
+  )
+  return data.data
 }
 
 export function useCharacterGuild(characterId: number, date: string) {

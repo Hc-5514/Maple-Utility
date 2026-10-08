@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -24,6 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.maple.utility.dto.response.SchedulerCharacterSummaryResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SyncJobResponse;
+import com.maple.utility.dto.request.ManualBossRecordSaveRequest;
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
@@ -35,6 +37,7 @@ import com.maple.utility.entity.SchedulerWeeklyRecord;
 import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
+import com.maple.utility.repository.BossMasterRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
@@ -61,6 +64,9 @@ class SchedulerServiceTest {
 	private SchedulerBossRecordRepository bossRecordRepository;
 
 	@Mock
+	private BossMasterRepository bossMasterRepository;
+
+	@Mock
 	private SchedulerSyncService schedulerSyncService;
 
 	@Mock
@@ -73,8 +79,9 @@ class SchedulerServiceTest {
 		schedulerService = new SchedulerService(
 				characterRepository,
 				dailyRecordRepository,
-				weeklyRecordRepository,
-				bossRecordRepository,
+			weeklyRecordRepository,
+			bossRecordRepository,
+			bossMasterRepository,
 				schedulerSyncService,
 				syncJobRepository,
 				CLOCK
@@ -149,13 +156,47 @@ class SchedulerServiceTest {
 		SchedulerBossRecord monthlyBossRecord = SchedulerBossRecord.create(character, boss(21L, ResetPeriod.MONTHLY), LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY, false, null);
 
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(bossRecordRepository.findByCharacterIdAndRecordDateAndResetPeriodOrderByBoss_SortOrderAscIdAsc(10L, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY))
+		when(bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
 				.thenReturn(List.of(weeklyBossRecord));
-		when(bossRecordRepository.findByCharacterIdAndRecordDateAndResetPeriodOrderByBoss_SortOrderAscIdAsc(10L, LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY))
+		when(bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(10L, LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-31"), ResetPeriod.MONTHLY))
 				.thenReturn(List.of(monthlyBossRecord));
 
 		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).weeklyBosses()).hasSize(1);
 		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).monthlyBosses()).hasSize(1);
+	}
+
+	@Test
+	void saveManualWeeklyBossesStoresSelectedActiveCandidatesWithinLimit() {
+		User user = user();
+		MapleCharacter character = character(user);
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(
+				10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY)).thenReturn(List.of());
+		when(bossMasterRepository.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(ResetPeriod.WEEKLY)).thenReturn(List.of(boss));
+		when(bossRecordRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+		var response = schedulerService.saveManualBossRecords(1L, 10L,
+				new ManualBossRecordSaveRequest(LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, List.of(20L)));
+
+		assertThat(response).singleElement().satisfies(record -> {
+			assertThat(record.bossId()).isEqualTo(20L);
+			assertThat(record.recordDate()).isEqualTo(LocalDate.parse("2026-07-09"));
+			assertThat(record.isCompleted()).isTrue();
+		});
+	}
+
+	@Test
+	void saveManualWeeklyBossesRejectsMoreThanTwelveSelections() {
+		User user = user();
+		MapleCharacter character = character(user);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+
+		assertThatThrownBy(() -> schedulerService.saveManualBossRecords(1L, 10L,
+				new ManualBossRecordSaveRequest(LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY,
+						List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L))))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("선택 한도");
 	}
 
 	@Test

@@ -104,6 +104,15 @@ export interface BossPeriodDraft extends BossPeriod {
   dirty: boolean
 }
 
+export interface BossCandidate {
+  id: number
+  bossName: string
+  difficulty: BossDifficulty
+  bossImage: string | null
+  crystalPrice: number
+  resetPeriod: ResetPeriod
+}
+
 export interface BossItemAcquisition {
   id: number
   characterId: number

@@ -3,7 +3,9 @@ package com.maple.utility.controller;
 import java.time.LocalDate;
 import java.util.List;
 
+import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,6 +15,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.maple.utility.dto.response.SchedulerBossDetailResponse;
+import com.maple.utility.dto.request.ManualBossRecordSaveRequest;
+import com.maple.utility.dto.response.BossCandidateResponse;
+import com.maple.utility.dto.response.SchedulerBossResponse;
+import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.dto.response.SchedulerDailyResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SchedulerWeeklyResponse;
@@ -66,6 +72,24 @@ public class SchedulerController {
 			Authentication authentication
 	) {
 		return schedulerService.getBoss(currentUserId(authentication), characterId, date);
+	}
+
+	@GetMapping("/{characterId}/boss/candidates")
+	public List<BossCandidateResponse> getBossCandidates(
+			@PathVariable Long characterId,
+			@RequestParam ResetPeriod resetPeriod,
+			Authentication authentication
+	) {
+		return schedulerService.getBossCandidates(currentUserId(authentication), characterId, resetPeriod);
+	}
+
+	@PostMapping("/{characterId}/boss/manual")
+	public List<SchedulerBossResponse> saveManualBossRecords(
+			@PathVariable Long characterId,
+			@Valid @RequestBody ManualBossRecordSaveRequest request,
+			Authentication authentication
+	) {
+		return schedulerService.saveManualBossRecords(currentUserId(authentication), characterId, request);
 	}
 
 	@GetMapping("/{characterId}/guild")

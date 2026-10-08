@@ -21,6 +21,13 @@ public interface SchedulerBossRecordRepository extends JpaRepository<SchedulerBo
 			ResetPeriod resetPeriod
 	);
 
+	List<SchedulerBossRecord> findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(
+			Long characterId,
+			LocalDate startDate,
+			LocalDate endDate,
+			ResetPeriod resetPeriod
+	);
+
 	List<SchedulerBossRecord> findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(
 			List<Long> characterIds,
 			LocalDate recordDate,

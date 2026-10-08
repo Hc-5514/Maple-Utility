@@ -2,8 +2,24 @@ import { http, HttpResponse } from 'msw'
 import {
   previewBossRecords, previewCharacter, previewCharacters, previewDate, previewWeekStart,
 } from '../fixtures/nexonPreview'
+import type { BossCandidate, SchedulerBossRecord } from '../../types'
 
 const syncedAt = `${previewDate}T00:00:00+09:00`
+const manualBossRecords = new Map<string, SchedulerBossRecord[]>()
+
+function bossCandidates(resetPeriod: 'WEEKLY' | 'MONTHLY'): BossCandidate[] {
+  const seen = new Set<number>()
+  return previewBossRecords(1)
+    .filter((record) => record.resetPeriod === resetPeriod && record.bossId && !seen.has(record.bossId) && Boolean(seen.add(record.bossId)))
+    .map((record) => ({
+      id: record.bossId ?? 0,
+      bossName: record.bossName ?? '',
+      difficulty: record.difficulty ?? 'NORMAL',
+      bossImage: record.bossImage ?? null,
+      crystalPrice: record.crystalPrice ?? 0,
+      resetPeriod,
+    }))
+}
 
 function dailyRecords(characterId: number) {
   return (previewCharacter(characterId)?.daily ?? []).map((item, index) => ({
@@ -54,8 +70,53 @@ export const schedulerHandlers = [
     success: true, data: weeklyRecords(Number(params.characterId)),
   })),
 
-  http.get('*/api/v1/scheduler/:characterId/boss', ({ params }) => {
-    const records = previewBossRecords(Number(params.characterId))
+  http.get('*/api/v1/scheduler/:characterId/boss/candidates', ({ request }) => {
+    const resetPeriod = new URL(request.url).searchParams.get('resetPeriod')
+    if (resetPeriod !== 'WEEKLY' && resetPeriod !== 'MONTHLY') {
+      return HttpResponse.json({ success: false }, { status: 400 })
+    }
+    return HttpResponse.json({ success: true, data: bossCandidates(resetPeriod) })
+  }),
+
+  http.post('*/api/v1/scheduler/:characterId/boss/manual', async ({ params, request }) => {
+    const characterId = Number(params.characterId)
+    const body = await request.json() as { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] }
+    if (body.resetPeriod === 'WEEKLY' && body.bossIds.length > 12) {
+      return HttpResponse.json({ success: false }, { status: 400 })
+    }
+    const normalizedStart = body.resetPeriod === 'MONTHLY' ? `${body.periodStart.slice(0, 7)}-01` : body.periodStart
+    const key = `${characterId}:${normalizedStart}:${body.resetPeriod}`
+    if (manualBossRecords.has(key)) return HttpResponse.json({ success: false }, { status: 409 })
+    const byId = new Map(bossCandidates(body.resetPeriod).map((boss) => [boss.id, boss]))
+    const records: SchedulerBossRecord[] = body.bossIds.flatMap((bossId, index) => {
+      const boss = byId.get(bossId)
+      if (!boss) return []
+      return [{
+        id: 900000 + index,
+        characterId,
+        recordDate: normalizedStart,
+        bossId,
+        bossName: boss.bossName,
+        difficulty: boss.difficulty,
+        bossImage: boss.bossImage,
+        crystalPrice: boss.crystalPrice,
+        resetPeriod: body.resetPeriod,
+        isCompleted: true,
+        syncedAt: null,
+      }]
+    })
+    manualBossRecords.set(key, records)
+    return HttpResponse.json({ success: true, data: records })
+  }),
+
+  http.get('*/api/v1/scheduler/:characterId/boss', ({ params, request }) => {
+    const characterId = Number(params.characterId)
+    const date = new URL(request.url).searchParams.get('date') ?? previewDate
+    const records = [
+      ...previewBossRecords(characterId),
+      ...(manualBossRecords.get(`${characterId}:${date}:WEEKLY`) ?? []),
+      ...(manualBossRecords.get(`${characterId}:${date.slice(0, 7)}-01:MONTHLY`) ?? []),
+    ]
     return HttpResponse.json({ success: true, data: {
       weeklyBosses: records.filter((record) => record.resetPeriod === 'WEEKLY'),
       monthlyBosses: records.filter((record) => record.resetPeriod === 'MONTHLY'),

@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.config.RedisCacheNames;
+import com.maple.utility.dto.request.ManualBossRecordSaveRequest;
+import com.maple.utility.dto.response.BossCandidateResponse;
 import com.maple.utility.dto.response.SchedulerBossDetailResponse;
 import com.maple.utility.dto.response.SchedulerBossResponse;
 import com.maple.utility.dto.response.SchedulerCharacterSummaryResponse;
@@ -25,12 +27,14 @@ import com.maple.utility.dto.response.SchedulerDailyResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SchedulerWeeklyResponse;
 import com.maple.utility.dto.response.TaskSummary;
+import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.entity.SchedulerBossRecord;
 import com.maple.utility.entity.SchedulerDailyRecord;
 import com.maple.utility.entity.SchedulerWeeklyRecord;
 import com.maple.utility.exception.ApiException;
+import com.maple.utility.repository.BossMasterRepository;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
@@ -44,6 +48,7 @@ public class SchedulerService {
 	private final SchedulerDailyRecordRepository dailyRecordRepository;
 	private final SchedulerWeeklyRecordRepository weeklyRecordRepository;
 	private final SchedulerBossRecordRepository bossRecordRepository;
+	private final BossMasterRepository bossMasterRepository;
 	private final SchedulerSyncService schedulerSyncService;
 	private final SyncJobRepository syncJobRepository;
 	private final Clock clock;
@@ -53,6 +58,7 @@ public class SchedulerService {
 			SchedulerDailyRecordRepository dailyRecordRepository,
 			SchedulerWeeklyRecordRepository weeklyRecordRepository,
 			SchedulerBossRecordRepository bossRecordRepository,
+			BossMasterRepository bossMasterRepository,
 			SchedulerSyncService schedulerSyncService,
 			SyncJobRepository syncJobRepository,
 			Clock clock
@@ -61,6 +67,7 @@ public class SchedulerService {
 		this.dailyRecordRepository = dailyRecordRepository;
 		this.weeklyRecordRepository = weeklyRecordRepository;
 		this.bossRecordRepository = bossRecordRepository;
+		this.bossMasterRepository = bossMasterRepository;
 		this.schedulerSyncService = schedulerSyncService;
 		this.syncJobRepository = syncJobRepository;
 		this.clock = clock;
@@ -156,17 +163,57 @@ public class SchedulerService {
 		MapleCharacter character = findCharacter(userId, characterId);
 		LocalDate targetDate = dateOrToday(date);
 		return new SchedulerBossDetailResponse(
-				bossRecordRepository
-						.findByCharacterIdAndRecordDateAndResetPeriodOrderByBoss_SortOrderAscIdAsc(character.getId(), targetDate, ResetPeriod.WEEKLY)
-						.stream()
+				bossRecordsForPeriod(character.getId(), targetDate, ResetPeriod.WEEKLY).stream()
 						.map(SchedulerBossResponse::from)
 						.toList(),
-				bossRecordRepository
-						.findByCharacterIdAndRecordDateAndResetPeriodOrderByBoss_SortOrderAscIdAsc(character.getId(), targetDate, ResetPeriod.MONTHLY)
-						.stream()
+				bossRecordsForPeriod(character.getId(), targetDate, ResetPeriod.MONTHLY).stream()
 						.map(SchedulerBossResponse::from)
 						.toList()
 		);
+	}
+
+	@Transactional(readOnly = true)
+	public List<BossCandidateResponse> getBossCandidates(Long userId, Long characterId, ResetPeriod resetPeriod) {
+		findCharacter(userId, characterId);
+		return bossMasterRepository.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(resetPeriod).stream()
+				.map(BossCandidateResponse::from)
+				.toList();
+	}
+
+	@CacheEvict(cacheNames = RedisCacheNames.SCHEDULER, allEntries = true)
+	@Transactional
+	public List<SchedulerBossResponse> saveManualBossRecords(
+			Long userId,
+			Long characterId,
+			ManualBossRecordSaveRequest request
+	) {
+		MapleCharacter character = findCharacter(userId, characterId);
+		LocalDate periodStart = periodStart(request.periodStart(), request.resetPeriod());
+		if (request.resetPeriod() == ResetPeriod.WEEKLY && request.bossIds().size() > 12) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "WEEKLY_BOSS_LIMIT_EXCEEDED", "주간 보스 선택 한도 초과");
+		}
+		if (request.bossIds().stream().distinct().count() != request.bossIds().size()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "DUPLICATE_BOSS_SELECTION", "중복 보스 선택");
+		}
+		if (!bossRecordsForPeriod(character.getId(), periodStart, request.resetPeriod()).isEmpty()) {
+			throw new ApiException(HttpStatus.CONFLICT, "BOSS_RECORD_EXISTS", "선택 기간 보스 기록 존재");
+		}
+
+		Map<Long, BossMaster> bossesById = bossMasterRepository
+				.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(request.resetPeriod())
+				.stream()
+				.collect(Collectors.toMap(BossMaster::getId, boss -> boss));
+		List<BossMaster> selected = request.bossIds().stream().map(bossesById::get).toList();
+		if (selected.stream().anyMatch(boss -> boss == null)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_BOSS_SELECTION", "활성 보스 후보 아님");
+		}
+
+		return bossRecordRepository.saveAll(selected.stream()
+				.map(boss -> SchedulerBossRecord.create(character, boss, periodStart, request.resetPeriod(), true, null))
+				.toList()).stream()
+				.sorted(Comparator.comparing(record -> record.getBoss().getSortOrder()))
+				.map(SchedulerBossResponse::from)
+				.toList();
 	}
 
 	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'guild:' + #userId + ':' + #characterId + ':' + #date")
@@ -200,5 +247,16 @@ public class SchedulerService {
 
 	private LocalDate weekStartDate(LocalDate date) {
 		return date.with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY));
+	}
+
+	private List<SchedulerBossRecord> bossRecordsForPeriod(Long characterId, LocalDate date, ResetPeriod resetPeriod) {
+		LocalDate start = periodStart(date, resetPeriod);
+		LocalDate end = resetPeriod == ResetPeriod.WEEKLY ? start.plusDays(6) : start.plusMonths(1).minusDays(1);
+		return bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(
+				characterId, start, end, resetPeriod);
+	}
+
+	private LocalDate periodStart(LocalDate date, ResetPeriod resetPeriod) {
+		return resetPeriod == ResetPeriod.WEEKLY ? weekStartDate(date) : date.withDayOfMonth(1);
 	}
 }
