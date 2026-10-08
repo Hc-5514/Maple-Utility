@@ -13,8 +13,6 @@ spring:
       port: ${SPRING_DATA_REDIS_PORT}
   flyway:
     enabled: true
-    # Remove after V9 has been applied to every database already at V11/V12.
-    out-of-order: true
 
 server:
   shutdown: graceful
