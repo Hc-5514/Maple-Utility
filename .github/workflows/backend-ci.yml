@@ -36,6 +36,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Test Flyway migration guard
+        working-directory: .
+        run: bash infra/scripts/check-flyway-migrations-test.sh
+
+      - name: Check Flyway migration immutability
+        working-directory: .
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash infra/scripts/check-flyway-migrations.sh "$BASE_SHA" "$HEAD_SHA"
 
       - name: Set up Java
         uses: actions/setup-java@v4
