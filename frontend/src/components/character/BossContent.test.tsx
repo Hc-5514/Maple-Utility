@@ -25,6 +25,24 @@ afterEach(() => {
 })
 
 describe('BossContent', () => {
+  it('keeps weekly and monthly period selections independent', async () => {
+    const get = vi.spyOn(client, 'get').mockResolvedValue({
+      data: { success: true, data: { weeklyBosses: [], monthlyBosses: [] } },
+    } as AxiosResponse)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+
+    await waitFor(() => expect(get).toHaveBeenCalledWith(
+      '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-10-01',
+    ))
+    fireEvent.change(screen.getByLabelText('보스 월'), { target: { value: '2026-09-01' } })
+
+    await waitFor(() => expect(get).toHaveBeenLastCalledWith(
+      '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-09-01',
+    ))
+  })
+
   it('writes one period snapshot only after the section save command', async () => {
     vi.spyOn(client, 'get').mockImplementation(async (url) => ({
       data: { success: true, data: url.startsWith('/scheduler/') ? {

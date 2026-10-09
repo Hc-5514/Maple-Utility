@@ -52,12 +52,12 @@ export function useCharacterWeekly(characterId: number, weekStart: string) {
   })
 }
 
-export function useCharacterBoss(characterId: number, date: string) {
+export function useCharacterBoss(characterId: number, weeklyDate: string, monthlyDate: string) {
   return useQuery({
-    queryKey: ['scheduler/boss', characterId, date],
+    queryKey: ['scheduler/boss', characterId, weeklyDate, monthlyDate],
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<SchedulerBossDetail>>(
-        `/scheduler/${characterId}/boss?date=${date}`,
+        `/scheduler/${characterId}/boss?weeklyDate=${weeklyDate}&monthlyDate=${monthlyDate}`,
       )
       return data.data
     },

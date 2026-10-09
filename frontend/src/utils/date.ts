@@ -10,3 +10,7 @@ export function thursdayWeekStart(date: Date): string {
   start.setDate(start.getDate() - (start.getDay() + 3) % 7)
   return localDate(start)
 }
+
+export function monthStart(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
+}

@@ -111,11 +111,14 @@ export const schedulerHandlers = [
 
   http.get('*/api/v1/scheduler/:characterId/boss', ({ params, request }) => {
     const characterId = Number(params.characterId)
-    const date = new URL(request.url).searchParams.get('date') ?? previewDate
+    const searchParams = new URL(request.url).searchParams
+    const weeklyDate = searchParams.get('weeklyDate') ?? searchParams.get('date') ?? previewDate
+    const monthlyDate = searchParams.get('monthlyDate') ?? searchParams.get('date') ?? previewDate
+    const monthlyStart = `${monthlyDate.slice(0, 7)}-01`
     const records = [
       ...previewBossRecords(characterId),
-      ...(manualBossRecords.get(`${characterId}:${date}:WEEKLY`) ?? []),
-      ...(manualBossRecords.get(`${characterId}:${date.slice(0, 7)}-01:MONTHLY`) ?? []),
+      ...(manualBossRecords.get(`${characterId}:${weeklyDate}:WEEKLY`) ?? []),
+      ...(manualBossRecords.get(`${characterId}:${monthlyStart}:MONTHLY`) ?? []),
     ]
     return HttpResponse.json({ success: true, data: {
       weeklyBosses: records.filter((record) => record.resetPeriod === 'WEEKLY'),
