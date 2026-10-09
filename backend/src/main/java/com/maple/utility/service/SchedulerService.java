@@ -157,16 +157,23 @@ public class SchedulerService {
 				.toList();
 	}
 
-	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'boss:' + #userId + ':' + #characterId + ':' + #date")
+	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'boss:' + #userId + ':' + #characterId + ':' + #weeklyDate + ':' + #monthlyDate + ':' + #legacyDate")
 	@Transactional(readOnly = true)
-	public SchedulerBossDetailResponse getBoss(Long userId, Long characterId, LocalDate date) {
+	public SchedulerBossDetailResponse getBoss(
+			Long userId,
+			Long characterId,
+			LocalDate weeklyDate,
+			LocalDate monthlyDate,
+			LocalDate legacyDate
+	) {
 		MapleCharacter character = findCharacter(userId, characterId);
-		LocalDate targetDate = dateOrToday(date);
+		LocalDate weeklyTargetDate = dateOrToday(weeklyDate != null ? weeklyDate : legacyDate);
+		LocalDate monthlyTargetDate = dateOrToday(monthlyDate != null ? monthlyDate : legacyDate);
 		return new SchedulerBossDetailResponse(
-				bossRecordsForPeriod(character.getId(), targetDate, ResetPeriod.WEEKLY).stream()
+				bossRecordsForPeriod(character.getId(), weeklyTargetDate, ResetPeriod.WEEKLY).stream()
 						.map(SchedulerBossResponse::from)
 						.toList(),
-				bossRecordsForPeriod(character.getId(), targetDate, ResetPeriod.MONTHLY).stream()
+				bossRecordsForPeriod(character.getId(), monthlyTargetDate, ResetPeriod.MONTHLY).stream()
 						.map(SchedulerBossResponse::from)
 						.toList()
 		);
@@ -252,7 +259,7 @@ public class SchedulerService {
 	private List<SchedulerBossRecord> bossRecordsForPeriod(Long characterId, LocalDate date, ResetPeriod resetPeriod) {
 		LocalDate start = periodStart(date, resetPeriod);
 		LocalDate end = resetPeriod == ResetPeriod.WEEKLY ? start.plusDays(6) : start.plusMonths(1).minusDays(1);
-		return bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(
+		return bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(
 				characterId, start, end, resetPeriod);
 	}
 

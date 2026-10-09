@@ -68,10 +68,12 @@ public class SchedulerController {
 	@GetMapping("/{characterId}/boss")
 	public SchedulerBossDetailResponse getBoss(
 			@PathVariable Long characterId,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weeklyDate,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate monthlyDate,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
 			Authentication authentication
 	) {
-		return schedulerService.getBoss(currentUserId(authentication), characterId, date);
+		return schedulerService.getBoss(currentUserId(authentication), characterId, weeklyDate, monthlyDate, date);
 	}
 
 	@GetMapping("/{characterId}/boss/candidates")

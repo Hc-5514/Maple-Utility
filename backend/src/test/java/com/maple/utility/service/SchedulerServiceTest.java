@@ -149,20 +149,25 @@ class SchedulerServiceTest {
 	}
 
 	@Test
-	void getBossSeparatesWeeklyAndMonthlyBoss() {
+	void getBossSeparatesPeriodsAndReturnsLatestSnapshotPerBoss() {
 		User user = user();
 		MapleCharacter character = character(user);
 		SchedulerBossRecord weeklyBossRecord = SchedulerBossRecord.create(character, boss(20L, ResetPeriod.WEEKLY), LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
 		SchedulerBossRecord monthlyBossRecord = SchedulerBossRecord.create(character, boss(21L, ResetPeriod.MONTHLY), LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY, false, null);
 
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
 				.thenReturn(List.of(weeklyBossRecord));
-		when(bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(10L, LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-31"), ResetPeriod.MONTHLY))
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY))
 				.thenReturn(List.of(monthlyBossRecord));
 
-		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).weeklyBosses()).hasSize(1);
-		assertThat(schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-14")).monthlyBosses()).hasSize(1);
+		var response = schedulerService.getBoss(1L, 10L,
+				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
+
+		assertThat(response.weeklyBosses()).hasSize(1);
+		assertThat(response.monthlyBosses()).hasSize(1);
+		verify(bossRecordRepository).findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(
+				10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY);
 	}
 
 	@Test
@@ -171,7 +176,7 @@ class SchedulerServiceTest {
 		MapleCharacter character = character(user);
 		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(bossRecordRepository.findByCharacterIdAndRecordDateBetweenAndResetPeriodOrderByBoss_SortOrderAscIdAsc(
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(
 				10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY)).thenReturn(List.of());
 		when(bossMasterRepository.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(ResetPeriod.WEEKLY)).thenReturn(List.of(boss));
 		when(bossRecordRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
