@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import BossCard from './BossCard'
 import BossDropModal from './BossDropModal'
 import { saveBossPeriod, saveManualBossRecords, useBossCandidates, useCharacterBoss } from '../../hooks/useCharacterDetail'
-import { localDate, thursdayWeekStart } from '../../utils/date'
+import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
 import type { BossPeriod, BossPeriodDraft, ResetPeriod, SchedulerBossRecord } from '../../types'
 
 interface Props {
@@ -41,8 +41,10 @@ function BossGroup({
 
 export default function BossContent({ characterId, date }: Props) {
   const queryClient = useQueryClient()
-  const [selectedWeekStart, setSelectedWeekStart] = useState(() => thursdayWeekStart(new Date(`${date}T12:00:00`)))
-  const { data: bossRecords, isLoading, isError } = useCharacterBoss(characterId, selectedWeekStart)
+  const pageDate = new Date(`${date}T12:00:00`)
+  const [selectedWeekStart, setSelectedWeekStart] = useState(() => thursdayWeekStart(pageDate))
+  const [selectedMonthStart, setSelectedMonthStart] = useState(() => monthStart(pageDate))
+  const { data: bossRecords, isLoading, isError } = useCharacterBoss(characterId, selectedWeekStart, selectedMonthStart)
   const [selectedRecord, setSelectedRecord] = useState<SchedulerBossRecord | null>(null)
   const [manualPeriod, setManualPeriod] = useState<ResetPeriod | null>(null)
   const [selectedBossIds, setSelectedBossIds] = useState<number[]>([])
@@ -55,7 +57,7 @@ export default function BossContent({ characterId, date }: Props) {
 
   const { data: candidates = [], isLoading: candidatesLoading } = useBossCandidates(characterId, manualPeriod)
   const periodStart = (record: SchedulerBossRecord) => record.resetPeriod === 'MONTHLY'
-    ? `${selectedWeekStart.slice(0, 7)}-01`
+    ? selectedMonthStart
     : selectedWeekStart
   const keyFor = (bossId: number, start: string) => `${characterId}:${bossId}:${start}`
   const selectedStart = selectedRecord ? periodStart(selectedRecord) : ''
@@ -108,12 +110,18 @@ export default function BossContent({ characterId, date }: Props) {
   const weeklyRecords = bossRecords?.weeklyBosses ?? []
   const monthlyRecords = bossRecords?.monthlyBosses ?? []
   const weekOptions = Array.from({ length: 12 }, (_, index) => {
-    const current = new Date(`${thursdayWeekStart(new Date())}T12:00:00`)
+    const current = new Date(`${thursdayWeekStart(pageDate)}T12:00:00`)
     current.setDate(current.getDate() - index * 7)
     const start = localDate(current)
     const endDate = new Date(current)
     endDate.setDate(endDate.getDate() + 6)
     return { start, label: `${start.replace(/-/g, '.')} ~ ${localDate(endDate).replace(/-/g, '.')}` }
+  })
+  const monthOptions = Array.from({ length: 3 }, (_, index) => {
+    const current = new Date(`${monthStart(pageDate)}T12:00:00`)
+    current.setMonth(current.getMonth() - index)
+    const start = monthStart(current)
+    return { start, label: `${current.getFullYear()}년 ${current.getMonth() + 1}월` }
   })
 
   const openManualEditor = (resetPeriod: ResetPeriod) => {
@@ -134,11 +142,11 @@ export default function BossContent({ characterId, date }: Props) {
     setManualError(null)
     try {
       await saveManualBossRecords(characterId, {
-        periodStart: selectedWeekStart,
+        periodStart: manualPeriod === 'MONTHLY' ? selectedMonthStart : selectedWeekStart,
         resetPeriod: manualPeriod,
         bossIds: selectedBossIds,
       })
-      await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart] })
+      await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart, selectedMonthStart] })
       await queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
       setManualPeriod(null)
       setSelectedBossIds([])
@@ -170,6 +178,19 @@ export default function BossContent({ characterId, date }: Props) {
               {weekOptions.map((option) => <option key={option.start} value={option.start}>{option.label}</option>)}
             </select>
           </div>
+          <label className="sr-only" htmlFor="boss-month">보스 월</label>
+          <select
+            id="boss-month"
+            value={selectedMonthStart}
+            onChange={(event) => {
+              setSelectedMonthStart(event.target.value)
+              setSelectedRecord(null)
+              setManualPeriod(null)
+            }}
+            className="rounded bg-[#1a1a2e] px-2 py-1.5 text-xs text-white"
+          >
+            {monthOptions.map((option) => <option key={option.start} value={option.start}>{option.label}</option>)}
+          </select>
           <button
             type="button"
             onClick={() => void handleSave()}

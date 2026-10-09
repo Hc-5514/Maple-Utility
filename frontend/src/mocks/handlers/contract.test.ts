@@ -6,7 +6,7 @@ import { characterHandlers } from './character'
 import { statsHandlers } from './stats'
 import { authHandlers } from './auth'
 import { apiKeyHandlers } from './apiKey'
-import { previewBossRecords, previewDate, previewPartySize, resetPreviewPeriods } from '../fixtures/nexonPreview'
+import { previewBossRecords, previewPartySize, previewWeekStart, resetPreviewPeriods } from '../fixtures/nexonPreview'
 import previewFixture from '../fixtures/nexonPreview.json'
 
 const server = setupServer(
@@ -48,7 +48,7 @@ describe('Nexon preview contracts', () => {
 
   it('shows each registered weekly and monthly boss with actual completion flags', async () => {
     for (const characterId of [1, 2]) {
-      const response = await fetch(`http://localhost/api/v1/scheduler/${characterId}/boss?date=${previewDate}`)
+      const response = await fetch(`http://localhost/api/v1/scheduler/${characterId}/boss?weeklyDate=${previewWeekStart}&monthlyDate=2026-10-01`)
       const body = await response.json()
       expect(body.data.weeklyBosses).toHaveLength(12)
       expect(body.data.monthlyBosses).toHaveLength(1)
