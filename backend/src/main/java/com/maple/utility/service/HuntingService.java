@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Comparator;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.HuntingRecordRepository;
+import com.maple.utility.repository.HuntingRecordSpecifications;
 import com.maple.utility.repository.HuntingGroundRepository;
 import com.maple.utility.repository.UserHuntingGroundFavoriteRepository;
 import com.maple.utility.repository.UserRepository;
@@ -51,9 +53,11 @@ public class HuntingService {
 	@Transactional(readOnly = true)
 	public List<HuntingRecordResponse> getRecords(Long userId, Long characterId, LocalDate from, LocalDate to) {
 		validateDateRange(from, to);
+		Sort sort = Sort.by(Sort.Order.desc("recordDate"), Sort.Order.desc("id"));
 		List<HuntingRecord> records = characterId == null
-				? huntingRecordRepository.findFavoriteRecords(userId, from, to)
-				: huntingRecordRepository.findByCharacterIdAndRecordDateRange(findCharacter(userId, characterId).getId(), from, to);
+				? huntingRecordRepository.findAll(HuntingRecordSpecifications.favoriteRecords(userId, from, to), sort)
+				: huntingRecordRepository.findAll(
+						HuntingRecordSpecifications.characterRecords(findCharacter(userId, characterId).getId(), from, to), sort);
 		return records.stream()
 				.map(HuntingRecordResponse::from)
 				.toList();

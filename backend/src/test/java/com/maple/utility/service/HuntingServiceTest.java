@@ -3,6 +3,7 @@ package com.maple.utility.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.maple.utility.dto.request.HuntingRecordRequest;
@@ -61,11 +64,7 @@ class HuntingServiceTest {
 		MapleCharacter character = character(user);
 		HuntingRecord record = huntingRecord(100L, character, LocalDate.parse("2026-07-14"));
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(huntingRecordRepository.findByCharacterIdAndRecordDateRange(
-				10L,
-				LocalDate.parse("2026-07-01"),
-				LocalDate.parse("2026-07-31")
-		)).thenReturn(List.of(record));
+		when(huntingRecordRepository.findAll(any(Specification.class), eq(recordSort()))).thenReturn(List.of(record));
 
 		List<HuntingRecordResponse> response = huntingService.getRecords(
 				1L,
@@ -83,7 +82,7 @@ class HuntingServiceTest {
 	void getRecordsWithoutCharacterReturnsOnlyFavoriteRecords() {
 		MapleCharacter character = character(user());
 		HuntingRecord record = huntingRecord(100L, character, LocalDate.parse("2026-07-14"));
-		when(huntingRecordRepository.findFavoriteRecords(1L, null, null)).thenReturn(List.of(record));
+		when(huntingRecordRepository.findAll(any(Specification.class), eq(recordSort()))).thenReturn(List.of(record));
 
 		assertThat(huntingService.getRecords(1L, null, null, null))
 				.extracting(HuntingRecordResponse::id).containsExactly(100L);
@@ -220,6 +219,10 @@ class HuntingServiceTest {
 		huntingService.deleteRecord(1L, 100L);
 
 		verify(huntingRecordRepository).delete(record);
+	}
+
+	private Sort recordSort() {
+		return Sort.by(Sort.Order.desc("recordDate"), Sort.Order.desc("id"));
 	}
 
 	private HuntingRecordRequest request(LocalDate recordDate, Long mesoEarned, Integer solErdaEarned) {
