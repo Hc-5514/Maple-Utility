@@ -8,6 +8,7 @@ import { useStatsBossItems, useStatsCrystal, useStatsHunting, type BossItemPageS
 import client from '../api/client'
 import type { ApiResponse, Character } from '../types'
 import { localDate } from '../utils/date'
+import { crystalChartPeriods, crystalWindowRange, type CrystalWindow } from '../utils/crystalPeriods'
 
 const today = import.meta.env.VITE_USE_MOCK === 'true' && import.meta.env.VITE_PREVIEW_DATE
   ? import.meta.env.VITE_PREVIEW_DATE
@@ -28,8 +29,10 @@ export default function StatsPage() {
   const [characterId, setCharacterId] = useState<number | null>(null)
   const [bossPage, setBossPage] = useState(0)
   const [bossPageSize, setBossPageSize] = useState<BossItemPageSize>(10)
+  const [crystalWindow, setCrystalWindow] = useState<CrystalWindow>(4)
 
   const params = { characterId, dateFrom, dateTo }
+  const crystalRange = crystalWindowRange(today, crystalWindow)
 
   const { data: characters } = useQuery({
     queryKey: ['characters', 'favorites'],
@@ -38,7 +41,8 @@ export default function StatsPage() {
   })
 
   const { data: huntingData, isLoading: loadingHunting, isError: errorHunting } = useStatsHunting(params)
-  const { data: crystalData, isLoading: loadingCrystal, isError: errorCrystal } = useStatsCrystal(params)
+  const { data: crystalData, isLoading: loadingCrystal, isError: errorCrystal } = useStatsCrystal({ characterId, ...crystalRange })
+  const crystalPeriods = crystalData ? crystalChartPeriods(crystalData.weeklyRecords, crystalRange.dateFrom, crystalWindow) : []
   const { data: bossItems, isLoading: loadingBossItems, isError: errorBossItems } = useStatsBossItems({
     ...params, page: bossPage, size: bossPageSize,
   })
@@ -107,7 +111,13 @@ export default function StatsPage() {
 
       {/* 결정석 수익 */}
       <section className="space-y-4">
-		<h2 className="rounded border border-[#facc15]/30 bg-[#facc15]/10 px-3 py-2 text-lg font-semibold text-white">결정석 수익</h2>
+		<div className="flex flex-wrap items-center justify-between gap-3 rounded border border-[#facc15]/30 bg-[#facc15]/10 px-3 py-2">
+          <h2 className="text-lg font-semibold text-white">결정석 수익</h2>
+          <label className="flex items-center gap-2 text-sm text-white/80">
+            <input type="checkbox" checked={crystalWindow === 12} onChange={(event) => setCrystalWindow(event.target.checked ? 12 : 4)} />
+            최근 12주 합계
+          </label>
+        </div>
         {loadingCrystal ? (
           <div className="grid grid-cols-2 gap-3">
             {[...Array(2)].map((_, i) => (
@@ -125,11 +135,11 @@ export default function StatsPage() {
               />
               <StatCard
                 label="주간 평균"
-                value={`${(crystalData.weeklyAverage / 1e8).toFixed(0)}억`}
+                value={`${(crystalData.totalCrystalIncome / crystalWindow / 1e8).toFixed(0)}억`}
               />
             </div>
             <div className="rounded-xl bg-[#2d2d44] p-5">
-              <CrystalChart data={crystalData.weeklyRecords} />
+              <CrystalChart data={crystalPeriods} />
             </div>
           </>
         ) : (
