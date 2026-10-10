@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, Save } from 'lucide-react'
+import { CalendarDays, Plus, Save, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import BossCard from './BossCard'
 import BossDropModal from './BossDropModal'
-import { saveBossPeriod, saveManualBossRecords, useBossCandidates, useCharacterBoss } from '../../hooks/useCharacterDetail'
+import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useBossCandidates, useCharacterBoss } from '../../hooks/useCharacterDetail'
 import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
 import type { BossPeriod, BossPeriodDraft, ResetPeriod, SchedulerBossRecord } from '../../types'
 
@@ -16,23 +16,27 @@ function BossGroup({
   title,
   records,
   onClickDetail,
+  onAdd,
+  onDelete,
 }: {
   title: string
   records: SchedulerBossRecord[]
   onClickDetail: (record: SchedulerBossRecord) => void
+  onAdd: () => void
+  onDelete: (record: SchedulerBossRecord) => void
 }) {
-  if (records.length === 0) return null
-
   return (
     <div>
-      <h3 className="mb-3 text-sm font-semibold text-white/60">{title}</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white/60">{title}</h3>
+        <button type="button" onClick={onAdd} aria-label={`${title} 추가`} title={`${title} 추가`} className="grid size-7 place-items-center rounded text-white/60 hover:bg-white/10 hover:text-white"><Plus size={16} /></button>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         {records.map((record, idx) => (
-          <BossCard
-            key={record.id ?? `${record.characterId}-${idx}`}
-            record={record}
-            onClickDetail={() => onClickDetail(record)}
-          />
+          <div key={record.id ?? `${record.characterId}-${record.bossId}-${idx}`} className="relative">
+            <BossCard record={record} onClickDetail={() => onClickDetail(record)} />
+            <button type="button" onClick={() => onDelete(record)} aria-label={`${record.bossName} 삭제`} title={`${record.bossName} 삭제`} className="absolute right-2 top-2 grid size-7 place-items-center rounded bg-[#1a1a2e] text-white/50 hover:bg-[#f87171]/20 hover:text-[#f87171]"><Trash2 size={15} /></button>
+          </div>
         ))}
       </div>
     </div>
@@ -50,6 +54,7 @@ export default function BossContent({ characterId, date }: Props) {
   const [selectedBossIds, setSelectedBossIds] = useState<number[]>([])
   const [manualSaving, setManualSaving] = useState(false)
   const [manualError, setManualError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [drafts, setDrafts] = useState<Record<string, BossPeriodDraft>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
@@ -141,7 +146,7 @@ export default function BossContent({ characterId, date }: Props) {
     setManualSaving(true)
     setManualError(null)
     try {
-      await saveManualBossRecords(characterId, {
+      await addBossesToPeriod(characterId, {
         periodStart: manualPeriod === 'MONTHLY' ? selectedMonthStart : selectedWeekStart,
         resetPeriod: manualPeriod,
         bossIds: selectedBossIds,
@@ -154,6 +159,28 @@ export default function BossContent({ characterId, date }: Props) {
       setManualError('보스 기록 저장 실패')
     } finally {
       setManualSaving(false)
+    }
+  }
+
+  const deleteBoss = async (record: SchedulerBossRecord) => {
+    if (!record.bossId) return
+    if (!window.confirm(`${record.bossName} 보스를 이 기간에서 삭제하시겠습니까? 해당 기간의 아이템·결정석 획득 내역도 삭제됩니다.`)) return
+    setDeleteError(null)
+    const start = periodStart(record)
+    try {
+      await hideBossFromPeriod(characterId, record.bossId, start, record.resetPeriod)
+      const draftKey = keyFor(record.bossId, start)
+      setDrafts((previous) => {
+        const next = { ...previous }
+        delete next[draftKey]
+        return next
+      })
+      setSelectedRecord(null)
+      await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart, selectedMonthStart] })
+      await queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
+      await queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('stats/') })
+    } catch {
+      setDeleteError('보스 삭제에 실패했습니다.')
     }
   }
 
@@ -203,6 +230,7 @@ export default function BossContent({ characterId, date }: Props) {
         </div>
       </div>
       {saveError && <p role="alert" className="mb-3 text-sm text-[#f87171]">저장에 실패했습니다.</p>}
+      {deleteError && <p role="alert" className="mb-3 text-sm text-[#f87171]">{deleteError}</p>}
       {saveSuccess && !saveError && <p role="status" className="mb-3 text-sm text-[#4ade80]">저장 완료</p>}
 
       {isLoading ? (
@@ -219,22 +247,16 @@ export default function BossContent({ characterId, date }: Props) {
             title="주간 보스"
             records={weeklyRecords}
             onClickDetail={setSelectedRecord}
+            onAdd={() => openManualEditor('WEEKLY')}
+            onDelete={(record) => void deleteBoss(record)}
           />
-          {weeklyRecords.length === 0 && manualPeriod !== 'WEEKLY' && (
-            <button type="button" onClick={() => openManualEditor('WEEKLY')} className="rounded bg-white/10 px-3 py-2 text-sm text-white/80 hover:bg-white/15">
-              주간 보스 직접 기록
-            </button>
-          )}
           <BossGroup
             title="월간 보스"
             records={monthlyRecords}
             onClickDetail={setSelectedRecord}
+            onAdd={() => openManualEditor('MONTHLY')}
+            onDelete={(record) => void deleteBoss(record)}
           />
-          {monthlyRecords.length === 0 && manualPeriod !== 'MONTHLY' && (
-            <button type="button" onClick={() => openManualEditor('MONTHLY')} className="rounded bg-white/10 px-3 py-2 text-sm text-white/80 hover:bg-white/15">
-              월간 보스 직접 기록
-            </button>
-          )}
           {weeklyRecords.length === 0 && monthlyRecords.length === 0 && (
             <p className="text-sm text-white/40">보스 기록 없음</p>
           )}
@@ -245,13 +267,13 @@ export default function BossContent({ characterId, date }: Props) {
         <div className="mt-4 border-t border-white/10 pt-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-white">{manualPeriod === 'WEEKLY' ? '주간' : '월간'} 보스 선택</p>
-            {manualPeriod === 'WEEKLY' && <span className="text-xs text-white/50">{selectedBossIds.length}/12</span>}
+            {manualPeriod === 'WEEKLY' && <span className="text-xs text-white/50">{weeklyRecords.length + selectedBossIds.length}/12</span>}
           </div>
           {candidatesLoading ? <p className="text-sm text-white/50">후보 불러오는 중</p> : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {candidates.map((boss) => {
+              {candidates.filter((boss) => !(manualPeriod === 'WEEKLY' ? weeklyRecords : monthlyRecords).some((record) => record.bossId === boss.id)).map((boss) => {
                 const checked = selectedBossIds.includes(boss.id)
-                const disable = manualPeriod === 'WEEKLY' && !checked && selectedBossIds.length >= 12
+                const disable = manualPeriod === 'WEEKLY' && !checked && weeklyRecords.length + selectedBossIds.length >= 12
                 return (
                   <label key={boss.id} className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm ${checked ? 'border-[#4ade80] bg-[#4ade80]/10 text-white' : 'border-white/10 text-white/70'} ${disable ? 'cursor-not-allowed opacity-40' : ''}`}>
                     <input type="checkbox" checked={checked} disabled={disable} onChange={() => toggleCandidate(boss.id)} />

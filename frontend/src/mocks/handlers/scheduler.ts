@@ -6,6 +6,12 @@ import type { BossCandidate, SchedulerBossRecord } from '../../types'
 
 const syncedAt = `${previewDate}T00:00:00+09:00`
 const manualBossRecords = new Map<string, SchedulerBossRecord[]>()
+const periodSelections = new Map<string, SchedulerBossRecord>()
+const hiddenBosses = new Set<string>()
+
+function selectionKey(characterId: number, periodStart: string, resetPeriod: string, bossId: number) {
+  return `${characterId}:${periodStart}:${resetPeriod}:${bossId}`
+}
 
 function bossCandidates(resetPeriod: 'WEEKLY' | 'MONTHLY'): BossCandidate[] {
   const seen = new Set<number>()
@@ -109,6 +115,39 @@ export const schedulerHandlers = [
     return HttpResponse.json({ success: true, data: records })
   }),
 
+  http.post('*/api/v1/scheduler/:characterId/boss/selection', async ({ params, request }) => {
+    const characterId = Number(params.characterId)
+    const body = await request.json() as { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] }
+    const start = body.resetPeriod === 'MONTHLY' ? `${body.periodStart.slice(0, 7)}-01` : body.periodStart
+    const candidates = new Map(bossCandidates(body.resetPeriod).map((boss) => [boss.id, boss]))
+    const records = body.bossIds.flatMap((bossId) => {
+      const boss = candidates.get(bossId)
+      if (!boss) return []
+      const record: SchedulerBossRecord = {
+        id: 900000 + bossId, characterId, recordDate: start, bossId,
+        bossName: boss.bossName, difficulty: boss.difficulty, bossImage: boss.bossImage,
+        crystalPrice: boss.crystalPrice, resetPeriod: body.resetPeriod,
+        isCompleted: true, syncedAt: null,
+      }
+      const key = selectionKey(characterId, start, body.resetPeriod, bossId)
+      hiddenBosses.delete(key)
+      periodSelections.set(key, record)
+      return [record]
+    })
+    return HttpResponse.json({ success: true, data: records })
+  }),
+
+  http.delete('*/api/v1/scheduler/:characterId/boss/selection/:bossId', ({ params, request }) => {
+    const characterId = Number(params.characterId)
+    const resetPeriod = new URL(request.url).searchParams.get('resetPeriod')
+    const periodStart = new URL(request.url).searchParams.get('periodStart')
+    if (!resetPeriod || !periodStart) return HttpResponse.json({ success: false }, { status: 400 })
+    const key = selectionKey(characterId, periodStart, resetPeriod, Number(params.bossId))
+    periodSelections.delete(key)
+    hiddenBosses.add(key)
+    return HttpResponse.json({ success: true, data: null })
+  }),
+
   http.get('*/api/v1/scheduler/:characterId/boss', ({ params, request }) => {
     const characterId = Number(params.characterId)
     const searchParams = new URL(request.url).searchParams
@@ -119,10 +158,18 @@ export const schedulerHandlers = [
       ...previewBossRecords(characterId),
       ...(manualBossRecords.get(`${characterId}:${weeklyDate}:WEEKLY`) ?? []),
       ...(manualBossRecords.get(`${characterId}:${monthlyStart}:MONTHLY`) ?? []),
-    ]
+      ...periodSelections.values(),
+    ].filter((record) => {
+      const start = record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate
+      const inPeriod = record.recordDate === start || (record.recordDate === previewDate && (
+        record.resetPeriod === 'WEEKLY' ? start === previewWeekStart : start === `${previewDate.slice(0, 7)}-01`
+      ))
+      return record.characterId === characterId && inPeriod && !hiddenBosses.has(selectionKey(characterId, start, record.resetPeriod, record.bossId ?? 0))
+    })
+    const unique = [...new Map(records.map((record) => [selectionKey(characterId, record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate, record.resetPeriod, record.bossId ?? 0), record])).values()]
     return HttpResponse.json({ success: true, data: {
-      weeklyBosses: records.filter((record) => record.resetPeriod === 'WEEKLY'),
-      monthlyBosses: records.filter((record) => record.resetPeriod === 'MONTHLY'),
+      weeklyBosses: unique.filter((record) => record.resetPeriod === 'WEEKLY'),
+      monthlyBosses: unique.filter((record) => record.resetPeriod === 'MONTHLY'),
     } })
   }),
 
