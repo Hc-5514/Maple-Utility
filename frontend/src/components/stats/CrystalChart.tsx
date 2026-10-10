@@ -23,12 +23,13 @@ export default function CrystalChart({ data }: Props) {
   }
 
   return (
+    <>
     <ResponsiveContainer width="100%" height={240}>
       <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
         <XAxis
           dataKey="weekStart"
-          tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }}
+          tick={false}
           tickLine={false}
         />
         <YAxis
@@ -50,5 +51,9 @@ export default function CrystalChart({ data }: Props) {
         <Bar dataKey="totalIncome" fill="#4ade80" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
+      <div className="grid gap-2 pt-2 text-center text-[11px] text-white/55" style={{ gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))` }}>
+        {data.map((period) => <span key={period.weekStart} className="break-words">{period.weekStart}</span>)}
+      </div>
+    </>
   )
 }
