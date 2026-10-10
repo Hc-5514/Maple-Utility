@@ -10,4 +10,6 @@ import com.maple.utility.entity.BossPeriodEntry;
 public interface BossPeriodEntryRepository extends JpaRepository<BossPeriodEntry, Long> {
 
 	Optional<BossPeriodEntry> findByCharacter_IdAndBoss_IdAndPeriodStart(Long characterId, Long bossId, LocalDate periodStart);
+
+	void deleteByCharacter_IdAndBoss_IdAndPeriodStart(Long characterId, Long bossId, LocalDate periodStart);
 }

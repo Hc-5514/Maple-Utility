@@ -59,7 +59,7 @@ describe('BossContent', () => {
 
     render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
 
-    fireEvent.click(await screen.findByRole('button', { name: /스우/ }))
+    fireEvent.click((await screen.findAllByRole('button', { name: /스우/ }))[0])
     fireEvent.click(await screen.findByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }))
     expect(put).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '닫기' }))
@@ -89,12 +89,31 @@ describe('BossContent', () => {
 
     render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
 
-    fireEvent.click(await screen.findByRole('button', { name: '주간 보스 직접 기록' }))
+    fireEvent.click(await screen.findByRole('button', { name: '주간 보스 추가' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: '스우 HARD' }))
     fireEvent.click(screen.getByRole('button', { name: '선택 저장' }))
 
-    await waitFor(() => expect(post).toHaveBeenCalledWith('/scheduler/1/boss/manual', {
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/scheduler/1/boss/selection', {
       periodStart: '2026-10-08', resetPeriod: 'WEEKLY', bossIds: [5],
     }))
+  })
+
+  it('deletes a boss and its selected-period acquisitions after confirmation', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.spyOn(client, 'get').mockResolvedValue({
+      data: { success: true, data: { weeklyBosses: [{
+        characterId: 1, bossId: 5, bossName: '스우', difficulty: 'HARD',
+        resetPeriod: 'WEEKLY', isCompleted: true, syncedAt: null,
+      }], monthlyBosses: [] } },
+    } as AxiosResponse)
+    const remove = vi.spyOn(client, 'delete').mockResolvedValue({ data: { success: true } } as AxiosResponse)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: '스우 삭제' }))
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(
+      '/scheduler/1/boss/selection/5?periodStart=2026-10-08&resetPeriod=WEEKLY',
+    ))
   })
 })

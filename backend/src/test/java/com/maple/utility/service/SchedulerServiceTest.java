@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.any;
 
 import java.time.Clock;
@@ -27,6 +28,8 @@ import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SyncJobResponse;
 import com.maple.utility.dto.request.ManualBossRecordSaveRequest;
 import com.maple.utility.entity.BossMaster;
+import com.maple.utility.entity.BossPeriodSelection;
+import com.maple.utility.entity.BossItemAcquisition;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
@@ -38,6 +41,9 @@ import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.BossMasterRepository;
+import com.maple.utility.repository.BossPeriodEntryRepository;
+import com.maple.utility.repository.BossPeriodSelectionRepository;
+import com.maple.utility.repository.BossItemAcquisitionRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
@@ -65,6 +71,12 @@ class SchedulerServiceTest {
 
 	@Mock
 	private BossMasterRepository bossMasterRepository;
+	@Mock
+	private BossPeriodSelectionRepository bossPeriodSelectionRepository;
+	@Mock
+	private BossPeriodEntryRepository bossPeriodEntryRepository;
+	@Mock
+	private BossItemAcquisitionRepository bossItemAcquisitionRepository;
 
 	@Mock
 	private SchedulerSyncService schedulerSyncService;
@@ -82,6 +94,9 @@ class SchedulerServiceTest {
 			weeklyRecordRepository,
 			bossRecordRepository,
 			bossMasterRepository,
+			bossPeriodSelectionRepository,
+			bossPeriodEntryRepository,
+			bossItemAcquisitionRepository,
 				schedulerSyncService,
 				syncJobRepository,
 				CLOCK
@@ -121,6 +136,14 @@ class SchedulerServiceTest {
 				.thenReturn(List.of(weeklyBossRecord));
 		when(bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(List.of(10L), LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY))
 				.thenReturn(List.of(monthlyBossRecord));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of(weeklyBossRecord));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-31"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of(monthlyBossRecord));
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-09"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
 
 		SchedulerSummaryResponse response = schedulerService.getSummary(1L, LocalDate.parse("2026-07-14"));
 
@@ -160,6 +183,10 @@ class SchedulerServiceTest {
 				.thenReturn(List.of(weeklyBossRecord));
 		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY))
 				.thenReturn(List.of(monthlyBossRecord));
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-09"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-06-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
 
 		var response = schedulerService.getBoss(1L, 10L,
 				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
@@ -168,6 +195,70 @@ class SchedulerServiceTest {
 		assertThat(response.monthlyBosses()).hasSize(1);
 		verify(bossRecordRepository).findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(
 				10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY);
+	}
+
+	@Test
+	void addBossesToExistingWeekReturnsManualCompletion() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		LocalDate start = LocalDate.parse("2026-07-09");
+		BossPeriodSelection added = BossPeriodSelection.create(character, boss, start, true);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(ResetPeriod.WEEKLY)).thenReturn(List.of(boss));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, start, start.plusDays(6), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, start, ResetPeriod.WEEKLY))
+				.thenReturn(List.of(), List.of(), List.of(added));
+		when(bossPeriodSelectionRepository.save(any())).thenReturn(added);
+
+		var records = schedulerService.addBossesToPeriod(1L, 10L,
+				new ManualBossRecordSaveRequest(start, ResetPeriod.WEEKLY, List.of(20L)));
+
+		assertThat(records).singleElement().satisfies(record -> {
+			assertThat(record.bossId()).isEqualTo(20L);
+			assertThat(record.isCompleted()).isTrue();
+		});
+	}
+
+	@Test
+	void hideBossDeletesOnlySelectedPeriodAcquisitions() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		LocalDate start = LocalDate.parse("2026-07-09");
+		BossPeriodSelection selection = BossPeriodSelection.create(character, boss, start, true);
+		BossItemAcquisition acquisition = mock(BossItemAcquisition.class);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L, start))
+				.thenReturn(Optional.of(selection));
+		when(bossItemAcquisitionRepository.findByCharacter_IdAndBossDropItem_Boss_IdAndAcquiredDateBetween(
+				10L, 20L, start, start.plusDays(6))).thenReturn(List.of(acquisition));
+
+		schedulerService.hideBossFromPeriod(1L, 10L, 20L, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY);
+
+		assertThat(selection.isVisible()).isFalse();
+		verify(bossItemAcquisitionRepository).deleteAll(List.of(acquisition));
+		verify(bossPeriodEntryRepository).deleteByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L, start);
+	}
+
+	@Test
+	void hiddenBossRemainsAbsentWhenSyncedSnapshotExists() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		LocalDate start = LocalDate.parse("2026-07-09");
+		BossPeriodSelection hidden = BossPeriodSelection.create(character, boss, start, false);
+		SchedulerBossRecord snapshot = SchedulerBossRecord.create(character, boss, start.plusDays(5), ResetPeriod.WEEKLY, true, null);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, start, start.plusDays(6), ResetPeriod.WEEKLY))
+				.thenReturn(List.of(snapshot));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-31"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, start, ResetPeriod.WEEKLY))
+				.thenReturn(List.of(hidden));
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+
+		assertThat(schedulerService.getBoss(1L, 10L, start, start, null).weeklyBosses()).isEmpty();
 	}
 
 	@Test

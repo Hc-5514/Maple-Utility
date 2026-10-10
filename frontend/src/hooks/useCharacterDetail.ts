@@ -89,6 +89,26 @@ export async function saveManualBossRecords(
   return data.data
 }
 
+export async function addBossesToPeriod(
+  characterId: number,
+  body: { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] },
+) {
+  const { data } = await client.post<ApiResponse<SchedulerBossRecord[]>>(
+    `/scheduler/${characterId}/boss/selection`, body,
+  )
+  return data.data
+}
+
+export async function hideBossFromPeriod(
+  characterId: number,
+  bossId: number,
+  periodStart: string,
+  resetPeriod: 'WEEKLY' | 'MONTHLY',
+) {
+  const query = new URLSearchParams({ periodStart, resetPeriod })
+  await client.delete(`/scheduler/${characterId}/boss/selection/${bossId}?${query}`)
+}
+
 export function useCharacterGuild(characterId: number, date: string) {
   return useQuery({
     queryKey: ['scheduler/guild', characterId, date],

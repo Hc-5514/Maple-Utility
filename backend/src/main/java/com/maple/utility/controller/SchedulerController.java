@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -92,6 +93,26 @@ public class SchedulerController {
 			Authentication authentication
 	) {
 		return schedulerService.saveManualBossRecords(currentUserId(authentication), characterId, request);
+	}
+
+	@PostMapping("/{characterId}/boss/selection")
+	public List<SchedulerBossResponse> addBossesToPeriod(
+			@PathVariable Long characterId,
+			@Valid @RequestBody ManualBossRecordSaveRequest request,
+			Authentication authentication
+	) {
+		return schedulerService.addBossesToPeriod(currentUserId(authentication), characterId, request);
+	}
+
+	@DeleteMapping("/{characterId}/boss/selection/{bossId}")
+	public void hideBossFromPeriod(
+			@PathVariable Long characterId,
+			@PathVariable Long bossId,
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
+			@RequestParam ResetPeriod resetPeriod,
+			Authentication authentication
+	) {
+		schedulerService.hideBossFromPeriod(currentUserId(authentication), characterId, bossId, periodStart, resetPeriod);
 	}
 
 	@GetMapping("/{characterId}/guild")
