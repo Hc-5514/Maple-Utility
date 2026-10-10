@@ -22,7 +22,7 @@ class FlywayMigrationOrderTest {
 	private static final Path MIGRATION_DIR = Path.of("src/main/resources/db/migration").toAbsolutePath();
 
 	@Test
-	void laterV9RequiresOutOfOrderOnDatabaseAlreadyAtV12() throws Exception {
+	void laterV9RequiresOutOfOrderOnDatabaseAlreadyAtV13() throws Exception {
 		String schema = schemaName();
 		Path initialMigrations = Files.createTempDirectory("flyway-without-v9-");
 		try {
@@ -33,7 +33,7 @@ class FlywayMigrationOrderTest {
 			}
 
 			flyway(schema, initialMigrations, false).migrate();
-			assertThat(latestVersion(schema)).isEqualTo("12");
+			assertThat(latestVersion(schema)).isEqualTo("13");
 			assertThatThrownBy(() -> flyway(schema, MIGRATION_DIR, false).migrate())
 					.hasMessageContaining("migration not applied to database: 9");
 
@@ -57,7 +57,8 @@ class FlywayMigrationOrderTest {
 		flyway(schema, MIGRATION_DIR, false).migrate();
 
 		assertThat(migrationSuccess(schema, "9")).isTrue();
-		assertThat(latestVersion(schema)).isEqualTo("12");
+		assertThat(migrationSuccess(schema, "13")).isTrue();
+		assertThat(latestVersion(schema)).isEqualTo("13");
 		assertThat(bossSortOrder(schema, "스우", "HARD")).isEqualTo(170);
 	}
 
