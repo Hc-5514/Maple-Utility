@@ -11,6 +11,7 @@ import com.maple.utility.repository.BossDropItemRepository;
 import com.maple.utility.repository.BossItemAcquisitionRepository;
 import com.maple.utility.repository.BossMasterRepository;
 import com.maple.utility.repository.BossPeriodEntryRepository;
+import com.maple.utility.repository.BossPeriodSelectionRepository;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.DataSyncLogRepository;
 import com.maple.utility.repository.HuntingRecordRepository;
@@ -76,6 +77,9 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private BossPeriodEntryRepository bossPeriodEntryRepository;
+
+	@MockitoBean
+	private BossPeriodSelectionRepository bossPeriodSelectionRepository;
 
 	@MockitoBean
 	private SchedulerDailyRecordRepository schedulerDailyRecordRepository;
