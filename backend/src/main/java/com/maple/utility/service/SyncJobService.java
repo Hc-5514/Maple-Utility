@@ -37,6 +37,7 @@ public class SyncJobService {
 	private final CharacterRepository characters;
 	private final CharacterSyncService characterSync;
 	private final SchedulerSyncService schedulerSync;
+	private final SchedulerWeekFinalizationService weekFinalization;
 	private final NexonOpenApiClient nexon;
 	private final CacheManager cacheManager;
 	private final JdbcTemplate jdbcTemplate;
@@ -44,13 +45,15 @@ public class SyncJobService {
 	private final Clock clock;
 
 	public SyncJobService(SyncJobRepository jobs, UserRepository users, CharacterRepository characters,
-			CharacterSyncService characterSync, SchedulerSyncService schedulerSync, NexonOpenApiClient nexon,
+			CharacterSyncService characterSync, SchedulerSyncService schedulerSync,
+			SchedulerWeekFinalizationService weekFinalization, NexonOpenApiClient nexon,
 			CacheManager cacheManager, JdbcTemplate jdbcTemplate, @Qualifier("syncExecutor") Executor executor, Clock clock) {
 		this.jobs = jobs;
 		this.users = users;
 		this.characters = characters;
 		this.characterSync = characterSync;
 		this.schedulerSync = schedulerSync;
+		this.weekFinalization = weekFinalization;
 		this.nexon = nexon;
 		this.cacheManager = cacheManager;
 		this.jdbcTemplate = jdbcTemplate;
@@ -124,7 +127,8 @@ public class SyncJobService {
 	private void runScheduler(Long userId, Long id, boolean batch, boolean force) {
 		try {
 			List<MapleCharacter> favorites = characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
-			jobs.setTotal(id, favorites.size());
+			int historyTargets = batch ? 0 : prepareRecentWeeks(userId);
+			jobs.setTotal(id, favorites.size() + historyTargets);
 			for (MapleCharacter character : favorites) {
 				try {
 					schedulerSync.syncOneCharacter(userId, character, batch, force);
@@ -138,10 +142,23 @@ public class SyncJobService {
 					jobs.advance(id, true);
 				}
 			}
+			if (historyTargets > 0) {
+				// Live syncs fill the two finalizable past weeks now; the 02:00 batch only retries what remains.
+				weekFinalization.finalizeRecentWeeks(userId, () -> jobs.advance(id, false));
+			}
 			jobs.complete(id, LocalDateTime.now(clock));
 			evictSchedulerCaches();
 		} catch (Exception exception) {
 			fail(id, exception);
+		}
+	}
+
+	private int prepareRecentWeeks(Long userId) {
+		try {
+			return weekFinalization.prepareRecentWeeks(userId);
+		} catch (RuntimeException exception) {
+			log.warn("Skipping recent week backfill. userId={}", userId, exception);
+			return 0;
 		}
 	}
 

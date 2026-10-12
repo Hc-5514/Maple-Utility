@@ -78,10 +78,14 @@ public class NexonOpenApiClient {
 	}
 
 	public NexonSchedulerResponse getCharacterSchedulerForDate(Long userId, String ocid, LocalDate date) {
+		return getCharacterSchedulerForDate(userId, ocid, date, NexonRequestMode.BATCH);
+	}
+
+	public NexonSchedulerResponse getCharacterSchedulerForDate(Long userId, String ocid, LocalDate date, NexonRequestMode mode) {
 		String uri = UriComponentsBuilder.fromUriString(characterSchedulerUri(ocid))
 				.queryParam("date", date).build().encode().toUriString();
-		JsonNode response = nexonApiGateway.getWithStoredKey(userId, uri, NexonRequestMode.BATCH,
-				SyncType.SCHEDULER_BATCH, false);
+		JsonNode response = nexonApiGateway.getWithStoredKey(userId, uri, mode,
+				mode == NexonRequestMode.BATCH ? SyncType.SCHEDULER_BATCH : SyncType.SCHEDULER_REALTIME, false);
 		// A missing field is malformed; an explicit null date represents unavailable historical data.
 		if (response != null && response.isObject() && response.has("date") && response.get("date").isNull()) {
 			return null;

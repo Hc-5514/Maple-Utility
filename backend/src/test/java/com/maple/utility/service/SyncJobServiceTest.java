@@ -45,6 +45,7 @@ class SyncJobServiceTest {
 	@Mock CharacterRepository characters;
 	@Mock CharacterSyncService characterSync;
 	@Mock SchedulerSyncService schedulerSync;
+	@Mock SchedulerWeekFinalizationService weekFinalization;
 	@Mock NexonOpenApiClient nexon;
 	@Mock CacheManager cacheManager;
 	@Mock JdbcTemplate jdbcTemplate;
@@ -53,7 +54,7 @@ class SyncJobServiceTest {
 	@BeforeEach
 	void setUp() {
 		service = new SyncJobService(jobs, users, characters, characterSync, schedulerSync,
-				nexon, cacheManager, jdbcTemplate, Runnable::run, CLOCK);
+				weekFinalization, nexon, cacheManager, jdbcTemplate, Runnable::run, CLOCK);
 	}
 
 	@Test
@@ -90,7 +91,7 @@ class SyncJobServiceTest {
 	void startReturnsBeforeSlowCharacterFetch() {
 		List<Runnable> queued = new ArrayList<>();
 		var deferredService = new SyncJobService(jobs, users, characters, characterSync, schedulerSync,
-				nexon, cacheManager, jdbcTemplate, queued::add, CLOCK);
+				weekFinalization, nexon, cacheManager, jdbcTemplate, queued::add, CLOCK);
 		var job = job(33L, "CHARACTER", "STARTED", 0, 0, null);
 		when(jobs.start(1L, "CHARACTER")).thenReturn(new SyncJobRepository.StartResult(job, true));
 
@@ -131,6 +132,32 @@ class SyncJobServiceTest {
 
 		verify(jobs).fail(44L, "NEXON_ACCESS_DENIED (OPENAPI00002)", LocalDateTime.now(CLOCK));
 		verify(jobs, never()).complete(44L, LocalDateTime.now(CLOCK));
+	}
+
+	@Test
+	void liveSchedulerJobFillsRecentWeeksAndCountsThemInProgress() {
+		MapleCharacter character = character();
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(45L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		when(characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(weekFinalization.prepareRecentWeeks(1L)).thenReturn(2);
+
+		service.startScheduler(1L, true, false);
+
+		verify(jobs).setTotal(45L, 3);
+		verify(weekFinalization).finalizeRecentWeeks(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any());
+		verify(jobs).complete(45L, LocalDateTime.now(CLOCK));
+	}
+
+	@Test
+	void batchSchedulerJobLeavesRecentWeeksToFinalizationBatch() {
+		MapleCharacter character = character();
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(46L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		when(characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+
+		service.startScheduler(1L, false, true);
+
+		verify(jobs).setTotal(46L, 1);
+		org.mockito.Mockito.verifyNoInteractions(weekFinalization);
 	}
 
 	@Test
