@@ -19,6 +19,12 @@ const period: BossPeriod = {
   }],
 }
 
+async function openSelection() {
+  const button = await screen.findByRole('button', { name: '보스 선택' }) as HTMLButtonElement
+  await waitFor(() => expect(button.disabled).toBe(false))
+  fireEvent.click(button)
+}
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
@@ -98,10 +104,10 @@ describe('BossContent', () => {
   it('saves a manually selected weekly boss when the selected week has no record', async () => {
     vi.spyOn(client, 'get').mockImplementation(async (url) => {
       if (url.includes('/candidates')) {
-        return { data: { success: true, data: [{
+        return { data: { success: true, data: url.includes('WEEKLY') ? [{
           id: 5, bossName: '스우', difficulty: 'HARD', bossImage: null,
           crystalPrice: 51_500_000, resetPeriod: 'WEEKLY',
-        }] } } as AxiosResponse
+        }] : [] } } as AxiosResponse
       }
       return { data: { success: true, data: { weeklyBosses: [], monthlyBosses: [] } } } as AxiosResponse
     })
@@ -112,13 +118,46 @@ describe('BossContent', () => {
 
     render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
 
-    fireEvent.click(await screen.findByRole('button', { name: '보스 선택' }))
+    await openSelection()
     fireEvent.click(await screen.findByRole('checkbox', { name: '스우 HARD' }))
-    fireEvent.click(screen.getByRole('button', { name: '선택 저장' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }))
 
     await waitFor(() => expect(post).toHaveBeenCalledWith('/scheduler/1/boss/selection', {
       periodStart: '2026-10-08', resetPeriod: 'WEEKLY', bossIds: [5],
     }))
+  })
+
+  it('limits one difficulty per boss and removes an unchecked boss after confirmation', async () => {
+    vi.spyOn(client, 'get').mockImplementation(async (url) => {
+      if (url.includes('/candidates')) {
+        return { data: { success: true, data: url.includes('WEEKLY') ? [
+          { id: 5, bossName: '스우', difficulty: 'HARD', bossImage: null, crystalPrice: 1, resetPeriod: 'WEEKLY' },
+          { id: 6, bossName: '스우', difficulty: 'EXTREME', bossImage: null, crystalPrice: 1, resetPeriod: 'WEEKLY' },
+        ] : [] } } as AxiosResponse
+      }
+      return { data: { success: true, data: { weeklyBosses: [{
+        characterId: 1, bossId: 5, bossName: '스우', difficulty: 'HARD',
+        resetPeriod: 'WEEKLY', isCompleted: true, syncedAt: null,
+      }], monthlyBosses: [] } } } as AxiosResponse
+    })
+    const remove = vi.spyOn(client, 'delete').mockResolvedValue({ data: { success: true } } as AxiosResponse)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+
+    await openSelection()
+    const hard = await screen.findByRole('checkbox', { name: '스우 HARD' }) as HTMLInputElement
+    const extreme = screen.getByRole('checkbox', { name: '스우 EXTREME' }) as HTMLInputElement
+    expect(hard.checked).toBe(true)
+    expect(extreme.disabled).toBe(true)
+    fireEvent.click(hard)
+    expect(extreme.disabled).toBe(false)
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }))
+    fireEvent.click(await screen.findByRole('button', { name: '삭제 후 저장' }))
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(
+      '/scheduler/1/boss/selection/5?periodStart=2026-10-08&resetPeriod=WEEKLY',
+    ))
   })
 
   it('deletes a boss and its selected-period acquisitions after confirmation', async () => {

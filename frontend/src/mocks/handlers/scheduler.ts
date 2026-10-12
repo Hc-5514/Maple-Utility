@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 import {
   previewBossRecords, previewCharacter, previewCharacters, previewDate, previewWeekStart,
 } from '../fixtures/nexonPreview'
+import catalog from '../fixtures/nexonPreviewCatalog.json'
 import type { BossCandidate, SchedulerBossRecord } from '../../types'
 
 const syncedAt = `${previewDate}T00:00:00+09:00`
@@ -13,16 +14,20 @@ function selectionKey(characterId: number, periodStart: string, resetPeriod: str
   return `${characterId}:${periodStart}:${resetPeriod}:${bossId}`
 }
 
+const difficultyOrder = ['EASY', 'NORMAL', 'HARD', 'CHAOS', 'EXTREME']
+
 function bossCandidates(resetPeriod: 'WEEKLY' | 'MONTHLY'): BossCandidate[] {
-  const seen = new Set<number>()
-  return previewBossRecords(1)
-    .filter((record) => record.resetPeriod === resetPeriod && record.bossId && !seen.has(record.bossId) && Boolean(seen.add(record.bossId)))
-    .map((record) => ({
-      id: record.bossId ?? 0,
-      bossName: record.bossName ?? '',
-      difficulty: record.difficulty ?? 'NORMAL',
-      bossImage: record.bossImage ?? null,
-      crystalPrice: record.crystalPrice ?? 0,
+  const bosses = catalog.filter((boss) => boss.resetPeriod === resetPeriod)
+  const nameOrder = [...new Set(bosses.map((boss) => boss.bossName))]
+  return [...bosses]
+    .sort((a, b) => nameOrder.indexOf(a.bossName) - nameOrder.indexOf(b.bossName)
+      || difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty))
+    .map((boss) => ({
+      id: boss.id,
+      bossName: boss.bossName,
+      difficulty: boss.difficulty as BossCandidate['difficulty'],
+      bossImage: null,
+      crystalPrice: boss.crystalPrice,
       resetPeriod,
     }))
 }
