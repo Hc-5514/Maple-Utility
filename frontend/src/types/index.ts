@@ -196,6 +196,7 @@ export interface SchedulerProgress {
 }
 
 export interface CharacterSchedulerSummary {
+  hasRecords?: boolean
   characterId: number
   characterName: string
   characterLevel: number | null
