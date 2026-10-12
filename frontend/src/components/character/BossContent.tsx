@@ -34,7 +34,7 @@ function BossGroup({
     <>
       <div className="flex items-center gap-[10px]">
         <h3 className="text-[15px] font-bold">{title}</h3>
-        <span className={countPill}>{clearedCount(records.map((record) => record.isCompleted), limit)}/{limit}</span>
+        <span className={countPill}>{clearedCount(records.map((record) => record.isCompleted))}/{limit}</span>
       </div>
       {records.length > 0 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

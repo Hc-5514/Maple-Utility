@@ -160,14 +160,14 @@ describe('BossContent', () => {
     ))
   })
 
-  it('counts cleared bosses up to the clearable maximum', async () => {
+  it('counts cleared bosses regardless of how many the scheduler lists', async () => {
     const boss = (bossId: number, isCompleted: boolean) => ({
       characterId: 1, bossId, bossName: `보스${bossId}`, difficulty: 'HARD',
       resetPeriod: 'WEEKLY', isCompleted, syncedAt: null,
     })
     vi.spyOn(client, 'get').mockResolvedValue({
       data: { success: true, data: {
-        weeklyBosses: [...Array.from({ length: 13 }, (_, index) => boss(index + 1, true)), boss(14, false)],
+        weeklyBosses: [...Array.from({ length: 12 }, (_, index) => boss(index + 1, true)), boss(13, false), boss(14, false)],
         monthlyBosses: [{ ...boss(30, false), resetPeriod: 'MONTHLY' }],
         weeklyCustomizable: false, monthlyCustomizable: false,
       } },
