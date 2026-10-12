@@ -69,19 +69,26 @@ public class ApiKeyService {
 		}
 		characterSyncService.syncSummaries(user, characters);
 
-		return ApiKeyStatusResponse.registered(userApiKey);
+		return registeredStatus(userApiKey);
 	}
 
 	@Transactional(readOnly = true)
 	public ApiKeyStatusResponse status(Long userId) {
 		return userApiKeyRepository.findByUserId(userId)
-				.map(ApiKeyStatusResponse::registered)
+				.map(this::registeredStatus)
 				.orElseGet(ApiKeyStatusResponse::unregistered);
 	}
 
 	@Transactional
 	public void delete(Long userId) {
 		userApiKeyRepository.deleteByUserId(userId);
+	}
+
+	private ApiKeyStatusResponse registeredStatus(UserApiKey userApiKey) {
+		String apiKey = apiKeyCryptoService.decrypt(userApiKey.getEncryptedKey());
+		// Never return a complete key, including unexpectedly short legacy values.
+		String keySuffix = apiKey.length() > 4 ? apiKey.substring(apiKey.length() - 4) : null;
+		return ApiKeyStatusResponse.registered(userApiKey, keySuffix);
 	}
 
 	private void markInvalid(Long userId) {

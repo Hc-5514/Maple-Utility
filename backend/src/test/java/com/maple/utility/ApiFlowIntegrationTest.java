@@ -82,6 +82,9 @@ class ApiFlowIntegrationTest {
 	@Autowired
 	private JwtTokenProvider jwtTokenProvider;
 
+	@Autowired
+	private com.maple.utility.security.ApiKeyCryptoService apiKeyCryptoService;
+
 	private MockMvc mockMvc;
 
 	@MockitoBean
@@ -164,6 +167,32 @@ class ApiFlowIntegrationTest {
 		mockMvc = MockMvcBuilders.webAppContextSetup(context)
 				.apply(springSecurity())
 				.build();
+	}
+
+	@Test
+	void API_Key_상태_암호화된_기존키_끝_네자리만_응답() throws Exception {
+		String token = jwtTokenProvider.createAccessToken(7L).value();
+		String plainKey = "sensitive-api-key-AB12";
+		String encrypted = apiKeyCryptoService.encrypt(plainKey);
+		var user = com.maple.utility.entity.User.create(com.maple.utility.entity.OAuthProvider.KAKAO,
+				"key-owner", null, "사용자");
+		var key = com.maple.utility.entity.UserApiKey.create(user, encrypted, java.time.LocalDateTime.of(2026, 10, 12, 12, 0));
+		Mockito.when(userApiKeyRepository.findByUserId(7L)).thenReturn(java.util.Optional.of(key));
+		String body = mockMvc.perform(get("/api/v1/api-key/status").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.keySuffix").value("AB12"))
+				.andExpect(jsonPath("$.registered").value(true))
+				.andExpect(jsonPath("$.lastVerifiedAt").value("2026-10-12T12:00:00"))
+				.andReturn().getResponse().getContentAsString();
+		org.assertj.core.api.Assertions.assertThat(body).doesNotContain(plainKey, encrypted, "sensitive-api-key");
+	}
+
+	@Test
+	void API_Key_미등록_끝자리_null_응답() throws Exception {
+		String token = jwtTokenProvider.createAccessToken(7L).value();
+		Mockito.when(userApiKeyRepository.findByUserId(7L)).thenReturn(java.util.Optional.empty());
+		mockMvc.perform(get("/api/v1/api-key/status").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.registered").value(false))
+				.andExpect(jsonPath("$.keySuffix").value(org.hamcrest.Matchers.nullValue()));
 	}
 
 	@Test
