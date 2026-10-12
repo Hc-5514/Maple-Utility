@@ -1,0 +1,2837 @@
+[
+ {
+  "id": 1,
+  "regionName": "소멸의 여로",
+  "mapName": "숨겨진 호숫가",
+  "maxMonsterLevel": 209,
+  "favorite": false
+ },
+ {
+  "id": 2,
+  "regionName": "소멸의 여로",
+  "mapName": "아르마의 은신처",
+  "maxMonsterLevel": 209,
+  "favorite": false
+ },
+ {
+  "id": 3,
+  "regionName": "소멸의 여로",
+  "mapName": "숨겨진 동굴",
+  "maxMonsterLevel": 209,
+  "favorite": false
+ },
+ {
+  "id": 4,
+  "regionName": "소멸의 여로",
+  "mapName": "세 갈래길 1",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 5,
+  "regionName": "소멸의 여로",
+  "mapName": "동굴의 서쪽길 1",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 6,
+  "regionName": "소멸의 여로",
+  "mapName": "동굴의 서쪽길 2",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 7,
+  "regionName": "소멸의 여로",
+  "mapName": "동굴의 동쪽길 1",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 8,
+  "regionName": "소멸의 여로",
+  "mapName": "동굴의 동쪽길 2",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 9,
+  "regionName": "소멸의 여로",
+  "mapName": "세 갈래길 2",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 10,
+  "regionName": "소멸의 여로",
+  "mapName": "동굴 위쪽",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 11,
+  "regionName": "소멸의 여로",
+  "mapName": "동굴 아래쪽",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 12,
+  "regionName": "소멸의 여로",
+  "mapName": "동굴의 깊숙한 곳",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 13,
+  "regionName": "소멸의 여로",
+  "mapName": "화염과 영혼의 영토",
+  "maxMonsterLevel": 206,
+  "favorite": false
+ },
+ {
+  "id": 14,
+  "regionName": "소멸의 여로",
+  "mapName": "화염의 영토",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 15,
+  "regionName": "소멸의 여로",
+  "mapName": "암석과 화염의 영토",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 16,
+  "regionName": "소멸의 여로",
+  "mapName": "암석의 영토",
+  "maxMonsterLevel": 204,
+  "favorite": false
+ },
+ {
+  "id": 17,
+  "regionName": "소멸의 여로",
+  "mapName": "풍화된 슬픔과 즐거움의 땅",
+  "maxMonsterLevel": 203,
+  "favorite": false
+ },
+ {
+  "id": 18,
+  "regionName": "소멸의 여로",
+  "mapName": "풍화된 즐거움의 땅",
+  "maxMonsterLevel": 203,
+  "favorite": false
+ },
+ {
+  "id": 19,
+  "regionName": "소멸의 여로",
+  "mapName": "풍화된 분노와 슬픔의 땅",
+  "maxMonsterLevel": 202,
+  "favorite": false
+ },
+ {
+  "id": 20,
+  "regionName": "소멸의 여로",
+  "mapName": "풍화된 슬픔의 땅",
+  "maxMonsterLevel": 202,
+  "favorite": false
+ },
+ {
+  "id": 21,
+  "regionName": "소멸의 여로",
+  "mapName": "풍화된 기쁨과 분노의 땅",
+  "maxMonsterLevel": 201,
+  "favorite": false
+ },
+ {
+  "id": 22,
+  "regionName": "소멸의 여로",
+  "mapName": "풍화된 분노의 땅",
+  "maxMonsterLevel": 201,
+  "favorite": false
+ },
+ {
+  "id": 23,
+  "regionName": "소멸의 여로",
+  "mapName": "풍화된 기쁨의 땅",
+  "maxMonsterLevel": 200,
+  "favorite": false
+ },
+ {
+  "id": 24,
+  "regionName": "리버스 시티",
+  "mapName": "숨겨진 M타워",
+  "maxMonsterLevel": 213,
+  "favorite": false
+ },
+ {
+  "id": 25,
+  "regionName": "리버스 시티",
+  "mapName": "숨겨진 지하열차",
+  "maxMonsterLevel": 212,
+  "favorite": false
+ },
+ {
+  "id": 26,
+  "regionName": "리버스 시티",
+  "mapName": "숨겨진 연구열차",
+  "maxMonsterLevel": 210,
+  "favorite": false
+ },
+ {
+  "id": 27,
+  "regionName": "리버스 시티",
+  "mapName": "M타워 2",
+  "maxMonsterLevel": 209,
+  "favorite": false
+ },
+ {
+  "id": 28,
+  "regionName": "리버스 시티",
+  "mapName": "M타워 3",
+  "maxMonsterLevel": 209,
+  "favorite": false
+ },
+ {
+  "id": 29,
+  "regionName": "리버스 시티",
+  "mapName": "M타워 4",
+  "maxMonsterLevel": 209,
+  "favorite": false
+ },
+ {
+  "id": 30,
+  "regionName": "리버스 시티",
+  "mapName": "지하열차 2",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 31,
+  "regionName": "리버스 시티",
+  "mapName": "지하열차 3",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 32,
+  "regionName": "리버스 시티",
+  "mapName": "지하열차 1",
+  "maxMonsterLevel": 207,
+  "favorite": false
+ },
+ {
+  "id": 33,
+  "regionName": "리버스 시티",
+  "mapName": "지상열차 2",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 34,
+  "regionName": "리버스 시티",
+  "mapName": "지상열차 3",
+  "maxMonsterLevel": 208,
+  "favorite": false
+ },
+ {
+  "id": 35,
+  "regionName": "리버스 시티",
+  "mapName": "지상열차 1",
+  "maxMonsterLevel": 207,
+  "favorite": false
+ },
+ {
+  "id": 36,
+  "regionName": "리버스 시티",
+  "mapName": "T-boy의 연구열차 2",
+  "maxMonsterLevel": 206,
+  "favorite": false
+ },
+ {
+  "id": 37,
+  "regionName": "리버스 시티",
+  "mapName": "T-boy의 연구열차 1",
+  "maxMonsterLevel": 206,
+  "favorite": false
+ },
+ {
+  "id": 38,
+  "regionName": "리버스 시티",
+  "mapName": "T-boy의 연구열차 3",
+  "maxMonsterLevel": 206,
+  "favorite": false
+ },
+ {
+  "id": 39,
+  "regionName": "리버스 시티",
+  "mapName": "지하선로 5",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 40,
+  "regionName": "리버스 시티",
+  "mapName": "지하선로 2",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 41,
+  "regionName": "리버스 시티",
+  "mapName": "지하선로 1",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 42,
+  "regionName": "리버스 시티",
+  "mapName": "지하선로 3",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 43,
+  "regionName": "리버스 시티",
+  "mapName": "지하선로 4",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 44,
+  "regionName": "리버스 시티",
+  "mapName": "지하선로 6",
+  "maxMonsterLevel": 205,
+  "favorite": false
+ },
+ {
+  "id": 45,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "거대한 꼬리",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 46,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "고래산 정상",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 47,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "고래산 중턱 1",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 48,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "고래산 중턱 2",
+  "maxMonsterLevel": 218,
+  "favorite": false
+ },
+ {
+  "id": 49,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "고래산 초입",
+  "maxMonsterLevel": 217,
+  "favorite": false
+ },
+ {
+  "id": 50,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "폭포 아래",
+  "maxMonsterLevel": 216,
+  "favorite": false
+ },
+ {
+  "id": 51,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "격류지대 1",
+  "maxMonsterLevel": 216,
+  "favorite": false
+ },
+ {
+  "id": 52,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "격류지대 3",
+  "maxMonsterLevel": 216,
+  "favorite": false
+ },
+ {
+  "id": 53,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "격류지대 2",
+  "maxMonsterLevel": 215,
+  "favorite": false
+ },
+ {
+  "id": 54,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "츄츄빌리지 입구",
+  "maxMonsterLevel": 214,
+  "favorite": false
+ },
+ {
+  "id": 55,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "츄릅포레스트 깊은 곳",
+  "maxMonsterLevel": 213,
+  "favorite": false
+ },
+ {
+  "id": 56,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "몽땅 동글숲 2",
+  "maxMonsterLevel": 213,
+  "favorite": false
+ },
+ {
+  "id": 57,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "길쭉 동글숲 2",
+  "maxMonsterLevel": 213,
+  "favorite": false
+ },
+ {
+  "id": 58,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "길쭉 동글숲 1",
+  "maxMonsterLevel": 212,
+  "favorite": false
+ },
+ {
+  "id": 59,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "몽땅 동글숲 1",
+  "maxMonsterLevel": 212,
+  "favorite": false
+ },
+ {
+  "id": 60,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "알록달록 숲지대 3",
+  "maxMonsterLevel": 211,
+  "favorite": false
+ },
+ {
+  "id": 61,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "오색동산 깊은 곳",
+  "maxMonsterLevel": 211,
+  "favorite": false
+ },
+ {
+  "id": 62,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "알록달록 숲지대 2",
+  "maxMonsterLevel": 210,
+  "favorite": false
+ },
+ {
+  "id": 63,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "알록달록 숲지대 1",
+  "maxMonsterLevel": 211,
+  "favorite": false
+ },
+ {
+  "id": 64,
+  "regionName": "츄츄 아일랜드",
+  "mapName": "동산 입구",
+  "maxMonsterLevel": 210,
+  "favorite": false
+ },
+ {
+  "id": 65,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "숨겨진 머쉬버드 숲",
+  "maxMonsterLevel": 220,
+  "favorite": false
+ },
+ {
+  "id": 66,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "숨겨진 일리야드 들판",
+  "maxMonsterLevel": 220,
+  "favorite": false
+ },
+ {
+  "id": 67,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "숨겨진 펑고스 숲",
+  "maxMonsterLevel": 220,
+  "favorite": false
+ },
+ {
+  "id": 68,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "펑고스 숲 2",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 69,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "펑고스 숲 5",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 70,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "펑고스 숲 1",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 71,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "펑고스 숲 3",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 72,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "펑고스 숲 4",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 73,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "펑고스 숲 6",
+  "maxMonsterLevel": 219,
+  "favorite": false
+ },
+ {
+  "id": 74,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "일리야드 들판 3",
+  "maxMonsterLevel": 218,
+  "favorite": false
+ },
+ {
+  "id": 75,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "일리야드 들판 6",
+  "maxMonsterLevel": 218,
+  "favorite": false
+ },
+ {
+  "id": 76,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "일리야드 들판 2",
+  "maxMonsterLevel": 218,
+  "favorite": false
+ },
+ {
+  "id": 77,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "일리야드 들판 5",
+  "maxMonsterLevel": 218,
+  "favorite": false
+ },
+ {
+  "id": 78,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "일리야드 들판 1",
+  "maxMonsterLevel": 217,
+  "favorite": false
+ },
+ {
+  "id": 79,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "일리야드 들판 4",
+  "maxMonsterLevel": 217,
+  "favorite": false
+ },
+ {
+  "id": 80,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "머쉬버드 숲 3",
+  "maxMonsterLevel": 216,
+  "favorite": false
+ },
+ {
+  "id": 81,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "머쉬버드 숲 6",
+  "maxMonsterLevel": 216,
+  "favorite": false
+ },
+ {
+  "id": 82,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "머쉬버드 숲 2",
+  "maxMonsterLevel": 216,
+  "favorite": false
+ },
+ {
+  "id": 83,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "머쉬버드 숲 5",
+  "maxMonsterLevel": 216,
+  "favorite": false
+ },
+ {
+  "id": 84,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "머쉬버드 숲 1",
+  "maxMonsterLevel": 215,
+  "favorite": false
+ },
+ {
+  "id": 85,
+  "regionName": "얌얌 아일랜드",
+  "mapName": "머쉬버드 숲 4",
+  "maxMonsterLevel": 215,
+  "favorite": false
+ },
+ {
+  "id": 86,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "악몽의 시계탑 1층",
+  "maxMonsterLevel": 226,
+  "favorite": false
+ },
+ {
+  "id": 87,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "악몽의 시계탑 2층",
+  "maxMonsterLevel": 226,
+  "favorite": false
+ },
+ {
+  "id": 88,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "악몽의 시계탑 5층",
+  "maxMonsterLevel": 228,
+  "favorite": false
+ },
+ {
+  "id": 89,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "악몽의 시계탑 3층",
+  "maxMonsterLevel": 227,
+  "favorite": false
+ },
+ {
+  "id": 90,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "악몽의 시계탑 4층",
+  "maxMonsterLevel": 228,
+  "favorite": false
+ },
+ {
+  "id": 91,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "춤추는 구두 점령지 2",
+  "maxMonsterLevel": 225,
+  "favorite": false
+ },
+ {
+  "id": 92,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "춤추는 구두 점령지 1",
+  "maxMonsterLevel": 224,
+  "favorite": false
+ },
+ {
+  "id": 93,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "본색을 드러내는 곳 2",
+  "maxMonsterLevel": 224,
+  "favorite": false
+ },
+ {
+  "id": 94,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "본색을 드러내는 곳 3",
+  "maxMonsterLevel": 224,
+  "favorite": false
+ },
+ {
+  "id": 95,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "본색을 드러내는 곳 1",
+  "maxMonsterLevel": 223,
+  "favorite": false
+ },
+ {
+  "id": 96,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "우승 접시의 거리 2",
+  "maxMonsterLevel": 223,
+  "favorite": false
+ },
+ {
+  "id": 97,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "우승 접시의 거리 1",
+  "maxMonsterLevel": 222,
+  "favorite": false
+ },
+ {
+  "id": 98,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "닭이 뛰노는 곳 2",
+  "maxMonsterLevel": 222,
+  "favorite": false
+ },
+ {
+  "id": 99,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "닭이 뛰노는 곳 3",
+  "maxMonsterLevel": 222,
+  "favorite": false
+ },
+ {
+  "id": 100,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "닭이 뛰노는 곳 1",
+  "maxMonsterLevel": 221,
+  "favorite": false
+ },
+ {
+  "id": 101,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "무법자들의 거리 3",
+  "maxMonsterLevel": 221,
+  "favorite": false
+ },
+ {
+  "id": 102,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "무법자들의 거리 2",
+  "maxMonsterLevel": 221,
+  "favorite": false
+ },
+ {
+  "id": 103,
+  "regionName": "꿈의 도시 레헬른",
+  "mapName": "무법자들의 거리 1",
+  "maxMonsterLevel": 220,
+  "favorite": false
+ },
+ {
+  "id": 104,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "다섯 갈래 동굴 윗길",
+  "maxMonsterLevel": 240,
+  "favorite": false
+ },
+ {
+  "id": 105,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "다섯 갈래 동굴 사잇길",
+  "maxMonsterLevel": 240,
+  "favorite": false
+ },
+ {
+  "id": 106,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "다섯 갈래 동굴 아랫길",
+  "maxMonsterLevel": 240,
+  "favorite": false
+ },
+ {
+  "id": 107,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "정령의 나무 밑 동굴",
+  "maxMonsterLevel": 240,
+  "favorite": false
+ },
+ {
+  "id": 108,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 아랫길 깊디 깊은 곳",
+  "maxMonsterLevel": 239,
+  "favorite": false
+ },
+ {
+  "id": 109,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 아랫길 깊은 곳 2",
+  "maxMonsterLevel": 239,
+  "favorite": false
+ },
+ {
+  "id": 110,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 아랫길 깊은 곳 1",
+  "maxMonsterLevel": 239,
+  "favorite": false
+ },
+ {
+  "id": 111,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 아랫길",
+  "maxMonsterLevel": 237,
+  "favorite": false
+ },
+ {
+  "id": 112,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 윗길 깊디 깊은 곳",
+  "maxMonsterLevel": 239,
+  "favorite": false
+ },
+ {
+  "id": 113,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 윗길 깊은 곳 2",
+  "maxMonsterLevel": 238,
+  "favorite": false
+ },
+ {
+  "id": 114,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 윗길 깊은 곳 1",
+  "maxMonsterLevel": 238,
+  "favorite": false
+ },
+ {
+  "id": 115,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "동굴 윗길",
+  "maxMonsterLevel": 237,
+  "favorite": false
+ },
+ {
+  "id": 116,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "맹독과 폭발의 숲 2",
+  "maxMonsterLevel": 236,
+  "favorite": false
+ },
+ {
+  "id": 117,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "맹독과 폭발의 숲 1",
+  "maxMonsterLevel": 236,
+  "favorite": false
+ },
+ {
+  "id": 118,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "폭발의 숲",
+  "maxMonsterLevel": 236,
+  "favorite": false
+ },
+ {
+  "id": 119,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "맹독의 숲",
+  "maxMonsterLevel": 235,
+  "favorite": false
+ },
+ {
+  "id": 120,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "서리와 번개의 숲 2",
+  "maxMonsterLevel": 234,
+  "favorite": false
+ },
+ {
+  "id": 121,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "서리와 번개의 숲 1",
+  "maxMonsterLevel": 234,
+  "favorite": false
+ },
+ {
+  "id": 122,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "번개구름의 숲",
+  "maxMonsterLevel": 234,
+  "favorite": false
+ },
+ {
+  "id": 123,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "서리구름의 숲",
+  "maxMonsterLevel": 233,
+  "favorite": false
+ },
+ {
+  "id": 124,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "햇살과 흙의 숲",
+  "maxMonsterLevel": 232,
+  "favorite": false
+ },
+ {
+  "id": 125,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "흙의 숲",
+  "maxMonsterLevel": 232,
+  "favorite": false
+ },
+ {
+  "id": 126,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "물과 햇살의 숲",
+  "maxMonsterLevel": 231,
+  "favorite": false
+ },
+ {
+  "id": 127,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "햇살의 숲",
+  "maxMonsterLevel": 231,
+  "favorite": false
+ },
+ {
+  "id": 128,
+  "regionName": "신비의 숲 아르카나",
+  "mapName": "물의 숲",
+  "maxMonsterLevel": 230,
+  "favorite": false
+ },
+ {
+  "id": 129,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "그날의 트뤼에페 4",
+  "maxMonsterLevel": 245,
+  "favorite": false
+ },
+ {
+  "id": 130,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "그날의 트뤼에페 3",
+  "maxMonsterLevel": 244,
+  "favorite": false
+ },
+ {
+  "id": 131,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "그날의 트뤼에페 2",
+  "maxMonsterLevel": 243,
+  "favorite": false
+ },
+ {
+  "id": 132,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "폐쇄구역 3",
+  "maxMonsterLevel": 241,
+  "favorite": false
+ },
+ {
+  "id": 133,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "폐쇄구역 2",
+  "maxMonsterLevel": 241,
+  "favorite": false
+ },
+ {
+  "id": 134,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "폐쇄구역",
+  "maxMonsterLevel": 241,
+  "favorite": false
+ },
+ {
+  "id": 135,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "그림자가 춤추는 곳 4",
+  "maxMonsterLevel": 240,
+  "favorite": false
+ },
+ {
+  "id": 136,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "그림자가 춤추는 곳 3",
+  "maxMonsterLevel": 240,
+  "favorite": false
+ },
+ {
+  "id": 137,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "그림자가 춤추는 곳 2",
+  "maxMonsterLevel": 239,
+  "favorite": false
+ },
+ {
+  "id": 138,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "형님들 구역 3",
+  "maxMonsterLevel": 238,
+  "favorite": false
+ },
+ {
+  "id": 139,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "형님들 구역 2",
+  "maxMonsterLevel": 238,
+  "favorite": false
+ },
+ {
+  "id": 140,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "형님들 구역",
+  "maxMonsterLevel": 238,
+  "favorite": false
+ },
+ {
+  "id": 141,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "도둑고양이 출몰지 2",
+  "maxMonsterLevel": 237,
+  "favorite": false
+ },
+ {
+  "id": 142,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "도둑고양이 출몰지",
+  "maxMonsterLevel": 237,
+  "favorite": false
+ },
+ {
+  "id": 143,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "산호 숲으로 가는 길 4",
+  "maxMonsterLevel": 236,
+  "favorite": false
+ },
+ {
+  "id": 144,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "산호 숲으로 가는 길 3",
+  "maxMonsterLevel": 236,
+  "favorite": false
+ },
+ {
+  "id": 145,
+  "regionName": "기억의 늪 모라스",
+  "mapName": "산호 숲으로 가는 길 2",
+  "maxMonsterLevel": 236,
+  "favorite": false
+ },
+ {
+  "id": 146,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울에 비친 빛의 신전 4",
+  "maxMonsterLevel": 249,
+  "favorite": false
+ },
+ {
+  "id": 147,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울에 비친 빛의 신전 3",
+  "maxMonsterLevel": 249,
+  "favorite": false
+ },
+ {
+  "id": 148,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울에 비친 빛의 신전 2",
+  "maxMonsterLevel": 248,
+  "favorite": false
+ },
+ {
+  "id": 149,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울빛에 물든 바다 7",
+  "maxMonsterLevel": 247,
+  "favorite": false
+ },
+ {
+  "id": 150,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울빛에 물든 바다 6",
+  "maxMonsterLevel": 247,
+  "favorite": false
+ },
+ {
+  "id": 151,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울빛에 물든 바다 5",
+  "maxMonsterLevel": 246,
+  "favorite": false
+ },
+ {
+  "id": 152,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울빛에 물든 바다 4",
+  "maxMonsterLevel": 245,
+  "favorite": false
+ },
+ {
+  "id": 153,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울빛에 물든 바다 3",
+  "maxMonsterLevel": 245,
+  "favorite": false
+ },
+ {
+  "id": 154,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "거울빛에 물든 바다 2",
+  "maxMonsterLevel": 244,
+  "favorite": false
+ },
+ {
+  "id": 155,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "생명이 시작되는 곳 7",
+  "maxMonsterLevel": 243,
+  "favorite": false
+ },
+ {
+  "id": 156,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "생명이 시작되는 곳 6",
+  "maxMonsterLevel": 243,
+  "favorite": false
+ },
+ {
+  "id": 157,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "생명이 시작되는 곳 5",
+  "maxMonsterLevel": 242,
+  "favorite": false
+ },
+ {
+  "id": 158,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "생명이 시작되는 곳 4",
+  "maxMonsterLevel": 241,
+  "favorite": false
+ },
+ {
+  "id": 159,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "생명이 시작되는 곳 3",
+  "maxMonsterLevel": 241,
+  "favorite": false
+ },
+ {
+  "id": 160,
+  "regionName": "태초의 바다 에스페라",
+  "mapName": "생명이 시작되는 곳 2",
+  "maxMonsterLevel": 240,
+  "favorite": false
+ },
+ {
+  "id": 161,
+  "regionName": "셀라스",
+  "mapName": "별이 삼켜진 심해 6",
+  "maxMonsterLevel": 251,
+  "favorite": false
+ },
+ {
+  "id": 162,
+  "regionName": "셀라스",
+  "mapName": "별이 삼켜진 심해 5",
+  "maxMonsterLevel": 251,
+  "favorite": false
+ },
+ {
+  "id": 163,
+  "regionName": "셀라스",
+  "mapName": "별이 삼켜진 심해 4",
+  "maxMonsterLevel": 251,
+  "favorite": false
+ },
+ {
+  "id": 164,
+  "regionName": "셀라스",
+  "mapName": "별이 삼켜진 심해 3",
+  "maxMonsterLevel": 250,
+  "favorite": false
+ },
+ {
+  "id": 165,
+  "regionName": "셀라스",
+  "mapName": "별이 삼켜진 심해 2",
+  "maxMonsterLevel": 250,
+  "favorite": false
+ },
+ {
+  "id": 166,
+  "regionName": "셀라스",
+  "mapName": "별이 삼켜진 심해 1",
+  "maxMonsterLevel": 250,
+  "favorite": false
+ },
+ {
+  "id": 167,
+  "regionName": "셀라스",
+  "mapName": "끝없이 추락하는 심해 6",
+  "maxMonsterLevel": 249,
+  "favorite": false
+ },
+ {
+  "id": 168,
+  "regionName": "셀라스",
+  "mapName": "끝없이 추락하는 심해 5",
+  "maxMonsterLevel": 249,
+  "favorite": false
+ },
+ {
+  "id": 169,
+  "regionName": "셀라스",
+  "mapName": "끝없이 추락하는 심해 4",
+  "maxMonsterLevel": 249,
+  "favorite": false
+ },
+ {
+  "id": 170,
+  "regionName": "셀라스",
+  "mapName": "끝없이 추락하는 심해 3",
+  "maxMonsterLevel": 248,
+  "favorite": false
+ },
+ {
+  "id": 171,
+  "regionName": "셀라스",
+  "mapName": "끝없이 추락하는 심해 2",
+  "maxMonsterLevel": 248,
+  "favorite": false
+ },
+ {
+  "id": 172,
+  "regionName": "셀라스",
+  "mapName": "끝없이 추락하는 심해 1",
+  "maxMonsterLevel": 248,
+  "favorite": false
+ },
+ {
+  "id": 173,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 9",
+  "maxMonsterLevel": 247,
+  "favorite": false
+ },
+ {
+  "id": 174,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 8",
+  "maxMonsterLevel": 247,
+  "favorite": false
+ },
+ {
+  "id": 175,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 7",
+  "maxMonsterLevel": 247,
+  "favorite": false
+ },
+ {
+  "id": 176,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 6",
+  "maxMonsterLevel": 246,
+  "favorite": false
+ },
+ {
+  "id": 177,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 5",
+  "maxMonsterLevel": 246,
+  "favorite": false
+ },
+ {
+  "id": 178,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 4",
+  "maxMonsterLevel": 246,
+  "favorite": false
+ },
+ {
+  "id": 179,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 3",
+  "maxMonsterLevel": 245,
+  "favorite": false
+ },
+ {
+  "id": 180,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 2",
+  "maxMonsterLevel": 245,
+  "favorite": false
+ },
+ {
+  "id": 181,
+  "regionName": "셀라스",
+  "mapName": "빛이 마지막으로 닿는 곳 1",
+  "maxMonsterLevel": 245,
+  "favorite": false
+ },
+ {
+  "id": 182,
+  "regionName": "문브릿지",
+  "mapName": "공허의 파도 6",
+  "maxMonsterLevel": 254,
+  "favorite": false
+ },
+ {
+  "id": 183,
+  "regionName": "문브릿지",
+  "mapName": "공허의 파도 5",
+  "maxMonsterLevel": 254,
+  "favorite": false
+ },
+ {
+  "id": 184,
+  "regionName": "문브릿지",
+  "mapName": "공허의 파도 4",
+  "maxMonsterLevel": 254,
+  "favorite": false
+ },
+ {
+  "id": 185,
+  "regionName": "문브릿지",
+  "mapName": "공허의 파도 3",
+  "maxMonsterLevel": 254,
+  "favorite": false
+ },
+ {
+  "id": 186,
+  "regionName": "문브릿지",
+  "mapName": "공허의 파도 2",
+  "maxMonsterLevel": 254,
+  "favorite": false
+ },
+ {
+  "id": 187,
+  "regionName": "문브릿지",
+  "mapName": "공허의 파도 1",
+  "maxMonsterLevel": 254,
+  "favorite": false
+ },
+ {
+  "id": 188,
+  "regionName": "문브릿지",
+  "mapName": "미지의 안개 6",
+  "maxMonsterLevel": 253,
+  "favorite": false
+ },
+ {
+  "id": 189,
+  "regionName": "문브릿지",
+  "mapName": "미지의 안개 5",
+  "maxMonsterLevel": 253,
+  "favorite": false
+ },
+ {
+  "id": 190,
+  "regionName": "문브릿지",
+  "mapName": "미지의 안개 4",
+  "maxMonsterLevel": 252,
+  "favorite": false
+ },
+ {
+  "id": 191,
+  "regionName": "문브릿지",
+  "mapName": "미지의 안개 3",
+  "maxMonsterLevel": 253,
+  "favorite": false
+ },
+ {
+  "id": 192,
+  "regionName": "문브릿지",
+  "mapName": "미지의 안개 2",
+  "maxMonsterLevel": 253,
+  "favorite": false
+ },
+ {
+  "id": 193,
+  "regionName": "문브릿지",
+  "mapName": "미지의 안개 1",
+  "maxMonsterLevel": 252,
+  "favorite": false
+ },
+ {
+  "id": 194,
+  "regionName": "문브릿지",
+  "mapName": "사상의 경계 6",
+  "maxMonsterLevel": 251,
+  "favorite": false
+ },
+ {
+  "id": 195,
+  "regionName": "문브릿지",
+  "mapName": "사상의 경계 5",
+  "maxMonsterLevel": 251,
+  "favorite": false
+ },
+ {
+  "id": 196,
+  "regionName": "문브릿지",
+  "mapName": "사상의 경계 4",
+  "maxMonsterLevel": 250,
+  "favorite": false
+ },
+ {
+  "id": 197,
+  "regionName": "문브릿지",
+  "mapName": "사상의 경계 3",
+  "maxMonsterLevel": 251,
+  "favorite": false
+ },
+ {
+  "id": 198,
+  "regionName": "문브릿지",
+  "mapName": "사상의 경계 2",
+  "maxMonsterLevel": 251,
+  "favorite": false
+ },
+ {
+  "id": 199,
+  "regionName": "문브릿지",
+  "mapName": "사상의 경계 1",
+  "maxMonsterLevel": 250,
+  "favorite": false
+ },
+ {
+  "id": 200,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 최심부 6",
+  "maxMonsterLevel": 259,
+  "favorite": false
+ },
+ {
+  "id": 201,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 최심부 5",
+  "maxMonsterLevel": 259,
+  "favorite": false
+ },
+ {
+  "id": 202,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 최심부 4",
+  "maxMonsterLevel": 259,
+  "favorite": false
+ },
+ {
+  "id": 203,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 최심부 3",
+  "maxMonsterLevel": 259,
+  "favorite": false
+ },
+ {
+  "id": 204,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 최심부 2",
+  "maxMonsterLevel": 259,
+  "favorite": false
+ },
+ {
+  "id": 205,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 최심부 1",
+  "maxMonsterLevel": 259,
+  "favorite": false
+ },
+ {
+  "id": 206,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 중심부 7",
+  "maxMonsterLevel": 258,
+  "favorite": false
+ },
+ {
+  "id": 207,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 중심부 6",
+  "maxMonsterLevel": 258,
+  "favorite": false
+ },
+ {
+  "id": 208,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 중심부 5",
+  "maxMonsterLevel": 258,
+  "favorite": false
+ },
+ {
+  "id": 209,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 중심부 4",
+  "maxMonsterLevel": 258,
+  "favorite": false
+ },
+ {
+  "id": 210,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 중심부 3",
+  "maxMonsterLevel": 257,
+  "favorite": false
+ },
+ {
+  "id": 211,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 중심부 2",
+  "maxMonsterLevel": 257,
+  "favorite": false
+ },
+ {
+  "id": 212,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 중심부 1",
+  "maxMonsterLevel": 257,
+  "favorite": false
+ },
+ {
+  "id": 213,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 내부 6",
+  "maxMonsterLevel": 256,
+  "favorite": false
+ },
+ {
+  "id": 214,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 내부 5",
+  "maxMonsterLevel": 256,
+  "favorite": false
+ },
+ {
+  "id": 215,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 내부 4",
+  "maxMonsterLevel": 256,
+  "favorite": false
+ },
+ {
+  "id": 216,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 내부 3",
+  "maxMonsterLevel": 255,
+  "favorite": false
+ },
+ {
+  "id": 217,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 내부 2",
+  "maxMonsterLevel": 255,
+  "favorite": false
+ },
+ {
+  "id": 218,
+  "regionName": "고통의 미궁",
+  "mapName": "고통의 미궁 내부 1",
+  "maxMonsterLevel": 255,
+  "favorite": false
+ },
+ {
+  "id": 219,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 2-8",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 220,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 2-7",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 221,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 2-6",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 222,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 2-5",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 223,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 2-4",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 224,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 2-3",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 225,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 1-9",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 226,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 1-8",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 227,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 1-7",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 228,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 1-6",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 229,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 1-5",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 230,
+  "regionName": "리멘",
+  "mapName": "세계가 끝나는 곳 1-4",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 231,
+  "regionName": "리멘",
+  "mapName": "세계의 눈물 중단 4",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 232,
+  "regionName": "리멘",
+  "mapName": "세계의 눈물 중단 3",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 233,
+  "regionName": "리멘",
+  "mapName": "세계의 눈물 중단 2",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 234,
+  "regionName": "리멘",
+  "mapName": "세계의 눈물 중단 1",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 235,
+  "regionName": "리멘",
+  "mapName": "세계의 눈물 하단 3",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 236,
+  "regionName": "리멘",
+  "mapName": "세계의 눈물 하단 2",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 237,
+  "regionName": "리멘",
+  "mapName": "세계의 눈물 하단 1",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 238,
+  "regionName": "세르니움",
+  "mapName": "불타는 왕립 도서관 제 6 구역",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 239,
+  "regionName": "세르니움",
+  "mapName": "불타는 왕립 도서관 제 5 구역",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 240,
+  "regionName": "세르니움",
+  "mapName": "불타는 왕립 도서관 제 4 구역",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 241,
+  "regionName": "세르니움",
+  "mapName": "불타는 왕립 도서관 제 3 구역",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 242,
+  "regionName": "세르니움",
+  "mapName": "불타는 왕립 도서관 제 2 구역",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 243,
+  "regionName": "세르니움",
+  "mapName": "불타는 왕립 도서관 제 1 구역",
+  "maxMonsterLevel": 264,
+  "favorite": false
+ },
+ {
+  "id": 244,
+  "regionName": "세르니움",
+  "mapName": "격전의 동쪽 성벽 6",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 245,
+  "regionName": "세르니움",
+  "mapName": "격전의 동쪽 성벽 5",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 246,
+  "regionName": "세르니움",
+  "mapName": "격전의 동쪽 성벽 4",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 247,
+  "regionName": "세르니움",
+  "mapName": "격전의 동쪽 성벽 3",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 248,
+  "regionName": "세르니움",
+  "mapName": "격전의 동쪽 성벽 2",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 249,
+  "regionName": "세르니움",
+  "mapName": "격전의 동쪽 성벽 1",
+  "maxMonsterLevel": 263,
+  "favorite": false
+ },
+ {
+  "id": 250,
+  "regionName": "세르니움",
+  "mapName": "격전의 서쪽 성벽 4",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 251,
+  "regionName": "세르니움",
+  "mapName": "격전의 서쪽 성벽 3",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 252,
+  "regionName": "세르니움",
+  "mapName": "격전의 서쪽 성벽 2",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 253,
+  "regionName": "세르니움",
+  "mapName": "격전의 서쪽 성벽 1",
+  "maxMonsterLevel": 262,
+  "favorite": false
+ },
+ {
+  "id": 254,
+  "regionName": "세르니움",
+  "mapName": "왕립 도서관 제 6 구역",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 255,
+  "regionName": "세르니움",
+  "mapName": "왕립 도서관 제 5 구역",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 256,
+  "regionName": "세르니움",
+  "mapName": "왕립 도서관 제 4 구역",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 257,
+  "regionName": "세르니움",
+  "mapName": "왕립 도서관 제 3 구역",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 258,
+  "regionName": "세르니움",
+  "mapName": "왕립 도서관 제 2 구역",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 259,
+  "regionName": "세르니움",
+  "mapName": "왕립 도서관 제 1 구역",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 260,
+  "regionName": "세르니움",
+  "mapName": "세르니움 동쪽 성벽 3",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 261,
+  "regionName": "세르니움",
+  "mapName": "세르니움 동쪽 성벽 2",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 262,
+  "regionName": "세르니움",
+  "mapName": "세르니움 동쪽 성벽 1",
+  "maxMonsterLevel": 261,
+  "favorite": false
+ },
+ {
+  "id": 263,
+  "regionName": "세르니움",
+  "mapName": "세르니움 서쪽 성벽 3",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 264,
+  "regionName": "세르니움",
+  "mapName": "세르니움 서쪽 성벽 2",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 265,
+  "regionName": "세르니움",
+  "mapName": "세르니움 서쪽 성벽 1",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 266,
+  "regionName": "세르니움",
+  "mapName": "해변 암석 지대 4",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 267,
+  "regionName": "세르니움",
+  "mapName": "해변 암석 지대 3",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 268,
+  "regionName": "세르니움",
+  "mapName": "해변 암석 지대 2",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 269,
+  "regionName": "세르니움",
+  "mapName": "해변 암석 지대 1",
+  "maxMonsterLevel": 260,
+  "favorite": false
+ },
+ {
+  "id": 270,
+  "regionName": "호텔 아르크스",
+  "mapName": "종착지 없는 횡단열차 6",
+  "maxMonsterLevel": 269,
+  "favorite": false
+ },
+ {
+  "id": 271,
+  "regionName": "호텔 아르크스",
+  "mapName": "종착지 없는 횡단열차 5",
+  "maxMonsterLevel": 269,
+  "favorite": false
+ },
+ {
+  "id": 272,
+  "regionName": "호텔 아르크스",
+  "mapName": "종착지 없는 횡단열차 4",
+  "maxMonsterLevel": 269,
+  "favorite": false
+ },
+ {
+  "id": 273,
+  "regionName": "호텔 아르크스",
+  "mapName": "종착지 없는 횡단열차 3",
+  "maxMonsterLevel": 268,
+  "favorite": false
+ },
+ {
+  "id": 274,
+  "regionName": "호텔 아르크스",
+  "mapName": "종착지 없는 횡단열차 2",
+  "maxMonsterLevel": 268,
+  "favorite": false
+ },
+ {
+  "id": 275,
+  "regionName": "호텔 아르크스",
+  "mapName": "종착지 없는 횡단열차 1",
+  "maxMonsterLevel": 268,
+  "favorite": false
+ },
+ {
+  "id": 276,
+  "regionName": "호텔 아르크스",
+  "mapName": "낭만이 저무는 자동차 극장 6",
+  "maxMonsterLevel": 267,
+  "favorite": false
+ },
+ {
+  "id": 277,
+  "regionName": "호텔 아르크스",
+  "mapName": "낭만이 저무는 자동차 극장 5",
+  "maxMonsterLevel": 267,
+  "favorite": false
+ },
+ {
+  "id": 278,
+  "regionName": "호텔 아르크스",
+  "mapName": "낭만이 저무는 자동차 극장 4",
+  "maxMonsterLevel": 267,
+  "favorite": false
+ },
+ {
+  "id": 279,
+  "regionName": "호텔 아르크스",
+  "mapName": "낭만이 저무는 자동차 극장 3",
+  "maxMonsterLevel": 266,
+  "favorite": false
+ },
+ {
+  "id": 280,
+  "regionName": "호텔 아르크스",
+  "mapName": "낭만이 저무는 자동차 극장 2",
+  "maxMonsterLevel": 266,
+  "favorite": false
+ },
+ {
+  "id": 281,
+  "regionName": "호텔 아르크스",
+  "mapName": "낭만이 저무는 자동차 극장 1",
+  "maxMonsterLevel": 266,
+  "favorite": false
+ },
+ {
+  "id": 282,
+  "regionName": "호텔 아르크스",
+  "mapName": "무법자들이 지배하는 황야 4",
+  "maxMonsterLevel": 265,
+  "favorite": false
+ },
+ {
+  "id": 283,
+  "regionName": "호텔 아르크스",
+  "mapName": "무법자들이 지배하는 황야 3",
+  "maxMonsterLevel": 265,
+  "favorite": false
+ },
+ {
+  "id": 284,
+  "regionName": "호텔 아르크스",
+  "mapName": "무법자들이 지배하는 황야 2",
+  "maxMonsterLevel": 265,
+  "favorite": false
+ },
+ {
+  "id": 285,
+  "regionName": "호텔 아르크스",
+  "mapName": "무법자들이 지배하는 황야 1",
+  "maxMonsterLevel": 265,
+  "favorite": false
+ },
+ {
+  "id": 286,
+  "regionName": "오디움",
+  "mapName": "잠긴 문 뒤 실험실 4",
+  "maxMonsterLevel": 274,
+  "favorite": false
+ },
+ {
+  "id": 287,
+  "regionName": "오디움",
+  "mapName": "잠긴 문 뒤 실험실 3",
+  "maxMonsterLevel": 274,
+  "favorite": false
+ },
+ {
+  "id": 288,
+  "regionName": "오디움",
+  "mapName": "잠긴 문 뒤 실험실 2",
+  "maxMonsterLevel": 274,
+  "favorite": false
+ },
+ {
+  "id": 289,
+  "regionName": "오디움",
+  "mapName": "잠긴 문 뒤 실험실 1",
+  "maxMonsterLevel": 273,
+  "favorite": false
+ },
+ {
+  "id": 290,
+  "regionName": "오디움",
+  "mapName": "볕 드는 실험실 3",
+  "maxMonsterLevel": 272,
+  "favorite": false
+ },
+ {
+  "id": 291,
+  "regionName": "오디움",
+  "mapName": "볕 드는 실험실 2",
+  "maxMonsterLevel": 272,
+  "favorite": false
+ },
+ {
+  "id": 292,
+  "regionName": "오디움",
+  "mapName": "볕 드는 실험실 1",
+  "maxMonsterLevel": 272,
+  "favorite": false
+ },
+ {
+  "id": 293,
+  "regionName": "오디움",
+  "mapName": "점령당한 골목 4",
+  "maxMonsterLevel": 271,
+  "favorite": false
+ },
+ {
+  "id": 294,
+  "regionName": "오디움",
+  "mapName": "점령당한 골목 3",
+  "maxMonsterLevel": 271,
+  "favorite": false
+ },
+ {
+  "id": 295,
+  "regionName": "오디움",
+  "mapName": "점령당한 골목 2",
+  "maxMonsterLevel": 271,
+  "favorite": false
+ },
+ {
+  "id": 296,
+  "regionName": "오디움",
+  "mapName": "점령당한 골목 1",
+  "maxMonsterLevel": 271,
+  "favorite": false
+ },
+ {
+  "id": 297,
+  "regionName": "오디움",
+  "mapName": "성문으로 가는 길 5",
+  "maxMonsterLevel": 270,
+  "favorite": false
+ },
+ {
+  "id": 298,
+  "regionName": "오디움",
+  "mapName": "성문으로 가는 길 4",
+  "maxMonsterLevel": 270,
+  "favorite": false
+ },
+ {
+  "id": 299,
+  "regionName": "오디움",
+  "mapName": "성문으로 가는 길 3",
+  "maxMonsterLevel": 270,
+  "favorite": false
+ },
+ {
+  "id": 300,
+  "regionName": "오디움",
+  "mapName": "성문으로 가는 길 2",
+  "maxMonsterLevel": 270,
+  "favorite": false
+ },
+ {
+  "id": 301,
+  "regionName": "오디움",
+  "mapName": "성문으로 가는 길 1",
+  "maxMonsterLevel": 270,
+  "favorite": false
+ },
+ {
+  "id": 302,
+  "regionName": "도원경",
+  "mapName": "참혹한 흔적의 겨울 5",
+  "maxMonsterLevel": 279,
+  "favorite": false
+ },
+ {
+  "id": 303,
+  "regionName": "도원경",
+  "mapName": "참혹한 흔적의 겨울 4",
+  "maxMonsterLevel": 279,
+  "favorite": false
+ },
+ {
+  "id": 304,
+  "regionName": "도원경",
+  "mapName": "참혹한 흔적의 겨울 3",
+  "maxMonsterLevel": 279,
+  "favorite": false
+ },
+ {
+  "id": 305,
+  "regionName": "도원경",
+  "mapName": "참혹한 흔적의 겨울 2",
+  "maxMonsterLevel": 279,
+  "favorite": false
+ },
+ {
+  "id": 306,
+  "regionName": "도원경",
+  "mapName": "참혹한 흔적의 겨울 1",
+  "maxMonsterLevel": 278,
+  "favorite": false
+ },
+ {
+  "id": 307,
+  "regionName": "도원경",
+  "mapName": "색깔이 옅은 가을 5",
+  "maxMonsterLevel": 277,
+  "favorite": false
+ },
+ {
+  "id": 308,
+  "regionName": "도원경",
+  "mapName": "색깔이 옅은 가을 4",
+  "maxMonsterLevel": 277,
+  "favorite": false
+ },
+ {
+  "id": 309,
+  "regionName": "도원경",
+  "mapName": "색깔이 옅은 가을 3",
+  "maxMonsterLevel": 277,
+  "favorite": false
+ },
+ {
+  "id": 310,
+  "regionName": "도원경",
+  "mapName": "색깔이 옅은 가을 2",
+  "maxMonsterLevel": 277,
+  "favorite": false
+ },
+ {
+  "id": 311,
+  "regionName": "도원경",
+  "mapName": "색깔이 옅은 가을 1",
+  "maxMonsterLevel": 277,
+  "favorite": false
+ },
+ {
+  "id": 312,
+  "regionName": "도원경",
+  "mapName": "빛이 약한 여름 5",
+  "maxMonsterLevel": 276,
+  "favorite": false
+ },
+ {
+  "id": 313,
+  "regionName": "도원경",
+  "mapName": "빛이 약한 여름 4",
+  "maxMonsterLevel": 276,
+  "favorite": false
+ },
+ {
+  "id": 314,
+  "regionName": "도원경",
+  "mapName": "빛이 약한 여름 3",
+  "maxMonsterLevel": 276,
+  "favorite": false
+ },
+ {
+  "id": 315,
+  "regionName": "도원경",
+  "mapName": "빛이 약한 여름 2",
+  "maxMonsterLevel": 276,
+  "favorite": false
+ },
+ {
+  "id": 316,
+  "regionName": "도원경",
+  "mapName": "빛이 약한 여름 1",
+  "maxMonsterLevel": 276,
+  "favorite": false
+ },
+ {
+  "id": 317,
+  "regionName": "도원경",
+  "mapName": "생기가 돌아오는 봄 5",
+  "maxMonsterLevel": 275,
+  "favorite": false
+ },
+ {
+  "id": 318,
+  "regionName": "도원경",
+  "mapName": "생기가 돌아오는 봄 4",
+  "maxMonsterLevel": 275,
+  "favorite": false
+ },
+ {
+  "id": 319,
+  "regionName": "도원경",
+  "mapName": "생기가 돌아오는 봄 3",
+  "maxMonsterLevel": 275,
+  "favorite": false
+ },
+ {
+  "id": 320,
+  "regionName": "도원경",
+  "mapName": "생기가 돌아오는 봄 2",
+  "maxMonsterLevel": 275,
+  "favorite": false
+ },
+ {
+  "id": 321,
+  "regionName": "도원경",
+  "mapName": "생기가 돌아오는 봄 1",
+  "maxMonsterLevel": 275,
+  "favorite": false
+ },
+ {
+  "id": 322,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 8",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 323,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 7",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 324,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 6",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 325,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 5",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 326,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 4",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 327,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 3",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 328,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 2",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 329,
+  "regionName": "아르테리아",
+  "mapName": "최상층 통로 1",
+  "maxMonsterLevel": 284,
+  "favorite": false
+ },
+ {
+  "id": 330,
+  "regionName": "아르테리아",
+  "mapName": "최하층 통로 6",
+  "maxMonsterLevel": 283,
+  "favorite": false
+ },
+ {
+  "id": 331,
+  "regionName": "아르테리아",
+  "mapName": "최하층 통로 5",
+  "maxMonsterLevel": 283,
+  "favorite": false
+ },
+ {
+  "id": 332,
+  "regionName": "아르테리아",
+  "mapName": "최하층 통로 4",
+  "maxMonsterLevel": 283,
+  "favorite": false
+ },
+ {
+  "id": 333,
+  "regionName": "아르테리아",
+  "mapName": "최하층 통로 3",
+  "maxMonsterLevel": 282,
+  "favorite": false
+ },
+ {
+  "id": 334,
+  "regionName": "아르테리아",
+  "mapName": "최하층 통로 2",
+  "maxMonsterLevel": 282,
+  "favorite": false
+ },
+ {
+  "id": 335,
+  "regionName": "아르테리아",
+  "mapName": "최하층 통로 1",
+  "maxMonsterLevel": 282,
+  "favorite": false
+ },
+ {
+  "id": 336,
+  "regionName": "아르테리아",
+  "mapName": "외곽 전투지역 2",
+  "maxMonsterLevel": 281,
+  "favorite": false
+ },
+ {
+  "id": 337,
+  "regionName": "아르테리아",
+  "mapName": "외곽 전투지역 1",
+  "maxMonsterLevel": 280,
+  "favorite": false
+ },
+ {
+  "id": 338,
+  "regionName": "아르테리아",
+  "mapName": "동쪽 외곽지역",
+  "maxMonsterLevel": 281,
+  "favorite": false
+ },
+ {
+  "id": 339,
+  "regionName": "아르테리아",
+  "mapName": "남쪽 외곽지역",
+  "maxMonsterLevel": 281,
+  "favorite": false
+ },
+ {
+  "id": 340,
+  "regionName": "아르테리아",
+  "mapName": "서쪽 외곽지역",
+  "maxMonsterLevel": 280,
+  "favorite": false
+ },
+ {
+  "id": 341,
+  "regionName": "아르테리아",
+  "mapName": "북쪽 외곽지역",
+  "maxMonsterLevel": 280,
+  "favorite": false
+ },
+ {
+  "id": 342,
+  "regionName": "카르시온",
+  "mapName": "가라앉은 유적지 4",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 343,
+  "regionName": "카르시온",
+  "mapName": "가라앉은 유적지 3",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 344,
+  "regionName": "카르시온",
+  "mapName": "가라앉은 유적지 2",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 345,
+  "regionName": "카르시온",
+  "mapName": "가라앉은 유적지 1",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 346,
+  "regionName": "카르시온",
+  "mapName": "숨이 멎어드는 동굴 4",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 347,
+  "regionName": "카르시온",
+  "mapName": "숨이 멎어드는 동굴 3",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 348,
+  "regionName": "카르시온",
+  "mapName": "숨이 멎어드는 동굴 2",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 349,
+  "regionName": "카르시온",
+  "mapName": "숨이 멎어드는 동굴 1",
+  "maxMonsterLevel": 289,
+  "favorite": false
+ },
+ {
+  "id": 350,
+  "regionName": "카르시온",
+  "mapName": "어둠이 내리는 나무줄기 3",
+  "maxMonsterLevel": 288,
+  "favorite": false
+ },
+ {
+  "id": 351,
+  "regionName": "카르시온",
+  "mapName": "어둠이 내리는 나무줄기 2",
+  "maxMonsterLevel": 288,
+  "favorite": false
+ },
+ {
+  "id": 352,
+  "regionName": "카르시온",
+  "mapName": "어둠이 내리는 나무줄기 1",
+  "maxMonsterLevel": 288,
+  "favorite": false
+ },
+ {
+  "id": 353,
+  "regionName": "카르시온",
+  "mapName": "휘감기는 숲 3",
+  "maxMonsterLevel": 288,
+  "favorite": false
+ },
+ {
+  "id": 354,
+  "regionName": "카르시온",
+  "mapName": "휘감기는 숲 2",
+  "maxMonsterLevel": 287,
+  "favorite": false
+ },
+ {
+  "id": 355,
+  "regionName": "카르시온",
+  "mapName": "휘감기는 숲 1",
+  "maxMonsterLevel": 287,
+  "favorite": false
+ },
+ {
+  "id": 356,
+  "regionName": "카르시온",
+  "mapName": "잔잔한 해안가 3",
+  "maxMonsterLevel": 286,
+  "favorite": false
+ },
+ {
+  "id": 357,
+  "regionName": "카르시온",
+  "mapName": "잔잔한 해안가 2",
+  "maxMonsterLevel": 286,
+  "favorite": false
+ },
+ {
+  "id": 358,
+  "regionName": "카르시온",
+  "mapName": "잔잔한 해안가 1",
+  "maxMonsterLevel": 286,
+  "favorite": false
+ },
+ {
+  "id": 359,
+  "regionName": "카르시온",
+  "mapName": "거대 산호 군락 3",
+  "maxMonsterLevel": 286,
+  "favorite": false
+ },
+ {
+  "id": 360,
+  "regionName": "카르시온",
+  "mapName": "거대 산호 군락 2",
+  "maxMonsterLevel": 285,
+  "favorite": false
+ },
+ {
+  "id": 361,
+  "regionName": "카르시온",
+  "mapName": "거대 산호 군락 1",
+  "maxMonsterLevel": 285,
+  "favorite": false
+ },
+ {
+  "id": 362,
+  "regionName": "탈라하트",
+  "mapName": "환영의 길 4",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 363,
+  "regionName": "탈라하트",
+  "mapName": "환영의 길 3",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 364,
+  "regionName": "탈라하트",
+  "mapName": "환영의 길 2",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 365,
+  "regionName": "탈라하트",
+  "mapName": "환영의 길 1",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 366,
+  "regionName": "탈라하트",
+  "mapName": "밤의 길 4",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 367,
+  "regionName": "탈라하트",
+  "mapName": "밤의 길 3",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 368,
+  "regionName": "탈라하트",
+  "mapName": "밤의 길 2",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 369,
+  "regionName": "탈라하트",
+  "mapName": "밤의 길 1",
+  "maxMonsterLevel": 294,
+  "favorite": false
+ },
+ {
+  "id": 370,
+  "regionName": "탈라하트",
+  "mapName": "영원과 운명의 전쟁터 3",
+  "maxMonsterLevel": 293,
+  "favorite": false
+ },
+ {
+  "id": 371,
+  "regionName": "탈라하트",
+  "mapName": "영원과 운명의 전쟁터 2",
+  "maxMonsterLevel": 293,
+  "favorite": false
+ },
+ {
+  "id": 372,
+  "regionName": "탈라하트",
+  "mapName": "영원과 운명의 전쟁터 1",
+  "maxMonsterLevel": 293,
+  "favorite": false
+ },
+ {
+  "id": 373,
+  "regionName": "탈라하트",
+  "mapName": "심판과 운명의 전쟁터 3",
+  "maxMonsterLevel": 292,
+  "favorite": false
+ },
+ {
+  "id": 374,
+  "regionName": "탈라하트",
+  "mapName": "심판과 운명의 전쟁터 2",
+  "maxMonsterLevel": 292,
+  "favorite": false
+ },
+ {
+  "id": 375,
+  "regionName": "탈라하트",
+  "mapName": "심판과 운명의 전쟁터 1",
+  "maxMonsterLevel": 292,
+  "favorite": false
+ },
+ {
+  "id": 376,
+  "regionName": "탈라하트",
+  "mapName": "섭리와 운명의 전쟁터 3",
+  "maxMonsterLevel": 291,
+  "favorite": false
+ },
+ {
+  "id": 377,
+  "regionName": "탈라하트",
+  "mapName": "섭리와 운명의 전쟁터 2",
+  "maxMonsterLevel": 291,
+  "favorite": false
+ },
+ {
+  "id": 378,
+  "regionName": "탈라하트",
+  "mapName": "섭리와 운명의 전쟁터 1",
+  "maxMonsterLevel": 291,
+  "favorite": false
+ },
+ {
+  "id": 379,
+  "regionName": "탈라하트",
+  "mapName": "재와 침묵의 땅 5",
+  "maxMonsterLevel": 291,
+  "favorite": false
+ },
+ {
+  "id": 380,
+  "regionName": "탈라하트",
+  "mapName": "재와 침묵의 땅 4",
+  "maxMonsterLevel": 291,
+  "favorite": false
+ },
+ {
+  "id": 381,
+  "regionName": "탈라하트",
+  "mapName": "재와 침묵의 땅 3",
+  "maxMonsterLevel": 291,
+  "favorite": false
+ },
+ {
+  "id": 382,
+  "regionName": "탈라하트",
+  "mapName": "재와 침묵의 땅 2",
+  "maxMonsterLevel": 290,
+  "favorite": false
+ },
+ {
+  "id": 383,
+  "regionName": "탈라하트",
+  "mapName": "재와 침묵의 땅 1",
+  "maxMonsterLevel": 290,
+  "favorite": false
+ },
+ {
+  "id": 384,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 1",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 385,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 2",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 386,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 3",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 387,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 4",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 388,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 5",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 389,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 6",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 390,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 7",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 391,
+  "regionName": "기어드락",
+  "mapName": "고브의 작업실 8",
+  "maxMonsterLevel": 299,
+  "favorite": false
+ },
+ {
+  "id": 392,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 5",
+  "maxMonsterLevel": 298,
+  "favorite": false
+ },
+ {
+  "id": 393,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 6",
+  "maxMonsterLevel": 298,
+  "favorite": false
+ },
+ {
+  "id": 394,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 7",
+  "maxMonsterLevel": 298,
+  "favorite": false
+ },
+ {
+  "id": 395,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 8",
+  "maxMonsterLevel": 298,
+  "favorite": false
+ },
+ {
+  "id": 396,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 1",
+  "maxMonsterLevel": 297,
+  "favorite": false
+ },
+ {
+  "id": 397,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 2",
+  "maxMonsterLevel": 297,
+  "favorite": false
+ },
+ {
+  "id": 398,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 3",
+  "maxMonsterLevel": 297,
+  "favorite": false
+ },
+ {
+  "id": 399,
+  "regionName": "기어드락",
+  "mapName": "로봇 창고 4",
+  "maxMonsterLevel": 297,
+  "favorite": false
+ },
+ {
+  "id": 400,
+  "regionName": "기어드락",
+  "mapName": "지하 3층 1구역",
+  "maxMonsterLevel": 296,
+  "favorite": false
+ },
+ {
+  "id": 401,
+  "regionName": "기어드락",
+  "mapName": "지하 3층 2구역",
+  "maxMonsterLevel": 296,
+  "favorite": false
+ },
+ {
+  "id": 402,
+  "regionName": "기어드락",
+  "mapName": "지하 4층",
+  "maxMonsterLevel": 296,
+  "favorite": false
+ },
+ {
+  "id": 403,
+  "regionName": "기어드락",
+  "mapName": "지하 1층",
+  "maxMonsterLevel": 295,
+  "favorite": false
+ },
+ {
+  "id": 404,
+  "regionName": "기어드락",
+  "mapName": "지하 2층 1구역",
+  "maxMonsterLevel": 295,
+  "favorite": false
+ },
+ {
+  "id": 405,
+  "regionName": "기어드락",
+  "mapName": "지하 2층 2구역",
+  "maxMonsterLevel": 295,
+  "favorite": false
+ }
+]
