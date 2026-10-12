@@ -25,7 +25,7 @@ export const settingsFigmaCharacters: Character[] = names.map((characterName, in
   worldName: '엘리시움',
   guildName: null,
   favorite: index < 2,
-  sortOrder: index === 0 ? 1 : index === 1 ? 0 : index,
+  sortOrder: index === 0 ? 2 : index === 1 ? 1 : index + 1,
   createdAt: '2026-09-17T09:42:00',
   updatedAt: '2026-09-17T09:42:00',
 }))
