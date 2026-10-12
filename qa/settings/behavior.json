@@ -1,0 +1,95 @@
+{
+  "passed": 22,
+  "checks": [
+    "저장 전 preferences 요청 없음",
+    "전체 목록 순서 이동",
+    "즐겨찾기·순서 전체 배열 함께 저장",
+    "저장 결과 조회 반영",
+    "모달 초기 포커스",
+    "모달 역방향 포커스 순환",
+    "모달 순방향 포커스 순환",
+    "X 취소의 DB 요청 없음",
+    "모달 취소 후 버튼 포커스 복원",
+    "ESC 취소",
+    "배경 클릭 취소",
+    "0개 월드 선택 및 저장",
+    "대시보드 공유 월드 선택 반영",
+    "저장된 0개 선택 재조회",
+    "전체 월드 선택 저장",
+    "내부 이동 취소 및 편집 보존",
+    "재방문 이후 뒤로가기 취소",
+    "뒤로가기 확인 후 이동",
+    "새로고침 네이티브 이탈 확인 및 취소",
+    "로그아웃 취소 시 인증 보존",
+    "로그아웃 확인 이후 인증 제거",
+    "실행 중 JavaScript 예외 없음"
+  ],
+  "requests": [
+    {
+      "method": "PUT",
+      "path": "/api/v1/characters/preferences",
+      "body": {
+        "characters": [
+          {
+            "characterId": 1,
+            "favorite": true
+          },
+          {
+            "characterId": 2,
+            "favorite": true
+          },
+          {
+            "characterId": 3,
+            "favorite": true
+          },
+          {
+            "characterId": 4,
+            "favorite": false
+          },
+          {
+            "characterId": 5,
+            "favorite": false
+          },
+          {
+            "characterId": 6,
+            "favorite": false
+          }
+        ]
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/characters/world-selection",
+      "body": {
+        "worldNames": []
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/characters/world-selection",
+      "body": {
+        "worldNames": [
+          "스카니아",
+          "베라",
+          "루나",
+          "제니스",
+          "크로아",
+          "유니온",
+          "엘리시움",
+          "이노시스",
+          "레드",
+          "오로라",
+          "아케인",
+          "노바",
+          "에오스",
+          "헬리오스"
+        ]
+      }
+    }
+  ],
+  "nativeDialogs": [
+    {
+      "type": "beforeunload"
+    }
+  ]
+}

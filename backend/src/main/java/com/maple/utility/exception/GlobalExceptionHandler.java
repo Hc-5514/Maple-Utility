@@ -2,6 +2,7 @@ package com.maple.utility.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
@@ -24,6 +25,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException exception) {
 		return ResponseEntity.badRequest()
 				.body(ErrorResponse.of("VALIDATION_ERROR", "요청 값 검증 실패"));
+	}
+
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleUnreadableRequest(HttpMessageNotReadableException exception) {
+		return ResponseEntity.badRequest()
+				.body(ErrorResponse.of("INVALID_REQUEST_BODY", "요청 본문 형식 오류"));
 	}
 
 	@ExceptionHandler(MissingRequestCookieException.class)

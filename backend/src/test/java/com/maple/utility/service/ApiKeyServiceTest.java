@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,6 +61,8 @@ class ApiKeyServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		lenient().when(apiKeyCryptoService.decrypt("encrypted-api-key")).thenReturn("plain-api-key");
+		lenient().when(apiKeyCryptoService.decrypt("new-encrypted-api-key")).thenReturn("plain-api-key");
 		apiKeyService = new ApiKeyService(
 				userRepository,
 				userApiKeyRepository,
@@ -89,6 +92,7 @@ class ApiKeyServiceTest {
 
 		assertThat(response.registered()).isTrue();
 		assertThat(response.keyStatus()).isEqualTo(ApiKeyStatus.ACTIVE);
+		assertThat(response.keySuffix()).isEqualTo("-key");
 		verify(characterSyncService).syncSummaries(user, characters);
 		verify(characterSyncService, never()).syncCharacters(user, characters, "plain-api-key");
 	}
@@ -134,6 +138,7 @@ class ApiKeyServiceTest {
 
 		assertThat(existingApiKey.getEncryptedKey()).isEqualTo("new-encrypted-api-key");
 		assertThat(response.keyStatus()).isEqualTo(ApiKeyStatus.ACTIVE);
+		assertThat(response.keySuffix()).isEqualTo("-key");
 	}
 
 	@Test
@@ -160,6 +165,31 @@ class ApiKeyServiceTest {
 		assertThat(response.registered()).isFalse();
 		assertThat(response.keyStatus()).isNull();
 		assertThat(response.lastVerifiedAt()).isNull();
+		assertThat(response.keySuffix()).isNull();
+	}
+
+	@Test
+	void statusDecryptsStoredKeyAndReturnsOnlySuffixForEveryRegisteredStatus() throws Exception {
+		UserApiKey storedKey = UserApiKey.create(user(), "ciphertext", java.time.LocalDateTime.now(CLOCK));
+		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(storedKey));
+		when(apiKeyCryptoService.decrypt("ciphertext")).thenReturn("sensitive-key-AB12");
+		for (ApiKeyStatus status : ApiKeyStatus.values()) {
+			ReflectionTestUtils.setField(storedKey, "keyStatus", status);
+			ApiKeyStatusResponse response = apiKeyService.status(1L);
+			assertThat(response.keySuffix()).isEqualTo("AB12");
+			assertThat(response.keyStatus()).isEqualTo(status);
+			assertThat(response.lastVerifiedAt()).isEqualTo(java.time.LocalDateTime.of(2026, 7, 14, 21, 0));
+			String json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().writeValueAsString(response);
+			assertThat(json).contains("\"keySuffix\":\"AB12\"").doesNotContain("sensitive-key", "ciphertext", "encryptedKey");
+		}
+	}
+
+	@Test
+	void statusDoesNotExposeWholeShortLegacyKey() {
+		UserApiKey storedKey = UserApiKey.create(user(), "ciphertext", null);
+		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(storedKey));
+		when(apiKeyCryptoService.decrypt("ciphertext")).thenReturn("AB12");
+		assertThat(apiKeyService.status(1L).keySuffix()).isNull();
 	}
 
 	@Test

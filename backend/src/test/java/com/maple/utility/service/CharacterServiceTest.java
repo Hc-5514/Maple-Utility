@@ -3,6 +3,7 @@ package com.maple.utility.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -49,6 +50,7 @@ class CharacterServiceTest {
 
 	@BeforeEach
 	void setUp() {
+		lenient().when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user()));
 		characterService = new CharacterService(
 				characterRepository,
 				userRepository,
@@ -73,7 +75,7 @@ class CharacterServiceTest {
 	}
 
 	@Test
-	void getCharactersPlacesFavoritesFirstThenSortsOthersByLevel() {
+	void getCharactersPreservesGlobalOrderRegardlessOfFavoriteOrLevel() {
 		User user = user();
 		MapleCharacter low = character(user, 10L, "low", 2);
 		MapleCharacter high = character(user, 11L, "high", 1);
@@ -84,14 +86,14 @@ class CharacterServiceTest {
 		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(high, low, favorite));
 
 		assertThat(characterService.getCharacters(1L))
-				.extracting(CharacterResponse::id).containsExactly(12L, 11L, 10L);
+				.extracting(CharacterResponse::id).containsExactly(11L, 10L, 12L);
 	}
 
 	@Test
 	void updateFavoriteSortOrderPersistsCompleteOrder() {
 		User user = user();
-		MapleCharacter first = character(user, 10L, "first", 1);
-		MapleCharacter second = character(user, 11L, "second", 2);
+		MapleCharacter first = character(user, 10L, "first", 2);
+		MapleCharacter second = character(user, 11L, "second", 6);
 		first.toggleFavorite();
 		second.toggleFavorite();
 		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L))
@@ -99,8 +101,8 @@ class CharacterServiceTest {
 
 		assertThat(characterService.updateFavoriteSortOrder(1L, List.of(11L, 10L)))
 				.extracting(CharacterResponse::id).containsExactly(11L, 10L);
-		assertThat(first.getSortOrder()).isEqualTo(2);
-		assertThat(second.getSortOrder()).isEqualTo(1);
+		assertThat(first.getSortOrder()).isEqualTo(6);
+		assertThat(second.getSortOrder()).isEqualTo(2);
 	}
 
 	@Test
@@ -163,19 +165,17 @@ class CharacterServiceTest {
 	}
 
 	@Test
-	void toggleFavoriteAppendsAfterSavedFavorites() {
+	void toggleFavoriteKeepsGlobalOrder() {
 		User user = user();
 		MapleCharacter existing = character(user, 10L, "existing", 5);
 		MapleCharacter added = character(user, 11L, "added", 1);
 		existing.toggleFavorite();
 		when(characterRepository.findByIdAndUserId(11L, 1L)).thenReturn(Optional.of(added));
-		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L))
-				.thenReturn(List.of(existing));
 
 		CharacterResponse response = characterService.toggleFavorite(1L, 11L);
 
 		assertThat(response.favorite()).isTrue();
-		assertThat(response.sortOrder()).isEqualTo(6);
+		assertThat(response.sortOrder()).isEqualTo(1);
 	}
 
 	@Test

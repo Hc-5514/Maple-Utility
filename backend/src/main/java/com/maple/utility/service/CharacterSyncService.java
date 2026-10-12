@@ -1,14 +1,19 @@
 package com.maple.utility.service;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.User;
 import com.maple.utility.exception.NexonApiException;
+import com.maple.utility.exception.ApiException;
+import com.maple.utility.repository.UserRepository;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.security.NexonCharacterBasic;
 import com.maple.utility.security.NexonCharacterSummary;
@@ -21,19 +26,24 @@ import lombok.extern.slf4j.Slf4j;
 public class CharacterSyncService {
 
 	private final CharacterRepository characterRepository;
+	private final UserRepository userRepository;
 	private final NexonOpenApiClient nexonOpenApiClient;
 
-	public CharacterSyncService(CharacterRepository characterRepository, NexonOpenApiClient nexonOpenApiClient) {
+	public CharacterSyncService(CharacterRepository characterRepository, NexonOpenApiClient nexonOpenApiClient, UserRepository userRepository) {
 		this.characterRepository = characterRepository;
+		this.userRepository = userRepository;
 		this.nexonOpenApiClient = nexonOpenApiClient;
 	}
 
 	@Transactional
 	public List<MapleCharacter> syncSummaries(User user, List<NexonCharacterSummary> characterSummaries) {
-		int sortOrder = 1;
+		lockUser(user.getId());
+		int sortOrder = characterRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId()).stream()
+				.mapToInt(MapleCharacter::getSortOrder).max().orElse(0) + 1;
 		for (NexonCharacterSummary summary : characterSummaries) {
 			int currentSortOrder = sortOrder;
-			MapleCharacter character = characterRepository.findByUserIdAndOcid(user.getId(), summary.ocid())
+			var existing = characterRepository.findByUserIdAndOcid(user.getId(), summary.ocid());
+			MapleCharacter character = existing
 					.orElseGet(() -> characterRepository.save(MapleCharacter.create(
 							user,
 							summary.ocid(),
@@ -49,7 +59,9 @@ public class CharacterSyncService {
 					summary.characterClass(),
 					summary.characterLevel()
 			);
-			sortOrder++;
+			if (existing.isEmpty()) {
+				sortOrder++;
+			}
 		}
 		return characterRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId());
 	}
@@ -77,6 +89,7 @@ public class CharacterSyncService {
 					userId, summary.characterName(), summary.ocid(), exception.getNexonErrorName(), exception.getNexonErrorMessage());
 			return false;
 		}
+		lockUser(userId);
 		MapleCharacter character = characterRepository.findByUserIdAndOcid(userId, summary.ocid()).orElseThrow();
 		character.updateDetails(
 				valueOrFallback(basic.characterName(), summary.characterName()),
@@ -92,9 +105,8 @@ public class CharacterSyncService {
 			List<NexonCharacterSummary> characterSummaries,
 			Function<NexonCharacterSummary, NexonCharacterBasic> basicFetcher
 	) {
-		// The list endpoint is authoritative for membership even when basic rejects an OCID.
-		syncSummaries(user, characterSummaries);
-		int sortOrder = 1;
+		// Fetch external data before acquiring the user lock.
+		Map<String, NexonCharacterBasic> basics = new HashMap<>();
 		for (NexonCharacterSummary summary : characterSummaries) {
 			NexonCharacterBasic basic;
 			try {
@@ -109,22 +121,21 @@ public class CharacterSyncService {
 							exception.getNexonErrorName(),
 							exception.getNexonErrorMessage()
 					);
-					sortOrder++;
 					continue;
 				}
 				throw exception;
 			}
-			int currentSortOrder = sortOrder;
-			MapleCharacter character = characterRepository.findByUserIdAndOcid(user.getId(), summary.ocid())
-					.orElseGet(() -> characterRepository.save(MapleCharacter.create(
-							user,
-							summary.ocid(),
-							valueOrFallback(basic.characterName(), summary.characterName()),
-							valueOrFallback(basic.worldName(), summary.worldName()),
-							valueOrFallback(basic.characterClass(), summary.characterClass()),
-							valueOrFallback(basic.characterLevel(), summary.characterLevel()),
-							currentSortOrder
-					)));
+			basics.put(summary.ocid(), basic);
+		}
+		// The list endpoint is authoritative even when basic rejects an OCID.
+		syncSummaries(user, characterSummaries);
+		for (NexonCharacterSummary summary : characterSummaries) {
+			NexonCharacterBasic basic = basics.get(summary.ocid());
+			if (basic == null) {
+				continue;
+			}
+
+			MapleCharacter character = characterRepository.findByUserIdAndOcid(user.getId(), summary.ocid()).orElseThrow();
 			character.updateDetails(
 					valueOrFallback(basic.characterName(), summary.characterName()),
 					valueOrFallback(basic.worldName(), summary.worldName()),
@@ -133,9 +144,13 @@ public class CharacterSyncService {
 					basic.characterImage(),
 					basic.guildName()
 			);
-			sortOrder++;
 		}
 		return characterRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId());
+	}
+
+	private void lockUser(Long userId) {
+		userRepository.findByIdForUpdate(userId)
+				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "사용자 없음"));
 	}
 
 	private boolean isInvalidCharacterId(NexonApiException exception) {
