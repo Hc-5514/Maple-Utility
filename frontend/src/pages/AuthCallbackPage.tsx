@@ -9,15 +9,14 @@ export default function AuthCallbackPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { setUser, setHasApiKey } = useAuthStore()
+  const code = searchParams.get('code')
+  // 인가코드 누락은 URL에서 바로 판단하고, error state는 로그인 요청 실패에만 사용
+  const displayError = code ? error : '인가코드를 받지 못했습니다.'
 
   useEffect(() => {
-    const code = searchParams.get('code')
     sessionStorage.removeItem('oauth_provider')
 
-    if (!code) {
-      setError('인가코드를 받지 못했습니다.')
-      return
-    }
+    if (!code) return
 
     const login = async () => {
       try {
@@ -48,12 +47,12 @@ export default function AuthCallbackPage() {
     }
 
     void login()
-  }, [navigate, searchParams, setUser, setHasApiKey])
+  }, [code, navigate, setUser, setHasApiKey])
 
-  if (error) {
+  if (displayError) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#1a1a2e]">
-        <p className="text-[#f87171]">{error}</p>
+        <p className="text-[#f87171]">{displayError}</p>
         <button
           onClick={() => navigate('/login')}
           className="rounded-lg bg-[#4ade80] px-4 py-2 text-sm font-semibold text-black hover:opacity-90"
