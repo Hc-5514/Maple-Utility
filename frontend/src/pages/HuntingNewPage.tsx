@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import HuntingForm from '../components/hunting/HuntingForm'
+import HuntingHeading from '../components/hunting/HuntingHeading'
 import { useCreateHunting } from '../hooks/useHunting'
 
 export default function HuntingNewPage() {
@@ -9,9 +10,13 @@ export default function HuntingNewPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-2xl font-bold text-white">사냥 기록 추가</h1>
-      {submitError && <p className="text-sm text-[#f87171]">{submitError}</p>}
+    <div className="flex flex-col gap-7">
+      <HuntingHeading title="사냥 기록 추가" />
+      {submitError && (
+        <p role="alert" className="-my-3 text-[13px] text-[#f87171]">
+          {submitError}
+        </p>
+      )}
       <HuntingForm
         submitLabel="등록"
         isSubmitting={createHunting.isPending}

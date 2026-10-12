@@ -5,7 +5,7 @@ import { dashboardAssets } from '../dashboard/assets'
 export default function Layout() {
   const { pathname } = useLocation()
   const dashboard = pathname === '/dashboard'
-  const themed = dashboard || pathname === '/hunting'
+  const themed = dashboard || pathname === '/hunting' || pathname.startsWith('/hunting/')
   const { theme } = useThemeStore()
   const assets = dashboardAssets[theme]
   return (

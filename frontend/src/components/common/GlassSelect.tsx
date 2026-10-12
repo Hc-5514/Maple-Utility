@@ -13,6 +13,8 @@ interface GlassSelectProps<T> {
   onChange: (value: T) => void
   label: string
   triggerLabel?: string
+  placeholder?: string
+  variant?: 'button' | 'field'
   size?: 'md' | 'sm'
   openStyle?: 'tint' | 'outline'
   menu?: 'list' | 'compact'
@@ -27,6 +29,8 @@ export default function GlassSelect<T extends string | number | null>({
   onChange,
   label,
   triggerLabel,
+  placeholder,
+  variant = 'button',
   size = 'md',
   openStyle = 'outline',
   menu = 'list',
@@ -37,16 +41,15 @@ export default function GlassSelect<T extends string | number | null>({
   const { theme } = useThemeStore()
   const assets = huntingAssets[theme]
   const [open, setOpen] = useState(false)
-  const [active, setActive] = useState(0)
+  const [active, setActive] = useState(-1)
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const id = useId()
-  const selectedIndex = Math.max(
-    0,
-    options.findIndex((option) => option.value === value),
-  )
-  const selected = options.find((option) => option.value === value)
+  const field = variant === 'field'
+  const selectedIndex = options.findIndex((option) => option.value === value)
+  const selected = options[selectedIndex]
+  const shownLabel = triggerLabel ?? (value === null && placeholder ? placeholder : selected?.label)
 
   useEffect(() => {
     if (!open) return
@@ -60,13 +63,14 @@ export default function GlassSelect<T extends string | number | null>({
   useEffect(() => {
     if (!open) return
     list.current?.focus()
+    const index = active >= 0 ? active : selectedIndex
     list.current
-      ?.querySelector<HTMLElement>(`[data-index="${active}"]`)
+      ?.querySelector<HTMLElement>(`[data-index="${index}"]`)
       ?.scrollIntoView?.({ block: 'nearest' })
-  }, [open, active])
+  }, [open, active, selectedIndex])
 
-  const openMenu = () => {
-    setActive(selectedIndex)
+  const openMenu = (fromKeyboard: boolean) => {
+    setActive(fromKeyboard ? Math.max(0, selectedIndex) : -1)
     setOpen(true)
   }
   const close = () => {
@@ -74,30 +78,43 @@ export default function GlassSelect<T extends string | number | null>({
     trigger.current?.focus()
   }
   const choose = (index: number) => {
+    if (index < 0) return
     onChange(options[index].value)
     close()
   }
   const onListKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowDown') setActive((index) => Math.min(options.length - 1, index + 1))
-    else if (event.key === 'ArrowUp') setActive((index) => Math.max(0, index - 1))
+    const from = active >= 0 ? active : Math.max(0, selectedIndex)
+    if (event.key === 'ArrowDown') setActive(Math.min(options.length - 1, active < 0 ? from : from + 1))
+    else if (event.key === 'ArrowUp') setActive(Math.max(0, active < 0 ? from : from - 1))
     else if (event.key === 'Home') setActive(0)
     else if (event.key === 'End') setActive(options.length - 1)
-    else if (event.key === 'Enter' || event.key === ' ') choose(active)
+    else if (event.key === 'Enter' || event.key === ' ') choose(from)
     else if (event.key === 'Escape') close()
     else if (event.key === 'Tab') setOpen(false)
     else return
     event.preventDefault()
   }
 
-  const triggerTone = !open
-    ? 'border-[var(--dash-border)] bg-[var(--dash-card)] text-[var(--dash-text)]'
-    : openStyle === 'tint'
-      ? 'border-[var(--dash-accent)]/31 bg-[var(--dash-selected)] text-[var(--dash-accent)]'
-      : 'border-[var(--dash-accent)]/60 bg-[var(--dash-card)] text-[var(--dash-accent)]'
-  const icon = open && openStyle === 'tint' ? assets.chevronAccent : assets.chevron
+  const triggerTone = field
+    ? open
+      ? 'border-[var(--dash-accent)] bg-[var(--dash-accent)]/9'
+      : 'border-[var(--dash-border)] bg-[var(--dash-card)]'
+    : !open
+      ? 'border-[var(--dash-border)] bg-[var(--dash-card)] text-[var(--dash-text)]'
+      : openStyle === 'tint'
+        ? 'border-[var(--dash-accent)]/31 bg-[var(--dash-selected)] text-[var(--dash-accent)]'
+        : 'border-[var(--dash-accent)]/60 bg-[var(--dash-card)] text-[var(--dash-accent)]'
+  const icon = field
+    ? open
+      ? assets.chevronUp
+      : assets.chevron
+    : open && openStyle === 'tint'
+      ? assets.chevronAccent
+      : assets.chevron
+  const compact = field || menu === 'compact'
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className={field ? 'relative w-full' : 'relative'}>
       <button
         ref={trigger}
         type="button"
@@ -105,52 +122,72 @@ export default function GlassSelect<T extends string | number | null>({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={`${id}-options`}
-        aria-label={`${label}: ${triggerLabel ?? selected?.label ?? ''}`}
-        onClick={() => (open ? setOpen(false) : openMenu())}
+        aria-label={`${label}: ${shownLabel ?? ''}`}
+        onClick={() => (open ? setOpen(false) : openMenu(false))}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault()
-            openMenu()
+            openMenu(true)
           }
         }}
-        className={`flex items-center gap-2 rounded-[10px] border px-[18px] text-[14px] font-bold whitespace-nowrap disabled:opacity-40 ${size === 'md' ? 'h-11' : 'h-[38px]'} ${triggerTone}`}
+        className={
+          field
+            ? `flex h-12 w-full items-center gap-3 rounded-[10px] border px-4 text-left text-[14px] leading-5 disabled:opacity-50 ${triggerTone}`
+            : `flex items-center gap-2 rounded-[10px] border px-[18px] text-[14px] font-bold whitespace-nowrap disabled:opacity-40 ${size === 'md' ? 'h-11' : 'h-[38px]'} ${triggerTone}`
+        }
       >
-        <img src={icon} alt="" className={open && openStyle === 'outline' ? 'rotate-180' : ''} />
-        {triggerLabel ?? selected?.label}
+        {!field && (
+          <img src={icon} alt="" className={open && openStyle === 'outline' ? 'rotate-180' : ''} />
+        )}
+        {field ? (
+          <span
+            className={`min-w-0 flex-1 truncate ${value === null ? 'text-[var(--dash-muted)]' : 'text-[var(--dash-text)]'}`}
+          >
+            {shownLabel}
+          </span>
+        ) : (
+          shownLabel
+        )}
+        {field && <img src={icon} alt="" />}
       </button>
       {open && (
         <div
-          ref={list}
-          id={`${id}-options`}
-          role="listbox"
-          tabIndex={-1}
-          aria-label={label}
-          aria-activedescendant={`${id}-option-${active}`}
-          onKeyDown={onListKeyDown}
-          className={`absolute top-[calc(100%+6px)] z-30 flex max-h-[320px] flex-col overflow-y-auto rounded-xl border border-[var(--dash-border)] bg-[var(--dash-popover)] shadow-[var(--dash-popover-shadow)] backdrop-blur-[12px] outline-none ${align === 'right' ? 'right-0' : 'left-0'} ${menu === 'compact' ? 'p-2' : ''} ${menuClassName}`}
+          className={`absolute z-30 overflow-hidden rounded-xl border border-[var(--dash-border)] bg-[var(--dash-popover)] shadow-[var(--dash-popover-shadow)] backdrop-blur-[12px] ${field ? 'top-[calc(100%+8px)] right-0 left-0 p-2' : `top-[calc(100%+6px)] ${align === 'right' ? 'right-0' : 'left-0'} ${compact ? 'p-2' : ''}`} ${menuClassName}`}
         >
-          {options.map((option, index) => {
-            const isSelected = option.value === value
-            return (
-              <div
-                key={String(option.value)}
-                id={`${id}-option-${index}`}
-                data-index={index}
-                role="option"
-                aria-selected={isSelected}
-                onMouseEnter={() => setActive(index)}
-                onClick={() => choose(index)}
-                className={`flex shrink-0 cursor-pointer items-center text-[13px] whitespace-nowrap ${menu === 'compact' ? 'h-7 gap-[10px] rounded-md px-3 leading-5' : 'gap-2 px-[14px] py-[10px]'} ${isSelected ? 'font-bold text-[var(--dash-accent)]' : 'text-[var(--dash-text)]'} ${menu === 'list' && isSelected ? 'bg-[var(--dash-accent)]/9' : ''} ${active === index && !isSelected ? 'bg-[var(--dash-track)]' : ''}`}
-              >
-                <span className="flex size-4 shrink-0 items-center justify-center">
-                  {isSelected && (
-                    <img src={assets.check} alt="" className={menu === 'list' ? 'size-3' : 'size-4'} />
-                  )}
-                </span>
-                {option.label}
-              </div>
-            )
-          })}
+          <div
+            ref={list}
+            id={`${id}-options`}
+            role="listbox"
+            tabIndex={-1}
+            aria-label={label}
+            aria-activedescendant={active >= 0 ? `${id}-option-${active}` : undefined}
+            onKeyDown={onListKeyDown}
+            className={`glass-select-scroll flex flex-col overflow-y-auto outline-none ${field ? 'max-h-[238px]' : 'max-h-[320px]'}`}
+          >
+            {options.map((option, index) => {
+              const isSelected = option.value === value
+              const isActive = active === index
+              return (
+                <div
+                  key={String(option.value)}
+                  id={`${id}-option-${index}`}
+                  data-index={index}
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() => setActive(index)}
+                  onClick={() => choose(index)}
+                  className={`flex shrink-0 cursor-pointer items-center text-[13px] whitespace-nowrap ${compact ? 'h-7 gap-[10px] rounded-md px-3 leading-5' : 'gap-2 px-[14px] py-[10px]'} ${isSelected || (compact && isActive) ? 'font-bold text-[var(--dash-accent)]' : 'text-[var(--dash-text)]'} ${(!compact && isSelected) || (compact && isActive) ? 'bg-[var(--dash-accent)]/9' : ''} ${!compact && isActive && !isSelected ? 'bg-[var(--dash-track)]' : ''}`}
+                >
+                  <span className="flex size-4 shrink-0 items-center justify-center">
+                    {isSelected && (
+                      <img src={assets.check} alt="" className={compact ? 'size-4' : 'size-3'} />
+                    )}
+                  </span>
+                  <span className="truncate">{option.label}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

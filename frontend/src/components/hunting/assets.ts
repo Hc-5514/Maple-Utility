@@ -3,6 +3,7 @@ const icons = (theme: 'light' | 'dark') => ({
   check: `/assets/hunting/${theme}-check.svg`,
   chevron: `/assets/hunting/${theme}-chevron-down.svg`,
   chevronAccent: `/assets/hunting/${theme}-down.svg`,
+  chevronUp: `/assets/hunting/${theme}-chevron-up.svg`,
   clock: `/assets/hunting/${theme}-clock.svg`,
   info: `/assets/hunting/${theme}-info.svg`,
   left: `/assets/hunting/${theme}-left.svg`,
