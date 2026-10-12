@@ -51,6 +51,9 @@ function ApiKeySection() {
       setHasApiKey(true)
       setInputKey('')
       void queryClient.invalidateQueries({ queryKey: ['api-key/status'] })
+      void queryClient.invalidateQueries({ queryKey: ['characters'] })
+      void queryClient.invalidateQueries({ queryKey: ['characters/favorites'] })
+      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
     },
   })
   const remove = useMutation({
@@ -219,6 +222,8 @@ function CharacterSection() {
   const { setDirty } = useUnsavedChanges()
   const [draft, setDraft] = useState<Character[] | null>(null)
   const [jobId, setJobId] = useState<number | null>(null)
+  const [syncConfirmation, setSyncConfirmation] = useState(false)
+  const closeSyncConfirmation = useCallback(() => setSyncConfirmation(false), [])
   const [reloadConfirmation, setReloadConfirmation] = useState(false)
   const closeReloadConfirmation = useCallback(() => setReloadConfirmation(false), [])
   const [worldModal, setWorldModal] = useState(false)
@@ -336,8 +341,11 @@ function CharacterSection() {
             <button
               type="button"
               className="settings-button"
-              disabled={dirty || save.isPending || syncing}
-              onClick={() => sync.mutate()}
+              disabled={save.isPending || syncing}
+              onClick={() => {
+                if (dirty) setSyncConfirmation(true)
+                else sync.mutate()
+              }}
             >
               <img src={assets.imgRefreshCw} alt="" />
               {syncing ? '새로고침 중...' : '캐릭터 새로고침'}
@@ -495,6 +503,21 @@ function CharacterSection() {
             최신 목록 불러오기
           </button>
         </div>
+      )}
+      {syncConfirmation && (
+        <ThemedConfirmDialog
+          title="캐릭터 새로고침"
+          onCancel={closeSyncConfirmation}
+          confirmLabel="변경사항 버리고 새로고침"
+          onConfirm={() => {
+            setDraft(null)
+            save.reset()
+            setSyncConfirmation(false)
+            sync.mutate()
+          }}
+        >
+          저장하지 않은 변경을 버리고 캐릭터를 새로고침할까요?
+        </ThemedConfirmDialog>
       )}
       {reloadConfirmation && (
         <ThemedConfirmDialog
