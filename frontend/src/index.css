@@ -157,13 +157,13 @@ html:has(.dashboard-theme main) {
 .settings-heading h1 {
   font-size: 34px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 43px;
 }
 .settings-heading .eyebrow {
   font-family: Inter, sans-serif;
   font-size: 11px;
   font-weight: 600;
-  line-height: normal;
+  line-height: 13px;
   color: var(--dash-accent);
 }
 .settings-muted {
@@ -240,7 +240,7 @@ html:has(.dashboard-theme main) {
 }
 .settings-credentials .masked-key {
   font:
-    400 14px/1.45 Inter,
+    400 14px/20px Inter,
     sans-serif;
   color: var(--dash-muted);
 }
@@ -435,7 +435,7 @@ html:has(.dashboard-theme main) {
   gap: 10px;
   padding: 18px 24px;
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 17px;
   color: var(--dash-muted);
 }
 .settings-error {
@@ -512,4 +512,35 @@ html:has(.dashboard-theme main) {
   height: 2px;
   border-radius: 2px;
   background: var(--dash-accent);
+}
+
+.settings-heading > p:last-child {
+  line-height: 20px;
+}
+.settings-credentials {
+  min-height: 56px;
+}
+.settings-character-info .name {
+  line-height: 23px;
+}
+.settings-character-info .detail {
+  line-height: 17px;
+}
+@media (min-width: 1024px) {
+  .app-navigation[data-full-nav='true'] > a {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .app-navigation[data-full-nav='true'] > a:nth-child(1),
+  .app-navigation[data-full-nav='true'] > a:nth-child(2) {
+    width: 84px;
+  }
+  .app-navigation[data-full-nav='true'] > a:nth-child(3),
+  .app-navigation[data-full-nav='true'] > a:nth-child(4) {
+    width: 58px;
+  }
+  .app-navigation[data-full-nav='true'] > button {
+    width: 52px;
+  }
 }

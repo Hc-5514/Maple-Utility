@@ -14,17 +14,20 @@ export default function Header() {
   const settings = useLocation().pathname === '/settings'
   const themeAssets = settingsAssets[theme]
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `flex h-10 items-center rounded-[10px] px-4 text-[14px] transition-colors ${isActive ? 'bg-[var(--dash-accent)]/9 text-[var(--dash-accent)]' : 'text-[var(--dash-muted)] hover:text-[var(--dash-text)]'}`
+    `flex h-10 items-center rounded-[10px] px-4 text-[14px] leading-[17px] transition-colors ${isActive ? 'bg-[var(--dash-accent)]/9 text-[var(--dash-accent)]' : 'text-[var(--dash-muted)] hover:text-[var(--dash-text)]'}`
   return (
     <header
       data-theme={theme}
       className="dashboard-theme sticky top-0 z-40 border-b border-[var(--dash-border)] bg-[var(--dash-card)] text-[var(--dash-text)] backdrop-blur-[16px]"
     >
       <div className="relative flex min-h-[87px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-12 lg:py-0">
-        <Link to="/" className="text-[23px] font-bold">
+        <Link to="/" className="text-[23px] leading-[28px] font-bold lg:w-[182px] lg:shrink-0">
           🍁 메이플 유틸리티
         </Link>
-        <nav className="order-3 flex w-full flex-wrap items-center gap-2 lg:order-none lg:w-auto">
+        <nav
+          data-full-nav={Boolean(user && hasApiKey)}
+          className="app-navigation order-3 flex w-full flex-wrap items-center gap-2 lg:order-none lg:w-auto"
+        >
           {!user ? (
             <Link to="/login" className={navClass({ isActive: false })}>
               로그인
@@ -55,14 +58,14 @@ export default function Header() {
                     navigate('/login')
                   })
                 }}
-                className="min-h-10 text-[14px] text-[var(--dash-muted)]"
+                className="min-h-10 text-[14px] leading-5 text-[var(--dash-muted)]"
               >
                 로그아웃
               </button>
             </>
           )}
         </nav>
-        <div className="flex h-[38px] items-center gap-1 rounded-full border border-[var(--dash-border)] bg-[var(--dash-track)] p-1">
+        <div className="flex h-[38px] w-[72px] shrink-0 items-center gap-1 rounded-full border border-[var(--dash-border)] bg-[var(--dash-track)] p-[3px]">
           <button
             type="button"
             aria-label="라이트 모드"
