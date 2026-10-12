@@ -1,91 +1,123 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import DifficultyBadge from '../common/DifficultyBadge'
-import type { PageResponse, StatsBossItem } from '../../types'
+import GlassSelect from '../common/GlassSelect'
+import Pagination from '../common/Pagination'
+import StatsDifficultyBadge from './StatsDifficultyBadge'
 import type { BossItemPageSize } from '../../hooks/useStats'
+import type { PageResponse, StatsBossItem } from '../../types'
+
+const pageSizes: BossItemPageSize[] = [10, 20, 30]
+const columns: [string, string][] = [
+  ['날짜', 'w-[160px]'],
+  ['캐릭터', 'w-[150px]'],
+  ['보스', 'w-[310px]'],
+  ['난이도', 'w-[150px]'],
+  ['아이템', 'w-[430px]'],
+]
 
 interface Props {
   page: PageResponse<StatsBossItem>
+  bossName: string | null
+  bosses: string[]
+  onBossChange: (bossName: string | null) => void
   onPageChange: (page: number) => void
   onPageSizeChange: (size: BossItemPageSize) => void
 }
 
-export default function ItemAcquisitionList({ page, onPageChange, onPageSizeChange }: Props) {
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-white/60">
-        <span>총 {page.totalElements.toLocaleString()}건</span>
-        <label className="flex items-center gap-2">
-          <span>표시 건수</span>
-          <select
-            aria-label="페이지당 표시 건수"
-            value={page.size}
-            onChange={(event) => onPageSizeChange(Number(event.target.value) as BossItemPageSize)}
-            className="rounded border border-white/20 bg-[#2d2d44] px-2 py-1.5 text-white"
-          >
-            <option value={10}>10개</option>
-            <option value={20}>20개</option>
-            <option value={30}>30개</option>
-          </select>
-        </label>
+export default function ItemAcquisitionList({
+  page,
+  bossName,
+  bosses,
+  onBossChange,
+  onPageChange,
+  onPageSizeChange,
+}: Props) {
+  const cell = 'shrink-0 truncate text-[13px]'
+  const status =
+    page.totalElements === 0 ? (
+      <p className="border-b border-[var(--dash-border)] py-16 text-center text-[13px] text-[var(--dash-muted)]">
+        획득 기록이 없습니다
+      </p>
+    ) : page.content.length === 0 ? (
+      <div className="border-b border-[var(--dash-border)] py-16 text-center text-[13px] text-[var(--dash-muted)]">
+        <p>현재 페이지에 표시할 기록이 없습니다</p>
+        <button type="button" onClick={() => onPageChange(0)} className="mt-3 min-h-11 text-[var(--dash-accent)]">
+          첫 페이지
+        </button>
       </div>
-      {page.content.length === 0 ? (
-        <div className="rounded-lg bg-[#2d2d44] p-8 text-center text-sm text-white/40">
-          {page.totalElements === 0 ? '획득 기록이 없습니다' : (
-            <>
-              <p>현재 페이지에 표시할 기록이 없습니다</p>
-              <button type="button" onClick={() => onPageChange(0)} className="mt-3 text-white underline">
-                첫 페이지
-              </button>
-            </>
-          )}
+    ) : null
+  return (
+    <section className="relative rounded-2xl border border-[var(--dash-border)] bg-[var(--dash-card)] backdrop-blur-[12px]">
+      <div className="flex items-center justify-between px-6 pt-[11px] pb-3">
+        <span className="text-[12px] leading-[1.2] text-[var(--dash-muted)]">총 {page.totalElements.toLocaleString('ko-KR')}개</span>
+        <div className="flex gap-[10px]">
+          <GlassSelect
+            label="보스 필터"
+            value={bossName}
+            size="sm"
+            menu="compact"
+            align="right"
+            menuClassName="w-[220px]"
+            options={[{ value: null, label: '전체 보스' }, ...bosses.map((name) => ({ value: name, label: name }))]}
+            onChange={onBossChange}
+          />
+          <GlassSelect
+            label="표시 건수"
+            value={page.size as BossItemPageSize}
+            size="sm"
+            menu="compact"
+            align="right"
+            menuClassName="w-[140px]"
+            triggerLabel={`${page.size}개씩 보기`}
+            options={pageSizes.map((value) => ({ value, label: `${value}개씩` }))}
+            onChange={onPageSizeChange}
+          />
         </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg bg-[#2d2d44]">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/10 text-left text-white/50">
-                <th className="px-4 py-3 font-medium">날짜</th>
-                <th className="px-4 py-3 font-medium">캐릭터</th>
-                <th className="px-4 py-3 font-medium">보스</th>
-                <th className="px-4 py-3 font-medium">난이도</th>
-                <th className="px-4 py-3 font-medium">아이템</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {page.content.map((item, idx) => (
-                <tr key={`${item.acquiredDate}-${item.characterName}-${item.bossName}-${item.itemName}-${idx}`} className="text-white/80 hover:bg-white/5">
-                  <td className="px-4 py-3 tabular-nums">{item.acquiredDate}</td>
-                  <td className="px-4 py-3">{item.characterName}</td>
-                  <td className="px-4 py-3">{item.bossName}</td>
-                  <td className="px-4 py-3"><DifficultyBadge difficulty={item.difficulty} /></td>
-                  <td className="px-4 py-3">{item.itemName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      </div>
+      <div className="overflow-x-auto">
+        <div role="table" aria-label="보스 아이템 획득 이력" className="min-w-[1344px]">
+          <div
+            role="row"
+            className="flex h-11 items-center gap-6 bg-[var(--dash-track)] px-6 text-[12px] text-[var(--dash-muted)]"
+          >
+            {columns.map(([label, width]) => (
+              <span key={label} role="columnheader" className={`shrink-0 ${width}`}>
+                {label}
+              </span>
+            ))}
+          </div>
+          {status ??
+            page.content.map((item, index) => (
+              <div
+                key={`${item.acquiredDate}-${item.characterName}-${item.itemName}-${index}`}
+                role="row"
+                className="flex h-[62px] items-center gap-6 border-b border-[var(--dash-border)] px-6"
+              >
+                <span role="cell" className={`${cell} w-[160px] [font-family:Inter,sans-serif]`}>
+                  {item.acquiredDate}
+                </span>
+                <span role="cell" className={`${cell} w-[150px]`}>
+                  {item.characterName}
+                </span>
+                <span role="cell" className={`${cell} w-[310px]`}>
+                  {item.bossName}
+                </span>
+                <span role="cell" className="flex w-[150px] shrink-0">
+                  <StatsDifficultyBadge difficulty={item.difficulty} />
+                </span>
+                <span role="cell" className={`${cell} w-[430px]`}>
+                  {item.itemName}
+                </span>
+              </div>
+            ))}
         </div>
+      </div>
+      {page.totalElements > 0 && (
+        <Pagination
+          label="보스 아이템 획득 이력 페이지"
+          page={page.page}
+          totalPages={page.totalPages}
+          onPageChange={onPageChange}
+        />
       )}
-      {page.totalPages > 1 && page.page < page.totalPages && (
-        <nav aria-label="보스 아이템 획득 이력 페이지" className="flex items-center justify-center gap-3 text-sm text-white/80">
-          <button
-            type="button"
-            aria-label="이전 페이지"
-            title="이전 페이지"
-            disabled={page.page === 0}
-            onClick={() => onPageChange(page.page - 1)}
-            className="grid size-8 place-items-center rounded border border-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-          ><ChevronLeft size={16} /></button>
-          <span aria-live="polite" className="min-w-16 text-center tabular-nums">{page.page + 1} / {page.totalPages}</span>
-          <button
-            type="button"
-            aria-label="다음 페이지"
-            title="다음 페이지"
-            disabled={page.page + 1 >= page.totalPages}
-            onClick={() => onPageChange(page.page + 1)}
-            className="grid size-8 place-items-center rounded border border-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-          ><ChevronRight size={16} /></button>
-        </nav>
-      )}
-    </div>
+    </section>
   )
 }

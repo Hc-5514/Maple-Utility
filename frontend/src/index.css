@@ -65,6 +65,9 @@ body {
   --dash-popover-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
   --dash-primary: #7c4dff;
   --dash-meso: #34d7ee;
+  --dash-danger: #ff6b8b;
+  --dash-normal: #4ade80;
+  --dash-easy: #60a5fa;
   color-scheme: dark;
 }
 .dashboard-theme[data-theme='light'] {
@@ -87,6 +90,9 @@ body {
   --dash-popover-shadow: 0px 8px 24px rgba(101, 83, 148, 0.16);
   --dash-primary: #7c5cfa;
   --dash-meso: #0ea5c4;
+  --dash-danger: #e11d48;
+  --dash-normal: #16a34a;
+  --dash-easy: #2563eb;
   color-scheme: light;
 }
 .dashboard-theme * {
