@@ -3,15 +3,21 @@ package com.maple.utility.service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Comparator;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.dto.request.HuntingRecordRequest;
 import com.maple.utility.dto.response.HuntingRecordResponse;
+import com.maple.utility.dto.response.HuntingSummaryResponse;
+import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.entity.HuntingRecord;
 
 import com.maple.utility.entity.HuntingGround;
@@ -50,17 +56,60 @@ public class HuntingService {
 		this.userRepository = userRepository;
 	}
 
+	private static final Sort RECORD_SORT = Sort.by(Sort.Order.desc("recordDate"), Sort.Order.desc("id"));
+	private static final Set<Integer> PAGE_SIZES = Set.of(10, 20, 30);
+
 	@Transactional(readOnly = true)
 	public List<HuntingRecordResponse> getRecords(Long userId, Long characterId, LocalDate from, LocalDate to) {
-		validateDateRange(from, to);
-		Sort sort = Sort.by(Sort.Order.desc("recordDate"), Sort.Order.desc("id"));
-		List<HuntingRecord> records = characterId == null
-				? huntingRecordRepository.findAll(HuntingRecordSpecifications.favoriteRecords(userId, from, to), sort)
-				: huntingRecordRepository.findAll(
-						HuntingRecordSpecifications.characterRecords(findCharacter(userId, characterId).getId(), from, to), sort);
-		return records.stream()
+		return huntingRecordRepository.findAll(recordSpecification(userId, characterId, from, to), RECORD_SORT).stream()
 				.map(HuntingRecordResponse::from)
 				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	public PageResponse<HuntingRecordResponse> getRecordPage(
+			Long userId,
+			Long characterId,
+			LocalDate from,
+			LocalDate to,
+			int page,
+			int size
+	) {
+		if (page < 0 || !PAGE_SIZES.contains(size)) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAGE_REQUEST", "페이지 요청 오류");
+		}
+		Page<HuntingRecord> records = huntingRecordRepository.findAll(
+				recordSpecification(userId, characterId, from, to),
+				PageRequest.of(page, size, RECORD_SORT)
+		);
+		return new PageResponse<>(
+				records.map(HuntingRecordResponse::from).getContent(),
+				records.getTotalElements(),
+				records.getTotalPages(),
+				page,
+				size
+		);
+	}
+
+	@Transactional(readOnly = true)
+	public HuntingSummaryResponse getSummary(Long userId, Long characterId, LocalDate from, LocalDate to) {
+		List<HuntingRecord> records = huntingRecordRepository.findAll(recordSpecification(userId, characterId, from, to));
+		long totalMeso = 0;
+		long totalSolErda = 0;
+		long totalPlayDurationMin = 0;
+		for (HuntingRecord record : records) {
+			totalMeso += record.getMesoEarned();
+			totalSolErda += record.getSolErdaEarned();
+			if (record.getPlayDurationMin() != null) totalPlayDurationMin += record.getPlayDurationMin();
+		}
+		return new HuntingSummaryResponse(records.size(), totalMeso, totalSolErda, totalPlayDurationMin);
+	}
+
+	private Specification<HuntingRecord> recordSpecification(Long userId, Long characterId, LocalDate from, LocalDate to) {
+		validateDateRange(from, to);
+		return characterId == null
+				? HuntingRecordSpecifications.favoriteRecords(userId, from, to)
+				: HuntingRecordSpecifications.characterRecords(findCharacter(userId, characterId).getId(), from, to);
 	}
 
 	@Transactional(readOnly = true)

@@ -16,12 +16,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.maple.utility.dto.request.HuntingRecordRequest;
 import com.maple.utility.dto.response.HuntingRecordResponse;
+import com.maple.utility.dto.response.HuntingSummaryResponse;
+import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.entity.HuntingRecord;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
@@ -109,6 +114,75 @@ class HuntingServiceTest {
 		))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("조회 기간 오류");
+	}
+
+	@Test
+	void getRecordPageReturnsRequestedPageWithRecordSort() {
+		MapleCharacter character = character(user());
+		HuntingRecord record = huntingRecord(100L, character, LocalDate.parse("2026-07-14"));
+		Pageable pageable = PageRequest.of(1, 10, recordSort());
+		when(huntingRecordRepository.findAll(any(Specification.class), eq(pageable)))
+				.thenReturn(new PageImpl<>(List.of(record), pageable, 11));
+
+		PageResponse<HuntingRecordResponse> response = huntingService.getRecordPage(1L, null, null, null, 1, 10);
+
+		assertThat(response.content()).extracting(HuntingRecordResponse::id).containsExactly(100L);
+		assertThat(response.totalElements()).isEqualTo(11);
+		assertThat(response.totalPages()).isEqualTo(2);
+		assertThat(response.page()).isEqualTo(1);
+		assertThat(response.size()).isEqualTo(10);
+	}
+
+	@Test
+	void getRecordPageRejectsUnsupportedPageRequest() {
+		assertThatThrownBy(() -> huntingService.getRecordPage(1L, null, null, null, 0, 15))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("INVALID_PAGE_REQUEST"));
+		assertThatThrownBy(() -> huntingService.getRecordPage(1L, null, null, null, -1, 10))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("INVALID_PAGE_REQUEST"));
+	}
+
+	@Test
+	void getRecordPageRejectsNonFavoriteCharacter() {
+		MapleCharacter character = character(user());
+		character.toggleFavorite();
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+
+		assertThatThrownBy(() -> huntingService.getRecordPage(1L, 10L, null, null, 0, 10))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("CHARACTER_NOT_FAVORITE"));
+	}
+
+	@Test
+	void getSummaryTotalsAllMatchingRecords() {
+		MapleCharacter character = character(user());
+		HuntingRecord first = huntingRecord(100L, character, LocalDate.parse("2026-07-14"));
+		HuntingRecord second = huntingRecord(101L, character, LocalDate.parse("2026-07-15"));
+		ReflectionTestUtils.setField(second, "playDurationMin", null);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(huntingRecordRepository.findAll(any(Specification.class))).thenReturn(List.of(first, second));
+
+		HuntingSummaryResponse response = huntingService.getSummary(
+				1L,
+				10L,
+				LocalDate.parse("2026-07-01"),
+				LocalDate.parse("2026-07-31")
+		);
+
+		assertThat(response).isEqualTo(new HuntingSummaryResponse(2, 20_000_000L, 24, 60));
+	}
+
+	@Test
+	void getSummaryRejectsInvalidDateRange() {
+		assertThatThrownBy(() -> huntingService.getSummary(
+				1L,
+				null,
+				LocalDate.parse("2026-07-31"),
+				LocalDate.parse("2026-07-01")
+		))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo("INVALID_DATE_RANGE"));
 	}
 
 	@Test
