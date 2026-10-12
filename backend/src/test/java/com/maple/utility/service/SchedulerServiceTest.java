@@ -322,16 +322,66 @@ class SchedulerServiceTest {
 	}
 
 	@Test
-	void saveManualWeeklyBossesRejectsMoreThanTwelveSelections() {
+	void saveManualWeeklyBossesRejectsMoreThanElevenSelections() {
 		User user = user();
 		MapleCharacter character = character(user);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 
 		assertThatThrownBy(() -> schedulerService.saveManualBossRecords(1L, 10L,
 				new ManualBossRecordSaveRequest(LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY,
-						List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L))))
+						List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L))))
 				.isInstanceOf(ApiException.class)
-				.hasMessageContaining("선택 한도");
+				.hasMessageContaining("주간 보스 선택 한도");
+	}
+
+	@Test
+	void saveManualMonthlyBossesRejectsMoreThanOneSelection() {
+		MapleCharacter character = character(user());
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+
+		assertThatThrownBy(() -> schedulerService.saveManualBossRecords(1L, 10L,
+				new ManualBossRecordSaveRequest(LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY, List.of(1L, 2L))))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("월간 보스 선택 한도");
+	}
+
+	@Test
+	void addBossesRejectsSecondDifficultyOfSameBoss() {
+		MapleCharacter character = character(user());
+		BossMaster hard = boss(20L, ResetPeriod.WEEKLY);
+		BossMaster extreme = boss(21L, ResetPeriod.WEEKLY);
+		LocalDate start = LocalDate.parse("2026-07-09");
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(ResetPeriod.WEEKLY)).thenReturn(List.of(hard, extreme));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, start, start.plusDays(6), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, start, ResetPeriod.WEEKLY))
+				.thenReturn(List.of(BossPeriodSelection.create(character, hard, start, true)));
+
+		assertThatThrownBy(() -> schedulerService.addBossesToPeriod(1L, 10L,
+				new ManualBossRecordSaveRequest(start, ResetPeriod.WEEKLY, List.of(21L))))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("1개 난이도");
+	}
+
+	@Test
+	void addBossesRejectsMonthlySelectionBeyondOne() {
+		MapleCharacter character = character(user());
+		BossMaster current = boss(30L, ResetPeriod.MONTHLY);
+		BossMaster other = boss(31L, ResetPeriod.MONTHLY);
+		ReflectionTestUtils.setField(other, "bossName", "검은 마법사");
+		LocalDate start = LocalDate.parse("2026-07-01");
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(ResetPeriod.MONTHLY)).thenReturn(List.of(current, other));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, start, start.plusMonths(1).minusDays(1), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, start, ResetPeriod.MONTHLY))
+				.thenReturn(List.of(BossPeriodSelection.create(character, current, start, true)));
+
+		assertThatThrownBy(() -> schedulerService.addBossesToPeriod(1L, 10L,
+				new ManualBossRecordSaveRequest(start, ResetPeriod.MONTHLY, List.of(31L))))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("월간 보스 선택 한도");
 	}
 
 	@Test
