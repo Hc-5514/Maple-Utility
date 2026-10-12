@@ -28,7 +28,7 @@ function BossGroup({
   limit: number
   records: SchedulerBossRecord[]
   onClickDetail: (record: SchedulerBossRecord) => void
-  onDelete: (record: SchedulerBossRecord) => void
+  onDelete?: (record: SchedulerBossRecord) => void
 }) {
   return (
     <>
@@ -43,7 +43,7 @@ function BossGroup({
               key={record.id ?? `${record.characterId}-${record.bossId}-${idx}`}
               record={record}
               onClickDetail={() => onClickDetail(record)}
-              onDelete={() => onDelete(record)}
+              onDelete={onDelete && (() => onDelete(record))}
             />
           ))}
         </div>
@@ -121,6 +121,10 @@ export default function BossContent({ characterId, date }: Props) {
   }
 
   const weeklyRecords = bossRecords?.weeklyBosses ?? []
+  const customizable = {
+    WEEKLY: bossRecords?.weeklyCustomizable === true,
+    MONTHLY: bossRecords?.monthlyCustomizable === true,
+  }
   const monthlyRecords = bossRecords?.monthlyBosses ?? []
   const weekOptions = Array.from({ length: 12 }, (_, index) => {
     const current = new Date(`${thursdayWeekStart(pageDate)}T12:00:00`)
@@ -215,7 +219,10 @@ export default function BossContent({ characterId, date }: Props) {
               setSelectedRecord(null)
             }}
           />
-          <button type="button" onClick={() => setSelecting(true)} disabled={isLoading || isError} className={controlButton}>
+          <button type="button" onClick={() => setSelecting(true)}
+            disabled={isLoading || isError || (!customizable.WEEKLY && !customizable.MONTHLY)}
+            title={!customizable.WEEKLY && !customizable.MONTHLY ? '최근 3주·이번 달은 넥슨 스케줄러 기록으로 표시됩니다' : undefined}
+            className={`${controlButton} disabled:cursor-not-allowed disabled:opacity-40`}>
             <img src={assets.imgManage} alt="" className="size-4" />
             보스 선택
           </button>
@@ -249,14 +256,14 @@ export default function BossContent({ characterId, date }: Props) {
             limit={BOSS_LIMITS.WEEKLY}
             records={weeklyRecords}
             onClickDetail={setSelectedRecord}
-            onDelete={setPendingDelete}
+            onDelete={customizable.WEEKLY ? setPendingDelete : undefined}
           />
           <BossGroup
             title="월간 보스"
             limit={BOSS_LIMITS.MONTHLY}
             records={monthlyRecords}
             onClickDetail={setSelectedRecord}
-            onDelete={setPendingDelete}
+            onDelete={customizable.MONTHLY ? setPendingDelete : undefined}
           />
         </>
       )}
@@ -266,6 +273,7 @@ export default function BossContent({ characterId, date }: Props) {
           characterId={characterId}
           weeklyRecords={weeklyRecords}
           monthlyRecords={monthlyRecords}
+          customizable={customizable}
           onClose={() => setSelecting(false)}
           onSave={saveSelection}
         />

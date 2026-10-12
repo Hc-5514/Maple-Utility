@@ -7,7 +7,12 @@ import { useBossCandidates } from '../../hooks/useCharacterDetail'
 import { countPill } from './styles'
 import type { BossCandidate, ResetPeriod, SchedulerBossRecord } from '../../types'
 
-export const BOSS_LIMITS: Record<ResetPeriod, number> = { WEEKLY: 11, MONTHLY: 1 }
+export const BOSS_LIMITS: Record<ResetPeriod, number> = { WEEKLY: 12, MONTHLY: 1 }
+
+const LOCKED_NOTICE: Record<ResetPeriod, string> = {
+  WEEKLY: '최근 3주는 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
+  MONTHLY: '이번 달은 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
+}
 
 export interface BossSelectionChange {
   add: Record<ResetPeriod, number[]>
@@ -18,6 +23,7 @@ interface Props {
   characterId: number
   weeklyRecords: SchedulerBossRecord[]
   monthlyRecords: SchedulerBossRecord[]
+  customizable: Record<ResetPeriod, boolean>
   onClose: () => void
   onSave: (change: BossSelectionChange) => Promise<void>
 }
@@ -45,7 +51,7 @@ function BossOption({ boss, checked, disabled, onToggle }: {
   )
 }
 
-export default function BossSelectionModal({ characterId, weeklyRecords, monthlyRecords, onClose, onSave }: Props) {
+export default function BossSelectionModal({ characterId, weeklyRecords, monthlyRecords, customizable, onClose, onSave }: Props) {
   const weekly = useBossCandidates(characterId, 'WEEKLY')
   const monthly = useBossCandidates(characterId, 'MONTHLY')
   const [selected, setSelected] = useState<Record<ResetPeriod, number[]>>({
@@ -68,6 +74,7 @@ export default function BossSelectionModal({ characterId, weeklyRecords, monthly
   }
 
   const isDisabled = (period: ResetPeriod, boss: BossCandidate) => {
+    if (!customizable[period]) return true
     const ids = selected[period]
     if (ids.includes(boss.id)) return false
     if (ids.length >= BOSS_LIMITS[period]) return true
@@ -109,7 +116,9 @@ export default function BossSelectionModal({ characterId, weeklyRecords, monthly
     <div className="flex items-center gap-[10px]">
       <h3 className="text-[16px] font-bold">{title}</h3>
       <span className={countPill}>{selected[period].length}/{BOSS_LIMITS[period]}</span>
-      {period === 'WEEKLY' && selected[period].length >= BOSS_LIMITS[period] && (
+      {!customizable[period] ? (
+        <span className="ml-auto text-[12px] text-[var(--dash-muted)]">{LOCKED_NOTICE[period]}</span>
+      ) : period === 'WEEKLY' && selected[period].length >= BOSS_LIMITS[period] && (
         <span className="ml-auto text-[12px] text-[var(--dash-muted)]">최대 개수를 모두 선택했습니다</span>
       )}
     </div>

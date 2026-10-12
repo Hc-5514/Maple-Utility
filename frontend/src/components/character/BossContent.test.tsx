@@ -109,7 +109,7 @@ describe('BossContent', () => {
           crystalPrice: 51_500_000, resetPeriod: 'WEEKLY',
         }] : [] } } as AxiosResponse
       }
-      return { data: { success: true, data: { weeklyBosses: [], monthlyBosses: [] } } } as AxiosResponse
+      return { data: { success: true, data: { weeklyBosses: [], monthlyBosses: [], weeklyCustomizable: true, monthlyCustomizable: true } } } as AxiosResponse
     })
     const post = vi.spyOn(client, 'post').mockResolvedValue({
       data: { success: true, data: [] },
@@ -138,7 +138,7 @@ describe('BossContent', () => {
       return { data: { success: true, data: { weeklyBosses: [{
         characterId: 1, bossId: 5, bossName: '스우', difficulty: 'HARD',
         resetPeriod: 'WEEKLY', isCompleted: true, syncedAt: null,
-      }], monthlyBosses: [] } } } as AxiosResponse
+      }], monthlyBosses: [], weeklyCustomizable: true, monthlyCustomizable: true } } } as AxiosResponse
     })
     const remove = vi.spyOn(client, 'delete').mockResolvedValue({ data: { success: true } } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -160,12 +160,28 @@ describe('BossContent', () => {
     ))
   })
 
+  it('locks boss customization for recent scheduler periods', async () => {
+    vi.spyOn(client, 'get').mockResolvedValue({
+      data: { success: true, data: { weeklyBosses: [{
+        characterId: 1, bossId: 5, bossName: '스우', difficulty: 'HARD',
+        resetPeriod: 'WEEKLY', isCompleted: true, syncedAt: null,
+      }], monthlyBosses: [], weeklyCustomizable: false, monthlyCustomizable: false } },
+    } as AxiosResponse)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+
+    expect(await screen.findByText('스우')).toBeTruthy()
+    expect((screen.getByRole('button', { name: '보스 선택' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: '스우 삭제' })).toBeNull()
+  })
+
   it('deletes a boss and its selected-period acquisitions after confirmation', async () => {
     vi.spyOn(client, 'get').mockResolvedValue({
       data: { success: true, data: { weeklyBosses: [{
         characterId: 1, bossId: 5, bossName: '스우', difficulty: 'HARD',
         resetPeriod: 'WEEKLY', isCompleted: true, syncedAt: null,
-      }], monthlyBosses: [] } },
+      }], monthlyBosses: [], weeklyCustomizable: true, monthlyCustomizable: true } },
     } as AxiosResponse)
     const remove = vi.spyOn(client, 'delete').mockResolvedValue({ data: { success: true } } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
