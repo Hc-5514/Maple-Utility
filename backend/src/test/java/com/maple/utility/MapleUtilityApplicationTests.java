@@ -41,6 +41,9 @@ import com.maple.utility.repository.UserSelectedWorldRepository;
 })
 class MapleUtilityApplicationTests {
 	@MockitoBean
+	private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+	@MockitoBean
 	private JdbcTemplate jdbcTemplate;
 
 	@MockitoBean

@@ -16,6 +16,7 @@ import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
 import com.maple.utility.repository.UserRepository;
 import com.maple.utility.service.SyncJobService;
+import com.maple.utility.service.SchedulerWeekFinalizationService;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerBatchJobTest {
@@ -26,11 +27,14 @@ class SchedulerBatchJobTest {
 	@Mock
 	private SyncJobService syncJobService;
 
+	@Mock
+	private SchedulerWeekFinalizationService finalizationService;
+
 	private SchedulerBatchJob schedulerBatchJob;
 
 	@BeforeEach
 	void setUp() {
-		schedulerBatchJob = new SchedulerBatchJob(userRepository, syncJobService);
+		schedulerBatchJob = new SchedulerBatchJob(userRepository, syncJobService, finalizationService);
 	}
 
 	@Test
@@ -43,6 +47,12 @@ class SchedulerBatchJobTest {
 
 		verify(syncJobService).startScheduler(1L, true, true);
 		verify(syncJobService).startScheduler(2L, true, true);
+	}
+
+	@Test
+	void weeklyFinalizationUsesDedicatedService() {
+		schedulerBatchJob.finalizeWeeklyScheduler();
+		verify(finalizationService).finalizeWeeks();
 	}
 
 	private User user(Long id) {
