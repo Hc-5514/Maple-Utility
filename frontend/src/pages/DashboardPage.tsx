@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw } from 'lucide-react'
 import client from '../api/client'
 import type { ApiResponse, SyncJob } from '../types'
 import { useSchedulerSummary } from '../hooks/useScheduler'
@@ -82,19 +81,16 @@ export default function DashboardPage() {
         </div>
         <div className="flex flex-col items-end gap-3">
           <div className="flex items-center gap-2 text-[12px] text-[var(--dash-muted)]">
-            <span>
-              {syncJob?.status === 'STARTED'
-                ? `동기화 중 ${syncJob.completedCount}/${syncJob.totalCount}`
-                : `마지막 동기화 · ${syncedAt}`}
-            </span>
             <button
               type="button"
               onClick={() => syncMutation.mutate(true)}
               disabled={syncMutation.isPending || syncJob?.status === 'STARTED'}
               aria-label="지금 동기화"
-              className="flex size-6 items-center justify-center rounded-md disabled:opacity-40"
+              className="rounded-md text-left disabled:opacity-60"
             >
-              <RefreshCw size={14} />
+              {syncJob?.status === 'STARTED'
+                ? `동기화 중 ${syncJob.completedCount}/${syncJob.totalCount}`
+                : `마지막 동기화 · ${syncedAt}`}
             </button>
           </div>
           <button
@@ -104,7 +100,7 @@ export default function DashboardPage() {
             className="flex h-11 items-center gap-2 rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] px-[18px] text-[14px] font-bold disabled:opacity-40"
           >
             <img src={assets.imgControlIcon2} alt="" />
-            캐릭터 관리
+            월드 선택
           </button>
         </div>
       </div>

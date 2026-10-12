@@ -35,6 +35,8 @@ export default function WeeklyPeriodSelect({
     return () => document.removeEventListener('mousedown', close)
   }, [])
   const weeks = recentWeeks()
+  const selectedWeek = weeks.find((week) => week.date === value) ?? weeks[0]
+  const selectedLabel = `${selectedWeek.start.replace(/-/g, '.')} ~ ${selectedWeek.end.replace(/-/g, '.')}`
   return (
     <div
       ref={root}
@@ -48,17 +50,21 @@ export default function WeeklyPeriodSelect({
         aria-expanded={open}
         aria-controls="weekly-period-options"
         onClick={() => setOpen(!open)}
-        className="flex h-11 items-center gap-3 rounded-[10px] border border-[var(--dash-accent)]/50 bg-[var(--dash-accent)]/9 px-5 text-[14px] font-bold"
+        className={`flex h-11 w-[245px] items-center rounded-[10px] border border-[var(--dash-accent)]/50 bg-[var(--dash-accent)]/9 text-[14px] font-bold ${theme === 'light' ? 'gap-3 px-5' : 'gap-2 px-6'}`}
       >
         <img src={assets.imgControlIcon3} alt="" className={open ? 'rotate-180' : ''} />
-        주간 보스 기간
+        <span className="whitespace-nowrap [font-family:'Noto_Sans_KR',sans-serif]">
+          {selectedLabel}
+        </span>
       </button>
       {open && (
         <div
           id="weekly-period-options"
           className="absolute top-[52px] right-0 z-30 w-[245px] overflow-hidden rounded-xl border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[7px] shadow-[var(--dash-menu-shadow)] backdrop-blur-[16px]"
         >
-          <div className="period-menu-scroll flex max-h-[196px] w-[calc(100%+8px)] flex-col gap-1 overflow-y-auto">
+          <div
+            className={`period-menu-scroll flex max-h-[196px] flex-col gap-1 overflow-y-auto ${theme === 'light' ? 'w-[calc(100%+8px)]' : 'w-[calc(100%+4px)]'}`}
+          >
             {weeks.map((week) => (
               <button
                 key={week.start}
@@ -68,7 +74,7 @@ export default function WeeklyPeriodSelect({
                   onChange(week.date)
                   setOpen(false)
                 }}
-                className={`flex min-h-[46px] items-center justify-between rounded-lg px-[14px] text-[14px] leading-[17px] [font-family:Inter,sans-serif] ${value === week.date ? 'bg-[var(--dash-selected)] font-semibold text-[var(--dash-accent)]' : 'hover:bg-[var(--dash-track)]'}`}
+                className={`flex min-h-[46px] items-center justify-between rounded-lg pl-[14px] text-[14px] leading-[17px] [font-family:Inter,sans-serif] ${theme === 'light' ? 'pr-[14px]' : 'pr-1'} ${value === week.date ? 'bg-[var(--dash-selected)] font-semibold text-[var(--dash-accent)]' : 'hover:bg-[var(--dash-track)]'}`}
               >
                 <span className="whitespace-nowrap">
                   {week.start.replace(/-/g, '.')} ~ {week.end.replace(/-/g, '.')}

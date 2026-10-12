@@ -77,7 +77,7 @@ export default function WorldSelectionModal({ selectedWorlds, onClose, onSave }:
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <h2 id={titleId} className="text-[26px] font-bold leading-[1.25]">
-              캐릭터 관리
+              월드 선택
             </h2>
             <button
               type="button"
@@ -89,21 +89,18 @@ export default function WorldSelectionModal({ selectedWorlds, onClose, onSave }:
               <img src={assets.imgX} alt="" />
             </button>
           </div>
-          <p className="text-[14px] leading-[1.45] text-[var(--dash-muted)]">
-            {theme === 'light'
-              ? '관리할 월드를 여러 개 선택할 수 있습니다.'
-              : '여러 월드를 동시에 선택할 수 있습니다.'}
-          </p>
-        </div>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-[16px] font-bold">월드 선택</h3>
-            <div className={theme === 'light' ? 'flex gap-3' : 'flex gap-2'}>
+          <div className="flex w-full items-center justify-between gap-2">
+            <p className="text-[14px] leading-[1.45] text-[var(--dash-muted)]">
+              {theme === 'light'
+                ? '관리할 월드를 여러 개 선택할 수 있습니다.'
+                : '여러 월드를 동시에 선택할 수 있습니다.'}
+            </p>
+            <div className={theme === 'light' ? 'flex shrink-0 gap-3' : 'flex shrink-0 gap-2'}>
               <button
                 type="button"
                 disabled={saving}
                 onClick={() => setSelected(worldNames)}
-                className={`rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] font-bold ${theme === 'light' ? 'h-10 px-4 text-[14px]' : 'h-8 px-3 text-[13px] text-[var(--dash-muted)]'}`}
+                className={`rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] font-bold ${theme === 'light' ? 'h-10 px-4 text-[14px] text-[var(--dash-text)]' : 'h-8 px-3 text-[13px] text-[var(--dash-muted)]'}`}
               >
                 전체 월드 선택
               </button>
@@ -118,37 +115,37 @@ export default function WorldSelectionModal({ selectedWorlds, onClose, onSave }:
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {worlds.map(([name, image]) => {
-              const checked = selected.includes(name)
-              return (
-                <label
-                  key={name}
-                  className={`relative flex h-16 cursor-pointer items-center gap-3 rounded-xl border px-[18px] text-[15px] ${checked ? 'border-[var(--dash-accent)] bg-[var(--dash-selected)] font-bold text-[var(--dash-accent)]' : 'border-[var(--dash-border)] bg-[var(--dash-card)] font-medium'}`}
-                >
-                  <input
-                    type="checkbox"
-                    aria-label={name}
-                    checked={checked}
-                    disabled={saving}
-                    onChange={() =>
-                      setSelected((value) =>
-                        checked ? value.filter((world) => world !== name) : [...value, name]
-                      )
-                    }
-                    className="peer absolute size-[18px] opacity-0"
-                  />
-                  <img
-                    src={checked ? assets.imgSelectionIndicator : assets.imgSelectionIndicator1}
-                    alt=""
-                    className="shrink-0 peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--dash-accent)]"
-                  />
-                  <img src={image} alt="" className="size-7 shrink-0 object-contain" />
-                  <span>{name}</span>
-                </label>
-              )
-            })}
-          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {worlds.map(([name, image]) => {
+            const checked = selected.includes(name)
+            return (
+              <label
+                key={name}
+                className={`relative flex h-16 cursor-pointer items-center gap-3 rounded-xl px-[18px] text-[15px] ${checked ? 'border-[1.5px] border-[var(--dash-accent)] bg-[var(--dash-selected)] font-bold text-[var(--dash-accent)]' : 'border border-[var(--dash-border)] bg-[var(--dash-card)] font-medium'}`}
+              >
+                <input
+                  type="checkbox"
+                  aria-label={name}
+                  checked={checked}
+                  disabled={saving}
+                  onChange={() =>
+                    setSelected((value) =>
+                      checked ? value.filter((world) => world !== name) : [...value, name]
+                    )
+                  }
+                  className="peer absolute size-[18px] opacity-0"
+                />
+                <img
+                  src={checked ? assets.imgSelectionIndicator : assets.imgSelectionIndicator1}
+                  alt=""
+                  className="shrink-0 peer-focus-visible:outline-2 peer-focus-visible:outline-[var(--dash-accent)]"
+                />
+                <img src={image} alt="" className="size-7 shrink-0 object-contain" />
+                <span>{name}</span>
+              </label>
+            )
+          })}
         </div>
         {error && (
           <p role="alert" className="text-sm text-red-500">

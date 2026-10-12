@@ -49,6 +49,21 @@ describe('dashboard interactions', () => {
     expect(close).toHaveBeenCalledOnce()
     expect(save).not.toHaveBeenCalled()
   })
+  it('closes from the X control', () => {
+    const close = vi.fn()
+    render(<WorldSelectionModal selectedWorlds={[]} onClose={close} onSave={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }))
+    expect(close).toHaveBeenCalledOnce()
+  })
+  it('keeps the dialog open while a save is in progress', () => {
+    const close = vi.fn()
+    const save = vi.fn(() => new Promise(() => {}))
+    render(<WorldSelectionModal selectedWorlds={[]} onClose={close} onSave={save} />)
+    fireEvent.click(screen.getByRole('button', { name: '선택 완료' }))
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(close).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '닫기' })).toHaveProperty('disabled', true)
+  })
   it('retains selection after saving fails and allows retry', async () => {
     const save = vi
         .fn()
@@ -67,7 +82,8 @@ describe('dashboard interactions', () => {
     const change = vi.fn(),
       weeks = recentWeeks()
     render(<WeeklyPeriodSelect value={weeks[0].date} onChange={change} />)
-    fireEvent.click(screen.getByText('주간 보스 기간'))
+    const selectedLabel = `${weeks[0].start.replace(/-/g, '.')} ~ ${weeks[0].end.replace(/-/g, '.')}`
+    fireEvent.click(screen.getByRole('button', { name: selectedLabel }))
     fireEvent.click(
       screen.getByText(weeks[1].start.replace(/-/g, '.') + ' ~ ' + weeks[1].end.replace(/-/g, '.'))
     )
