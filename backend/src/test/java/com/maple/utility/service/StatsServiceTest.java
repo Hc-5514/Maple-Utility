@@ -124,19 +124,38 @@ class StatsServiceTest {
 		);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		PageResponse<StatsBossItemResponse> expected = new PageResponse<>(rows, 21, 3, 1, 10);
-		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, 1, 10)).thenReturn(expected);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, 1, 10)).thenReturn(expected);
 
-		PageResponse<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null, 1, 10);
+		PageResponse<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null, null, 1, 10);
 
 		assertThat(response).isEqualTo(expected);
 	}
 
 	@Test
+	void getBossItemStatsPassesTrimmedBossNameAndIgnoresBlank() {
+		MapleCharacter character = character(user(), 10L);
+		PageResponse<StatsBossItemResponse> empty = new PageResponse<>(List.of(), 0, 0, 0, 10);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(statsQueryRepository.findBossItemStats(List.of(10L), "스우", null, null, 0, 10)).thenReturn(empty);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, 0, 10)).thenReturn(empty);
+
+		assertThat(statsService.getBossItemStats(1L, 10L, " 스우 ", null, null, 0, 10)).isEqualTo(empty);
+		assertThat(statsService.getBossItemStats(1L, 10L, "  ", null, null, 0, 10)).isEqualTo(empty);
+	}
+
+	@Test
+	void getBossNamesReturnsCatalogOrder() {
+		when(statsQueryRepository.findActiveBossNames()).thenReturn(List.of("자쿰", "매그너스", "검은 마법사"));
+
+		assertThat(statsService.getBossNames()).containsExactly("자쿰", "매그너스", "검은 마법사");
+	}
+
+	@Test
 	void getBossItemStatsRejectsInvalidPagination() {
-		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, -1, 10))
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, -1, 10))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("페이지 요청 오류");
-		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, 0, 11))
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, 0, 11))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("페이지 요청 오류");
 	}
