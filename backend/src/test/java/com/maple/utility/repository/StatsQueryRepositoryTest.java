@@ -72,23 +72,54 @@ class StatsQueryRepositoryTest {
 		entityManager.clear();
 
 		PageResponse<StatsBossItemResponse> first = repository.findBossItemStats(
-				List.of(character.getId()), null, null, 0, 10);
+				List.of(character.getId()), null, null, null, 0, 10);
 		PageResponse<StatsBossItemResponse> second = repository.findBossItemStats(
-				List.of(character.getId()), null, null, 1, 10);
+				List.of(character.getId()), null, null, null, 1, 10);
 
 		assertThat(first.totalElements()).isEqualTo(11);
 		assertThat(first.totalPages()).isEqualTo(2);
 		assertThat(first.content()).hasSize(10).allSatisfy(item -> assertThat(item.itemName()).isEqualTo("일반 전리품"));
 		assertThat(second.content()).hasSize(1);
-		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()),
+		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), null,
 				LocalDate.parse("2026-10-01"), null, 0, 20).totalElements()).isEqualTo(11);
-		assertThat(repository.findBossItemStats(List.of(other.getId()), null, null, 0, 10).totalElements())
+		assertThat(repository.findBossItemStats(List.of(other.getId()), null, null, null, 0, 10).totalElements())
 				.isEqualTo(1);
-		assertThat(repository.findBossItemStats(List.of(), null, null, 0, 10).totalElements())
+		assertThat(repository.findBossItemStats(List.of(), null, null, null, 0, 10).totalElements())
 				.isZero();
+		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), "스우", null, null, 0, 10)
+				.totalElements()).isEqualTo(12);
+		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), "자쿰", null, null, 0, 10)
+				.totalElements()).isZero();
 		assertThat(repository.findCompletedBossCrystalRows(List.of(character.getId()), null, null))
 				.extracting(StatsQueryRepository.CrystalIncomeRow::income)
 				.containsExactly(12_000L);
+	}
+
+	@Test
+	void activeBossNamesFollowCatalogSortOrderOnce() {
+		entityManager.createNativeQuery("ALTER TABLE boss_master ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP")
+				.executeUpdate();
+		entityManager.createNativeQuery("ALTER TABLE boss_master ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP")
+				.executeUpdate();
+		boss("검은 마법사", Difficulty.HARD, 330, true);
+		boss("자쿰", Difficulty.CHAOS, 100, true);
+		boss("스우", Difficulty.NORMAL, 170, true);
+		boss("스우", Difficulty.HARD, 171, true);
+		boss("매그너스", Difficulty.HARD, 110, true);
+		boss("비활성 보스", Difficulty.EASY, 1, false);
+		entityManager.flush();
+
+		assertThat(repository.findActiveBossNames()).containsExactly("자쿰", "매그너스", "스우", "검은 마법사");
+	}
+
+	private void boss(String bossName, Difficulty difficulty, int sortOrder, boolean active) {
+		BossMaster boss = BeanUtils.instantiateClass(BossMaster.class);
+		ReflectionTestUtils.setField(boss, "bossName", bossName);
+		ReflectionTestUtils.setField(boss, "difficulty", difficulty);
+		ReflectionTestUtils.setField(boss, "resetPeriod", ResetPeriod.WEEKLY);
+		ReflectionTestUtils.setField(boss, "sortOrder", sortOrder);
+		ReflectionTestUtils.setField(boss, "active", active);
+		entityManager.persist(boss);
 	}
 
 	private BossDropItem dropItem(BossMaster boss, String itemName, BossItemKind itemKind) {
