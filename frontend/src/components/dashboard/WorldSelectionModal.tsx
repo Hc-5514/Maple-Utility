@@ -5,11 +5,17 @@ import { dashboardAssets } from './assets'
 import { worlds, worldNames } from './worlds'
 
 interface Props {
+  placement?: 'dashboard' | 'settings'
   selectedWorlds: string[]
   onClose: () => void
   onSave: (worldNames: string[]) => Promise<unknown>
 }
-export default function WorldSelectionModal({ selectedWorlds, onClose, onSave }: Props) {
+export default function WorldSelectionModal({
+  selectedWorlds,
+  onClose,
+  onSave,
+  placement = 'dashboard',
+}: Props) {
   const { theme } = useThemeStore()
   const assets = dashboardAssets[theme]
   const [selected, setSelected] = useState(selectedWorlds)
@@ -72,6 +78,11 @@ export default function WorldSelectionModal({ selectedWorlds, onClose, onSave }:
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
+        style={
+          placement === 'settings'
+            ? { marginTop: `min(26.8vh, ${theme === 'light' ? 326 : 317}px)` }
+            : undefined
+        }
         className="relative mx-auto mt-[min(22vh,248px)] mb-4 flex w-[calc(100%-32px)] max-w-[800px] flex-col gap-6 rounded-[24px] border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[23px] text-[var(--dash-text)] shadow-[var(--dash-modal-shadow)] backdrop-blur-[16px] sm:p-[31px]"
       >
         <div className="flex flex-col gap-2">
@@ -89,7 +100,7 @@ export default function WorldSelectionModal({ selectedWorlds, onClose, onSave }:
               <img src={assets.imgX} alt="" />
             </button>
           </div>
-          <div className="flex w-full items-center justify-between gap-2">
+          <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
             <p className="text-[14px] leading-[1.45] text-[var(--dash-muted)]">
               {theme === 'light'
                 ? '관리할 월드를 여러 개 선택할 수 있습니다.'
@@ -122,7 +133,7 @@ export default function WorldSelectionModal({ selectedWorlds, onClose, onSave }:
             return (
               <label
                 key={name}
-                className={`relative flex h-16 cursor-pointer items-center gap-3 rounded-xl px-[18px] text-[15px] ${checked ? 'border-[1.5px] border-[var(--dash-accent)] bg-[var(--dash-selected)] font-bold text-[var(--dash-accent)]' : 'border border-[var(--dash-border)] bg-[var(--dash-card)] font-medium'}`}
+                className={`relative flex h-16 cursor-pointer items-center gap-2 rounded-xl px-2 text-[14px] sm:gap-3 sm:px-[18px] sm:text-[15px] ${checked ? 'border-[1.5px] border-[var(--dash-accent)] bg-[var(--dash-selected)] font-bold text-[var(--dash-accent)]' : 'border border-[var(--dash-border)] bg-[var(--dash-card)] font-medium'}`}
               >
                 <input
                   type="checkbox"

@@ -1,39 +1,49 @@
-import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, RefreshCw, Save } from 'lucide-react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
+import { isAxiosError } from 'axios'
 import { useAuthStore } from '../stores/authStore'
 import { useCharacterStore } from '../stores/characterStore'
-import Modal from '../components/common/Modal'
-import type { ApiKeyStatus, ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
+import { useThemeStore } from '../stores/themeStore'
+import { useSaveWorldSelection, useWorldSelection } from '../hooks/useWorldSelection'
+import { useUnsavedChanges } from '../router/UnsavedChangesGuard'
+import ThemedConfirmDialog from '../components/common/ThemedConfirmDialog'
+import WorldSelectionModal from '../components/dashboard/WorldSelectionModal'
+import { settingsAssets } from '../components/settings/assets'
+import type { ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
 
-// ─── API Key 섹션 ──────────────────────────────────────────────────────────────
-
-const statusConfig: Record<ApiKeyStatus, { label: string; color: string }> = {
-  ACTIVE: { label: 'ACTIVE', color: '#4ade80' },
-  INVALID: { label: 'INVALID', color: '#f97316' },
-  EXPIRED: { label: 'EXPIRED', color: '#f87171' },
+export function formatVerifiedAt(value: string | null) {
+  if (!value) return '미인증'
+  const date = new Date(/(?:Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : value + '+09:00')
+  if (Number.isNaN(date.getTime())) return '미인증'
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((part) => part.type === type)?.value
+  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`
 }
-
 function ApiKeySection() {
   const queryClient = useQueryClient()
   const { setHasApiKey } = useAuthStore()
+  const { theme } = useThemeStore()
+  const assets = settingsAssets[theme]
   const [inputKey, setInputKey] = useState('')
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-
-  const { data: apiKeyRes, isLoading } = useQuery({
+  const [deleting, setDeleting] = useState(false)
+  const closeDelete = useCallback(() => setDeleting(false), [])
+  const status = useQuery({
     queryKey: ['api-key/status'],
     queryFn: async () => {
-      try {
-        const { data } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
-        return data.data
-      } catch {
-        return null
-      }
+      const { data } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
+      return data.data
     },
   })
-
-  const registerMutation = useMutation({
+  const register = useMutation({
     mutationFn: async (apiKey: string) => {
       await client.post('/api-key', { apiKey })
     },
@@ -43,386 +53,485 @@ function ApiKeySection() {
       void queryClient.invalidateQueries({ queryKey: ['api-key/status'] })
     },
   })
-
-  const deleteMutation = useMutation({
+  const remove = useMutation({
     mutationFn: async () => {
       await client.delete('/api-key')
     },
     onSuccess: () => {
       setHasApiKey(false)
-      setShowDeleteModal(false)
+      setDeleting(false)
       void queryClient.invalidateQueries({ queryKey: ['api-key/status'] })
     },
   })
-
-  const hasKey = apiKeyRes?.registered === true
-  const keyStatus = apiKeyRes?.keyStatus ?? null
-  const isActive = hasKey && keyStatus === 'ACTIVE'
-
+  const registered = status.data?.registered === true
+  const keyStatus = status.data?.keyStatus ?? 'INVALID'
+  const active = registered && keyStatus === 'ACTIVE'
+  const statusColor =
+    keyStatus === 'ACTIVE'
+      ? theme === 'light'
+        ? '#16a34a'
+        : '#3ddc97'
+      : keyStatus === 'EXPIRED'
+        ? '#f87171'
+        : '#f97316'
   return (
-    <section className="rounded-xl bg-[#2d2d44] p-6">
-      <h2 className="mb-4 text-lg font-semibold text-white">Nexon API Key</h2>
-
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-white/50">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white/80" />
-          불러오는 중...
-        </div>
-      ) : hasKey ? (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
+    <section
+      data-testid="api-key-card"
+      className="settings-card settings-api"
+      aria-labelledby="api-key-heading"
+    >
+      <div className="settings-api-heading">
+        <div className="settings-api-title">
+          <div className="settings-key-icon">
+            <img src={assets.imgKeyRound} alt="" />
+          </div>
+          <div className="settings-api-copy">
+            <h2 id="api-key-heading">Nexon API Key</h2>
+            <p>캐릭터 데이터를 안전하게 불러옵니다.</p>
+          </div>
+          {registered && (
             <span
-              className="rounded-full px-3 py-1 text-xs font-semibold"
-              style={{
-                backgroundColor: `${statusConfig[keyStatus ?? 'INVALID'].color}22`,
-                color: statusConfig[keyStatus ?? 'INVALID'].color,
-                border: `1px solid ${statusConfig[keyStatus ?? 'INVALID'].color}44`,
-              }}
+              className="settings-status"
+              style={{ '--status-color': statusColor } as CSSProperties}
             >
-              {statusConfig[keyStatus ?? 'INVALID'].label}
+              ● {keyStatus}
             </span>
-            <span className="text-sm text-white/50">
-              {apiKeyRes.lastVerifiedAt
-                ? `마지막 인증: ${new Date(apiKeyRes.lastVerifiedAt).toLocaleDateString('ko-KR')}`
-                : '미인증'}
-            </span>
-          </div>
-
-          {!isActive && (
-            <p className="text-sm text-[#f87171]">
-              API Key가 유효하지 않습니다. 새로운 키를 등록해 주세요.
-            </p>
           )}
-
-			<div className="flex gap-2">
-            {!isActive && (
-              <div className="flex flex-1 gap-2">
-                <input
-                  type="text"
-                  value={inputKey}
-                  onChange={(e) => setInputKey(e.target.value)}
-                  placeholder="새 Nexon API Key 입력"
-                  className="flex-1 rounded-lg border border-white/10 bg-[#1a1a2e] px-3 py-2 text-sm text-white placeholder-white/30 focus:border-[#4ade80]/50 focus:outline-none"
-                />
-                <button
-                  onClick={() => registerMutation.mutate(inputKey)}
-                  disabled={!inputKey.trim() || registerMutation.isPending}
-                  className="rounded-lg bg-[#4ade80] px-4 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-40"
-                >
-                  {registerMutation.isPending ? '등록 중...' : '등록'}
-                </button>
-              </div>
-            )}
-			<button
-				onClick={() => setShowDeleteModal(true)}
-				className="ml-auto rounded-lg border border-[#f87171]/40 px-4 py-2 text-sm font-semibold text-[#f87171] transition-colors hover:bg-[#f87171]/10"
-            >
-              삭제
-            </button>
-          </div>
-
-          {registerMutation.isError && (
-            <p className="text-sm text-[#f87171]">등록 중 오류가 발생했습니다.</p>
-          )}
+        </div>
+        {registered && (
+          <button
+            type="button"
+            className="settings-button"
+            onClick={() => {
+              remove.reset()
+              setDeleting(true)
+            }}
+          >
+            <img src={assets.imgTrash2} alt="" />
+            삭제
+          </button>
+        )}
+      </div>
+      {status.isLoading ? (
+        <p role="status" className="settings-muted text-sm">
+          API Key 상태를 불러오는 중...
+        </p>
+      ) : status.isError ? (
+        <div role="alert" className="flex flex-wrap items-center gap-4">
+          <p className="settings-muted text-sm">API Key 상태를 불러오지 못했습니다.</p>
+          <button type="button" className="settings-button" onClick={() => void status.refetch()}>
+            다시 시도
+          </button>
         </div>
       ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-white/50">
-            넥슨 게임 데이터를 불러오려면 API Key를 등록해 주세요.
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputKey}
-              onChange={(e) => setInputKey(e.target.value)}
-              placeholder="Nexon Open API Key 입력"
-              className="flex-1 rounded-lg border border-white/10 bg-[#1a1a2e] px-3 py-2 text-sm text-white placeholder-white/30 focus:border-[#4ade80]/50 focus:outline-none"
-            />
-            <button
-              onClick={() => registerMutation.mutate(inputKey)}
-              disabled={!inputKey.trim() || registerMutation.isPending}
-              className="rounded-lg bg-[#4ade80] px-4 py-2 text-sm font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              {registerMutation.isPending ? '등록 중...' : '등록'}
-            </button>
-          </div>
-          {registerMutation.isError && (
-            <p className="text-sm text-[#f87171]">등록 중 오류가 발생했습니다.</p>
+        <>
+          {registered && (
+            <div data-testid="api-key-credentials" className="settings-credentials">
+              <p className="masked-key">
+                •••••••• – •••••••• – •••••••• – ••••{status.data?.keySuffix ?? '••••'}
+              </p>
+              <div className="settings-auth-date">
+                <span className="settings-muted">마지막 인증일</span>
+                <time>{formatVerifiedAt(status.data?.lastVerifiedAt ?? null)}</time>
+                <img src={assets.imgShieldCheck} alt="" />
+              </div>
+            </div>
           )}
-        </div>
+          {!active && (
+            <form
+              className="flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (inputKey.trim()) register.mutate(inputKey.trim())
+              }}
+            >
+              <p className="settings-muted text-sm">
+                {registered
+                  ? 'API Key가 유효하지 않습니다. 새로운 키를 등록해 주세요.'
+                  : '넥슨 게임 데이터를 불러오려면 API Key를 등록해 주세요.'}
+              </p>
+              <div className="flex gap-3">
+                <input
+                  className="settings-input"
+                  type="password"
+                  autoComplete="off"
+                  aria-label="Nexon API Key"
+                  placeholder="Nexon Open API Key 입력"
+                  value={inputKey}
+                  onChange={(event) => setInputKey(event.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="settings-button settings-primary"
+                  disabled={!inputKey.trim() || register.isPending}
+                >
+                  {register.isPending ? '등록 중...' : '등록'}
+                </button>
+              </div>
+              {register.isError && (
+                <p role="alert" className="text-sm text-red-400">
+                  등록 중 오류가 발생했습니다. 키를 확인하고 다시 시도해 주세요.
+                </p>
+              )}
+            </form>
+          )}
+        </>
       )}
-
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="API Key 삭제"
-      >
-        <p className="mb-6 text-sm text-white/70">
-          API Key를 삭제하면 게임 데이터 조회가 불가능해집니다. 정말 삭제하시겠습니까?
-        </p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => setShowDeleteModal(false)}
-            className="rounded-lg px-4 py-2 text-sm text-white/60 transition-colors hover:text-white"
-          >
-            취소
-          </button>
-          <button
-            onClick={() => deleteMutation.mutate()}
-            disabled={deleteMutation.isPending}
-            className="rounded-lg bg-[#f87171] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {deleteMutation.isPending ? '삭제 중...' : '삭제'}
-          </button>
-        </div>
-      </Modal>
+      {deleting && (
+        <ThemedConfirmDialog
+          title="API Key 삭제"
+          onCancel={closeDelete}
+          onConfirm={() => remove.mutate()}
+          confirmLabel="삭제"
+          busy={remove.isPending}
+        >
+          <p>API Key를 삭제하면 게임 데이터 조회가 불가능해집니다. 정말 삭제하시겠습니까?</p>
+          {remove.isError && (
+            <p role="alert" className="mt-3 text-red-400">
+              삭제 중 오류가 발생했습니다. 다시 시도해 주세요.
+            </p>
+          )}
+        </ThemedConfirmDialog>
+      )}
     </section>
   )
 }
-
-// ─── 캐릭터 행 ─────────────────────────────────────────────────────────────────
-
-function CharacterRow({ character, disabled, reorderDisabled, onMoveUp, onMoveDown }: {
-  character: Character
-  disabled: boolean
-  reorderDisabled: boolean
-  onMoveUp?: () => void
-  onMoveDown?: () => void
-}) {
-  const queryClient = useQueryClient()
-  const { updateFavorite } = useCharacterStore()
-
-  const favoriteMutation = useMutation({
-    mutationFn: async () => {
-      const { data } = await client.patch<ApiResponse<Character>>(
-        `/characters/${character.id}/favorite`,
-      )
-      return data.data
-    },
-    onMutate: () => {
-      updateFavorite(character.id, !character.favorite)
-      return { previousFavorite: character.favorite }
-    },
-    onError: (_error, _variables, context) => {
-      if (context) updateFavorite(character.id, context.previousFavorite)
-    },
-    onSuccess: (updated) => {
-      updateFavorite(character.id, updated.favorite)
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['characters'] })
-      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
-      void queryClient.invalidateQueries({ queryKey: ['hunting'] })
-      void queryClient.invalidateQueries({ predicate: query => String(query.queryKey[0]).startsWith('stats/') })
-    },
-  })
-
-  return (
-    <div className="flex items-center gap-4 rounded-lg bg-[#1a1a2e] px-4 py-3">
-      {character.characterImage ? (
-        <img
-          src={character.characterImage}
-          alt={character.characterName}
-			className="h-16 w-16 rounded-lg object-cover object-top"
-        />
-      ) : (
-        <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#3a3a5c] text-2xl">
-          🍁
-        </div>
-      )}
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-white">{character.characterName}</p>
-        <p className="truncate text-sm text-white/50">
-          {[
-            character.characterLevel !== null ? `Lv.${character.characterLevel}` : null,
-            character.characterClass,
-            character.worldName,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
-      </div>
-
-      <button
-        onClick={() => favoriteMutation.mutate()}
-        disabled={favoriteMutation.isPending || disabled}
-        className="text-xl transition-opacity hover:opacity-70 disabled:opacity-40"
-        aria-label={character.favorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
-      >
-        {character.favorite ? '★' : '☆'}
-      </button>
-      {character.favorite && (
-        <div className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={onMoveUp} disabled={reorderDisabled || !onMoveUp} title="위로 이동" aria-label="위로 이동"
-            className="rounded p-1.5 text-white/70 hover:bg-white/10 disabled:opacity-30">
-            <ArrowUp size={17} />
-          </button>
-          <button type="button" onClick={onMoveDown} disabled={reorderDisabled || !onMoveDown} title="아래로 이동" aria-label="아래로 이동"
-            className="rounded p-1.5 text-white/70 hover:bg-white/10 disabled:opacity-30">
-            <ArrowDown size={17} />
-          </button>
-        </div>
-      )}
-      {favoriteMutation.isError && <span className="text-xs text-[#f87171]">저장 실패</span>}
-    </div>
-  )
+export function moveVisibleNeighbor(
+  characters: Character[],
+  visibleIds: number[],
+  id: number,
+  direction: -1 | 1
+) {
+  const otherId = visibleIds[visibleIds.indexOf(id) + direction]
+  if (otherId === undefined) return characters
+  const next = [...characters]
+  const index = next.findIndex((character) => character.id === id),
+    otherIndex = next.findIndex((character) => character.id === otherId)
+  ;[next[index], next[otherIndex]] = [next[otherIndex], next[index]]
+  return next
 }
-
-// ─── 캐릭터 관리 섹션 ──────────────────────────────────────────────────────────
-
+const avatarColors = ['#c4adff', '#7edcc3', '#ffbaa1', '#f6cb7d', '#eaaed4', '#91c4f5']
 function CharacterSection() {
   const queryClient = useQueryClient()
-  const { characters, setCharacters } = useCharacterStore()
-	const [jobId, setJobId] = useState<number | null>(null)
-	const [draftOrder, setDraftOrder] = useState<number[] | null>(null)
-	const [world, setWorld] = useState('')
-
-  const { isLoading } = useQuery({
+  const { setCharacters } = useCharacterStore()
+  const { theme } = useThemeStore()
+  const assets = settingsAssets[theme]
+  const { setDirty } = useUnsavedChanges()
+  const [draft, setDraft] = useState<Character[] | null>(null)
+  const [jobId, setJobId] = useState<number | null>(null)
+  const [reloadConfirmation, setReloadConfirmation] = useState(false)
+  const closeReloadConfirmation = useCallback(() => setReloadConfirmation(false), [])
+  const [worldModal, setWorldModal] = useState(false)
+  const closeWorldModal = useCallback(() => setWorldModal(false), [])
+  const worlds = useWorldSelection(),
+    saveWorlds = useSaveWorldSelection()
+  const characters = useQuery({
     queryKey: ['characters'],
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<Character[]>>('/characters')
-      setCharacters(data.data)
-      return data.data
+      const sorted = [...data.data].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
+      setCharacters(sorted)
+      return sorted
     },
   })
-
-  const syncMutation = useMutation({
+  const saved = characters.data ?? [],
+    current = draft ?? saved
+  const dirty =
+    current.length !== saved.length ||
+    current.some(
+      (character, index) =>
+        character.id !== saved[index]?.id || character.favorite !== saved[index]?.favorite
+    )
+  useEffect(() => {
+    setDirty(dirty)
+    return () => setDirty(false)
+  }, [dirty, setDirty])
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = String(query.queryKey[0])
+        return (
+          ['characters', 'characters/favorites', 'scheduler/summary', 'hunting'].includes(key) ||
+          key.startsWith('stats/')
+        )
+      },
+    })
+  }
+  const save = useMutation({
+    mutationFn: async (list: Character[]) => {
+      const { data } = await client.put<ApiResponse<Character[]>>('/characters/preferences', {
+        characters: list.map((character) => ({
+          characterId: character.id,
+          favorite: character.favorite,
+        })),
+      })
+      return data.data
+    },
+    onSuccess: (list) => {
+      queryClient.setQueryData(['characters'], list)
+      setCharacters(list)
+      setDraft(null)
+      invalidate()
+    },
+  })
+  const sync = useMutation({
     mutationFn: async () => {
       const { data } = await client.post<ApiResponse<SyncJob>>('/characters/sync')
       return data.data
     },
-    onSuccess: (job) => {
-      setJobId(job.id)
-    },
+    onSuccess: (job) => setJobId(job.id),
   })
-
-  const { data: syncJob, isError: isJobError } = useQuery({
+  const job = useQuery({
     queryKey: ['characters/sync-jobs', jobId],
+    enabled: jobId !== null,
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<SyncJob>>(`/characters/sync-jobs/${jobId}`)
       return data.data
     },
-    enabled: jobId !== null,
-    refetchInterval: (query) => query.state.data?.status === 'STARTED' ? 2000 : false,
+    refetchInterval: (query) => (query.state.data?.status === 'STARTED' ? 2000 : false),
   })
-
   useEffect(() => {
-    if (syncJob?.status === 'COMPLETED') {
+    if (job.data?.status === 'COMPLETED')
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
-    }
-  }, [syncJob?.status, queryClient])
-
-  const favorites = characters.filter(c => c.favorite).sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
-  const savedOrder = favorites.map(c => c.id)
-  const currentOrder = draftOrder ?? savedOrder
-  const favoriteById = new Map(favorites.map(c => [c.id, c]))
-  const orderedFavorites = currentOrder.map(id => favoriteById.get(id)).filter((c): c is Character => c !== undefined)
-  const remaining = characters.filter(c => !c.favorite).sort((a, b) =>
-    (b.characterLevel ?? -1) - (a.characterLevel ?? -1) || a.id - b.id,
-  )
-	const sorted = [...orderedFavorites, ...remaining].filter((character) => !world || character.worldName === world)
-	const worlds = [...new Set(characters.map((character) => character.worldName).filter((value): value is string => Boolean(value)))].sort()
-  const isDirty = draftOrder !== null && draftOrder.some((id, index) => id !== savedOrder[index])
-
-  const saveOrder = useMutation({
-    mutationFn: async (characterIds: number[]) => {
-      const { data } = await client.patch<ApiResponse<Character[]>>('/characters/favorites/sort-order', { characterIds })
-      return data.data
-    },
-    onSuccess: () => {
-      setDraftOrder(null)
-      void queryClient.invalidateQueries({ queryKey: ['characters'] })
-      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
-    },
-  })
-
-  const move = (index: number, direction: -1 | 1) => {
-    const next = [...currentOrder]
-    const other = index + direction
-    ;[next[index], next[other]] = [next[other], next[index]]
-    setDraftOrder(next)
+  }, [job.data?.status, queryClient])
+  const syncing = sync.isPending || job.data?.status === 'STARTED'
+  const selectedWorlds = worlds.data?.worldNames ?? []
+  const visible = current.filter(
+      (character) => character.worldName !== null && selectedWorlds.includes(character.worldName)
+    ),
+    visibleIds = visible.map((character) => character.id)
+  const toggleFavorite = (id: number) => {
+    save.reset()
+    setDraft(
+      current.map((character) =>
+        character.id === id ? { ...character, favorite: !character.favorite } : character
+      )
+    )
   }
-
+  const move = (id: number, direction: -1 | 1) => {
+    save.reset()
+    setDraft(moveVisibleNeighbor(current, visibleIds, id, direction))
+  }
   return (
-    <section className="rounded-xl bg-[#2d2d44] p-6">
-		<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white">
-          캐릭터 관리
-          {characters.length > 0 && (
-            <span className="ml-2 text-sm font-normal text-white/40">{characters.length}명</span>
-          )}
-        </h2>
-		<div className="flex items-center gap-2">
-		<button
-          onClick={() => syncMutation.mutate()}
-          disabled={isDirty || syncMutation.isPending || syncJob?.status === 'STARTED'}
-			className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-white/70 transition-colors hover:border-white/20 hover:text-white disabled:opacity-40"
-        >
-          {syncMutation.isPending || syncJob?.status === 'STARTED' ? (
-            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white/80" />
-          ) : (
-			<RefreshCw size={16} aria-hidden="true" />
-			)}
-			재동기화
-		</button>
-		<button type="button" onClick={() => saveOrder.mutate(currentOrder)} disabled={!isDirty || saveOrder.isPending}
-			title="즐겨찾기 순서 저장" aria-label="즐겨찾기 순서 저장"
-			className="rounded border border-white/20 bg-[#4ade80] p-2 text-[#1a1a2e] disabled:opacity-40">
-			<Save size={18} />
-		</button>
-		</div>
-		</div>
-		<select value={world} onChange={(event) => setWorld(event.target.value)} className="mb-4 rounded border border-white/20 bg-[#1a1a2e] px-3 py-2 text-sm text-white">
-			<option value="">전체 월드</option>
-			{worlds.map((name) => <option key={name} value={name}>{name}</option>)}
-		</select>
-
-      {syncJob?.status === 'STARTED' && (
-        <p className="mb-3 text-sm text-white/60">
-          동기화 중 {syncJob.totalCount > 0 ? `${syncJob.completedCount}/${syncJob.totalCount}` : ''}
-        </p>
-      )}
-      {syncJob?.status === 'COMPLETED' && syncJob.skippedCount > 0 && (
-        <p className="mb-3 text-sm text-white/60">상세 조회 제외 {syncJob.skippedCount}명</p>
-      )}
-
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-white/50">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white/80" />
-          불러오는 중...
+    <section
+      data-testid="character-management"
+      className="settings-card settings-character-card"
+      aria-labelledby="character-management-heading"
+    >
+      <div className="settings-character-heading">
+        <div className="settings-character-title">
+          <div>
+            <h2 id="character-management-heading">캐릭터 관리</h2>
+            <span className="settings-count">{visible.length} 캐릭터</span>
+          </div>
+          <p>즐겨찾기와 표시 순서를 원하는 대로 설정하세요.</p>
         </div>
-      ) : sorted.length === 0 ? (
-        <p className="text-sm text-white/40">
-          등록된 캐릭터가 없습니다. 재동기화 버튼을 눌러 캐릭터를 불러오세요.
+        <div className="settings-actions">
+          {dirty && (
+            <p className="dirty">
+              <span>●</span> 저장하지 않은 변경사항이 있어요
+            </p>
+          )}
+          <div className="settings-action-buttons">
+            <button
+              type="button"
+              className="settings-button"
+              disabled={dirty || save.isPending || syncing}
+              onClick={() => sync.mutate()}
+            >
+              <img src={assets.imgRefreshCw} alt="" />
+              {syncing ? '새로고침 중...' : '캐릭터 새로고침'}
+            </button>
+            <button
+              type="button"
+              className="settings-button"
+              disabled={worlds.isLoading || worlds.isError || save.isPending}
+              onClick={() => setWorldModal(true)}
+            >
+              <img src={assets.imgControlIcon} alt="" />
+              월드 선택
+            </button>
+            <button
+              type="button"
+              className="settings-button settings-primary"
+              disabled={!dirty || save.isPending}
+              onClick={() => save.mutate(current)}
+            >
+              {save.isPending ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div data-testid="character-columns" className="settings-columns">
+        <p>캐릭터 정보</p>
+        <div>
+          <p>즐겨찾기</p>
+          <p>표시 순서</p>
+        </div>
+      </div>
+      {characters.isLoading || worlds.isLoading ? (
+        <p role="status" className="settings-guidance">
+          캐릭터를 불러오는 중...
+        </p>
+      ) : characters.isError || worlds.isError ? (
+        <div role="alert" className="settings-guidance">
+          <span>캐릭터 또는 월드 선택을 불러오지 못했습니다.</span>
+          <button
+            type="button"
+            className="settings-button"
+            onClick={() => {
+              void characters.refetch()
+              void worlds.refetch()
+            }}
+          >
+            다시 시도
+          </button>
+        </div>
+      ) : visible.length === 0 ? (
+        <p className="settings-guidance">
+          {selectedWorlds.length === 0
+            ? '월드를 선택하면 해당 월드의 캐릭터가 표시됩니다.'
+            : '선택한 월드에 캐릭터가 없습니다. 캐릭터 새로고침으로 불러오세요.'}
         </p>
       ) : (
-        <div className="space-y-2">
-          {sorted.map((char) => (
-            <CharacterRow key={char.id} character={char} disabled={isDirty || saveOrder.isPending}
-              reorderDisabled={saveOrder.isPending}
-              onMoveUp={char.favorite && currentOrder.indexOf(char.id) > 0
-                ? () => move(currentOrder.indexOf(char.id), -1) : undefined}
-              onMoveDown={char.favorite && currentOrder.indexOf(char.id) < currentOrder.length - 1
-                ? () => move(currentOrder.indexOf(char.id), 1) : undefined} />
-          ))}
-          {saveOrder.isError && <p className="text-sm text-[#f87171]">순서를 저장하지 못했습니다.</p>}
+        visible.map((character, index) => (
+          <div
+            data-testid="character-row"
+            className="settings-row"
+            key={character.id}
+            data-character-id={character.id}
+          >
+            <div
+              className="settings-avatar"
+              style={
+                {
+                  '--avatar-color': avatarColors[(character.id - 1) % avatarColors.length],
+                } as CSSProperties
+              }
+            >
+              {character.characterImage ? (
+                <img
+                  className="portrait"
+                  src={character.characterImage}
+                  alt={character.characterName}
+                />
+              ) : (
+                <span aria-hidden="true">🍁</span>
+              )}
+            </div>
+            <div className="settings-character-info">
+              <p className="name truncate">{character.characterName}</p>
+              <p className="detail truncate">
+                {[
+                  character.characterLevel !== null ? `Lv.${character.characterLevel}` : null,
+                  character.characterClass,
+                  character.worldName,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="settings-favorite"
+              aria-label={`${character.characterName} 즐겨찾기 ${character.favorite ? '해제' : '추가'}`}
+              aria-pressed={character.favorite}
+              disabled={save.isPending || syncing}
+              onClick={() => toggleFavorite(character.id)}
+            >
+              <img src={character.favorite ? assets.imgStar : assets.imgStar1} alt="" />
+            </button>
+            <div className="settings-order">
+              <button
+                type="button"
+                aria-label={`${character.characterName} 위로 이동`}
+                disabled={index === 0 || save.isPending || syncing}
+                onClick={() => move(character.id, -1)}
+              >
+                <img src={assets.imgArrowUp} alt="" />
+              </button>
+              <button
+                type="button"
+                aria-label={`${character.characterName} 아래로 이동`}
+                disabled={index === visible.length - 1 || save.isPending || syncing}
+                onClick={() => move(character.id, 1)}
+              >
+                <img src={assets.imgArrowDown} alt="" />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+      {save.isError && (
+        <p role="alert" className="settings-error">
+          변경사항을 저장하지 못했습니다. 다시 시도해 주세요.
+        </p>
+      )}
+      {(sync.isError || job.isError || job.data?.status === 'FAILED') && (
+        <p role="alert" className="settings-error">
+          캐릭터 새로고침 중 오류가 발생했습니다.
+        </p>
+      )}
+      {job.data?.status === 'STARTED' && (
+        <p role="status" className="settings-guidance">
+          동기화 중 {job.data.completedCount}/{job.data.totalCount}
+        </p>
+      )}
+      {job.data?.status === 'COMPLETED' && job.data.skippedCount > 0 && (
+        <p className="settings-guidance">상세 조회 제외 {job.data.skippedCount}명</p>
+      )}
+      <div className="settings-guidance">
+        <img src={assets.imgInfo} alt="" />
+        <p>즐겨찾기한 캐릭터는 사냥 기록과 통계의 캐릭터 필터에서 빠르게 선택할 수 있습니다.</p>
+      </div>
+      {isAxiosError(save.error) && save.error.response?.status === 409 && (
+        <div className="settings-guidance">
+          <span>캐릭터 목록이 변경되었습니다. 최신 목록을 불러와 다시 설정해 주세요.</span>
+          <button
+            type="button"
+            className="settings-button"
+            onClick={() => setReloadConfirmation(true)}
+          >
+            최신 목록 불러오기
+          </button>
         </div>
       )}
-
-      {(syncMutation.isError || isJobError || syncJob?.status === 'FAILED') && (
-        <p className="mt-3 text-sm text-[#f87171]">동기화 중 오류가 발생했습니다.</p>
+      {reloadConfirmation && (
+        <ThemedConfirmDialog
+          title="최신 캐릭터 목록 불러오기"
+          onCancel={closeReloadConfirmation}
+          confirmLabel="변경사항 버리고 새로고침"
+          onConfirm={() => {
+            setDraft(null)
+            save.reset()
+            setReloadConfirmation(false)
+            void characters.refetch()
+          }}
+        >
+          저장하지 않은 변경사항을 버리고 최신 목록을 불러오시겠습니까?
+        </ThemedConfirmDialog>
+      )}
+      {worldModal && (
+        <WorldSelectionModal
+          placement="settings"
+          selectedWorlds={selectedWorlds}
+          onClose={closeWorldModal}
+          onSave={(names) => saveWorlds.mutateAsync(names)}
+        />
       )}
     </section>
   )
 }
-
-// ─── 페이지 ────────────────────────────────────────────────────────────────────
-
 export default function SettingsPage() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">설정</h1>
+    <div className="settings-page">
+      <div data-testid="settings-heading" className="settings-heading">
+        <p className="eyebrow">MY MAPLE / PREFERENCES</p>
+        <h1>설정</h1>
+        <p className="settings-muted text-[14px] leading-[1.45]">
+          API 연결과 내 캐릭터를 관리하세요. 나에게 맞는 메이플의 시작.
+        </p>
+      </div>
       <ApiKeySection />
       <CharacterSection />
     </div>
