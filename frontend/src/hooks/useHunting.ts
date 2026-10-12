@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
-import type { ApiResponse, HuntingGround, HuntingRecord } from '../types'
+import type { ApiResponse, HuntingGround, HuntingRecord, HuntingSummary, PageResponse } from '../types'
 
 interface HuntingListParams {
   characterId?: number | null
@@ -55,6 +55,36 @@ export function useHuntingList(params: HuntingListParams) {
       const { data } = await client.get<ApiResponse<HuntingRecord[]>>(
         `/hunting${qs ? `?${qs}` : ''}`,
       )
+      return data.data
+    },
+  })
+}
+
+export type HuntingPageSize = 10 | 20 | 30
+
+export function useHuntingPage(params: HuntingListParams & { page: number; size: HuntingPageSize }) {
+  const qs = buildHuntingQuery(params)
+  const pageQs = new URLSearchParams({ page: String(params.page), size: String(params.size) }).toString()
+
+  return useQuery({
+    queryKey: ['hunting', 'page', params],
+    queryFn: async () => {
+      const { data } = await client.get<ApiResponse<PageResponse<HuntingRecord>>>(
+        `/hunting/page?${qs ? `${qs}&` : ''}${pageQs}`,
+      )
+      return data.data
+    },
+    placeholderData: previous => previous,
+  })
+}
+
+export function useHuntingSummary(params: HuntingListParams) {
+  const qs = buildHuntingQuery(params)
+
+  return useQuery({
+    queryKey: ['hunting', 'summary', params],
+    queryFn: async () => {
+      const { data } = await client.get<ApiResponse<HuntingSummary>>(`/hunting/summary${qs ? `?${qs}` : ''}`)
       return data.data
     },
   })

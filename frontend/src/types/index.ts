@@ -181,6 +181,13 @@ export interface HuntingRecord {
   updatedAt: string
 }
 
+export interface HuntingSummary {
+  recordCount: number
+  totalMeso: number
+  totalSolErda: number
+  totalPlayDurationMin: number
+}
+
 export interface HuntingGround {
   id: number
   regionName: string

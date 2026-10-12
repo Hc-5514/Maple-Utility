@@ -1,11 +1,20 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import DateRangePicker from '../components/common/DateRangePicker'
+import HuntingFilters from '../components/hunting/HuntingFilters'
+import HuntingSummaryCards from '../components/hunting/HuntingSummaryCards'
 import HuntingTable from '../components/hunting/HuntingTable'
-import { useDeleteHunting, useHuntingList } from '../hooks/useHunting'
+import DeleteHuntingDialog from '../components/hunting/DeleteHuntingDialog'
+import { huntingAssets } from '../components/hunting/assets'
+import {
+  useDeleteHunting,
+  useHuntingPage,
+  useHuntingSummary,
+  type HuntingPageSize,
+} from '../hooks/useHunting'
+import { useThemeStore } from '../stores/themeStore'
 import client from '../api/client'
-import type { ApiResponse, Character } from '../types'
+import type { ApiResponse, Character, HuntingRecord } from '../types'
 import { localDate } from '../utils/date'
 
 function getFirstOfMonth(): string {
@@ -16,11 +25,15 @@ function getFirstOfMonth(): string {
 
 export default function HuntingPage() {
   const navigate = useNavigate()
+  const { theme } = useThemeStore()
   const today = localDate(new Date())
 
   const [dateFrom, setDateFrom] = useState(getFirstOfMonth())
   const [dateTo, setDateTo] = useState(today)
   const [characterId, setCharacterId] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [size, setSize] = useState<HuntingPageSize>(10)
+  const [deleting, setDeleting] = useState<HuntingRecord | null>(null)
 
   const { data: characters } = useQuery({
     queryKey: ['characters', 'favorites'],
@@ -28,66 +41,93 @@ export default function HuntingPage() {
       client.get<ApiResponse<Character[]>>('/characters/favorites').then((r) => r.data.data),
   })
 
-  const { data: records, isLoading, isError, refetch } = useHuntingList({ characterId, dateFrom, dateTo })
+  const filters = { characterId, dateFrom, dateTo }
+  const records = useHuntingPage({ ...filters, page, size })
+  const summary = useHuntingSummary(filters)
   const deleteHunting = useDeleteHunting()
 
-  const characterMap = new Map<number, string>(
+  const characterNames = new Map<number, string>(
     (characters ?? []).map((c) => [c.id, c.characterName]),
   )
+  const totalPages = records.data?.totalPages ?? 0
+  if (records.data && totalPages > 0 && page >= totalPages) setPage(totalPages - 1)
+
+  const status = records.isLoading ? (
+    <p role="status" className="py-16 text-center text-[13px] text-[var(--dash-muted)]">
+      불러오는 중...
+    </p>
+  ) : records.isError ? (
+    <div role="alert" className="py-16 text-center">
+      <p className="text-[13px] text-[#f87171]">데이터를 불러오지 못했습니다.</p>
+      <button
+        type="button"
+        onClick={() => void records.refetch()}
+        className="mt-3 min-h-11 text-[13px] text-[var(--dash-accent)]"
+      >
+        다시 시도
+      </button>
+    </div>
+  ) : records.data?.content.length === 0 ? (
+    <p className="border-b border-[var(--dash-border)] py-16 text-center text-[13px] text-[var(--dash-muted)]">
+      기간 내 사냥 기록이 없습니다.
+    </p>
+  ) : null
 
   return (
-    <div className="space-y-5">
-		<div className="flex flex-wrap items-center gap-4">
-			<h1 className="text-2xl font-bold text-white">사냥 기록</h1>
-		</div>
-
-		<div className="flex flex-wrap items-center gap-3">
-			<DateRangePicker
-				startDate={dateFrom}
-				endDate={dateTo}
-				onChange={(start, end) => {
-					setDateFrom(start)
-					setDateTo(end)
-				}}
-			/>
-			<select
-				value={characterId ?? ''}
-				onChange={(e) => setCharacterId(e.target.value === '' ? null : Number(e.target.value))}
-				className="rounded border border-white/20 bg-[#2d2d44] px-3 py-1.5 text-sm text-white"
-			>
-				<option value="">전체 즐겨찾기 캐릭터</option>
-				{(characters ?? []).map((c) => <option key={c.id} value={c.id}>{c.characterName}</option>)}
-			</select>
-			<Link
-          to="/hunting/new"
-          className="rounded-lg bg-[#4ade80] px-4 py-2 text-sm font-semibold text-[#1a1a2e] hover:opacity-80"
-        >
-          + 기록 추가
-			</Link>
-		</div>
-
-      {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-white/10" />
-          ))}
-        </div>
-      ) : isError ? (
-        <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <p className="text-sm text-[#f87171]">데이터를 불러오지 못했습니다.</p>
-          <button
-            onClick={() => void refetch()}
-            className="rounded-lg bg-[#2d2d44] px-4 py-2 text-sm text-white/70 hover:text-white"
-          >
-            재시도
-          </button>
-        </div>
-      ) : (
-        <HuntingTable
-          records={records ?? []}
-          characterMap={characterMap}
-          onEdit={(id) => navigate(`/hunting/${id}/edit`)}
-          onDelete={(id) => deleteHunting.mutate(id)}
+    <div className="flex flex-col gap-7">
+      <div className="flex flex-col gap-[7px]">
+        <p className="text-[11px] leading-[13px] font-semibold text-[var(--dash-accent)] [font-family:Inter,sans-serif]">
+          MY MAPLE / HUNTING LOG
+        </p>
+        <h1 className="text-[34px] leading-[1.25] font-bold">사냥 기록</h1>
+        <p className="text-[14px] leading-[1.45] text-[var(--dash-muted)]">
+          쌓이는 메소와 솔 에르다 조각, 오늘의 사냥을 기록하세요.
+        </p>
+      </div>
+      <HuntingFilters
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        today={today}
+        characterId={characterId}
+        characters={characters ?? []}
+        onDateChange={(from, to) => {
+          setDateFrom(from)
+          setDateTo(to)
+          setPage(0)
+        }}
+        onCharacterChange={(id) => {
+          setCharacterId(id)
+          setPage(0)
+        }}
+      />
+      <HuntingSummaryCards summary={summary.data} />
+      <HuntingTable
+        records={records.data?.content ?? []}
+        summary={summary.data}
+        characterNames={characterNames}
+        page={page}
+        totalPages={totalPages}
+        size={size}
+        status={status}
+        onSizeChange={(value) => {
+          setSize(value)
+          setPage(0)
+        }}
+        onPageChange={setPage}
+        onEdit={(id) => navigate(`/hunting/${id}/edit`)}
+        onDelete={setDeleting}
+      />
+      <p className="flex items-center gap-[10px] text-[12px] leading-[1.45] text-[var(--dash-muted)]">
+        <img src={huntingAssets[theme].info} alt="" />
+        사냥 기록은 직접 입력한 데이터를 기준으로 집계됩니다.
+      </p>
+      {deleting && (
+        <DeleteHuntingDialog
+          record={deleting}
+          characterName={characterNames.get(deleting.characterId) ?? `#${deleting.characterId}`}
+          pending={deleteHunting.isPending}
+          onCancel={() => setDeleting(null)}
+          onConfirm={() => deleteHunting.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
         />
       )}
     </div>

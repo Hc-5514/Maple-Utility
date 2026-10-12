@@ -61,6 +61,10 @@ body {
   --dash-card-shadow: 0px 8px 32px rgba(0, 0, 0, 0.09);
   --dash-modal-shadow: 0px 24px 64px rgba(0, 0, 0, 0.33);
   --dash-menu-shadow: 0px 12px 32px rgba(0, 0, 0, 0.33);
+  --dash-popover: #1e1b35;
+  --dash-popover-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25);
+  --dash-primary: #7c4dff;
+  --dash-meso: #34d7ee;
   color-scheme: dark;
 }
 .dashboard-theme[data-theme='light'] {
@@ -79,6 +83,10 @@ body {
   --dash-card-shadow: 0px 8px 32px rgba(101, 83, 148, 0.04);
   --dash-modal-shadow: 0px 24px 64px rgba(101, 83, 148, 0.16);
   --dash-menu-shadow: 0px 12px 32px rgba(101, 83, 148, 0.16);
+  --dash-popover: rgba(252, 250, 255, 0.96);
+  --dash-popover-shadow: 0px 8px 24px rgba(101, 83, 148, 0.16);
+  --dash-primary: #7c5cfa;
+  --dash-meso: #0ea5c4;
   color-scheme: light;
 }
 .dashboard-theme * {

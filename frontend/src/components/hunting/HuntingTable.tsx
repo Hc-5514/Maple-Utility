@@ -1,122 +1,179 @@
-import { useState } from 'react'
-import Modal from '../common/Modal'
-import type { HuntingRecord } from '../../types'
+import type { ReactNode } from 'react'
+import GlassSelect from '../common/GlassSelect'
+import { useThemeStore } from '../../stores/themeStore'
+import { huntingAssets } from './assets'
+import { formatDuration } from './format'
+import type { HuntingPageSize } from '../../hooks/useHunting'
+import type { HuntingRecord, HuntingSummary } from '../../types'
+
+const pageSizes: HuntingPageSize[] = [10, 20, 30]
+const columns: [string, string][] = [
+  ['날짜', 'w-[105px]'],
+  ['캐릭터', 'w-[120px]'],
+  ['메소', 'w-[110px]'],
+  ['솔 에르다 조각', 'w-[96px]'],
+  ['사냥터', 'w-[180px]'],
+  ['사냥 시간', 'w-[85px]'],
+  ['메모', 'w-[300px]'],
+  ['관리', 'w-[110px]'],
+]
+const inter = '[font-family:Inter,sans-serif]'
 
 interface Props {
   records: HuntingRecord[]
-  characterMap: Map<number, string>
+  summary?: HuntingSummary
+  characterNames: Map<number, string>
+  page: number
+  totalPages: number
+  size: HuntingPageSize
+  status: ReactNode
+  onSizeChange: (size: HuntingPageSize) => void
+  onPageChange: (page: number) => void
   onEdit: (id: number) => void
-  onDelete: (id: number) => void
+  onDelete: (record: HuntingRecord) => void
 }
 
-export default function HuntingTable({ records, characterMap, onEdit, onDelete }: Props) {
-  const [confirmId, setConfirmId] = useState<number | null>(null)
-
-  const totalMeso = records.reduce((sum, r) => sum + r.mesoEarned, 0)
-  const totalSolErda = records.reduce((sum, r) => sum + r.solErdaEarned, 0)
-
-  if (records.length === 0) {
-    return (
-      <div className="rounded-xl bg-[#2d2d44] p-10 text-center text-sm text-white/40">
-        기록이 없습니다
-      </div>
-    )
-  }
-
+function Pagination({ page, totalPages, onPageChange }: Pick<Props, 'page' | 'totalPages' | 'onPageChange'>) {
+  const { theme } = useThemeStore()
+  const assets = huntingAssets[theme]
+  const pageCount = Math.max(1, totalPages)
+  const start = Math.max(0, Math.min(page - 2, pageCount - 5))
+  const pages = Array.from({ length: Math.min(5, pageCount) }, (_, index) => start + index)
+  const step = 'flex h-[34px] items-center gap-[6px] px-3 text-[13px] text-[var(--dash-muted)] disabled:opacity-40'
   return (
-    <>
-      <div className="overflow-x-auto rounded-xl bg-[#2d2d44]">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/10 text-left text-white/50">
-              <th className="px-4 py-3 font-medium">날짜</th>
-              <th className="px-4 py-3 font-medium">캐릭터</th>
-				<th className="px-4 py-3 font-medium">메소</th>
-				<th className="px-4 py-3 font-medium">솔 에르다</th>
-              <th className="px-4 py-3 font-medium">사냥터</th>
-				<th className="px-4 py-3 font-medium">시간(분)</th>
-              <th className="px-4 py-3 font-medium">메모</th>
-              <th className="px-4 py-3 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {records.map((record) => (
-              <tr key={record.id} className="text-white/80 hover:bg-white/5">
-                <td className="px-4 py-3 tabular-nums">{record.recordDate}</td>
-                <td className="px-4 py-3">
-                  {characterMap.get(record.characterId) ?? `#${record.characterId}`}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-[#4ade80]">
-                  {record.mesoEarned.toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {record.solErdaEarned}
-                </td>
-                <td className="px-4 py-3">{record.huntingGround ?? '—'}</td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {record.playDurationMin !== null ? record.playDurationMin : '—'}
-                </td>
-                <td className="max-w-[160px] truncate px-4 py-3 text-white/50">
-                  {record.memo ?? '—'}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onEdit(record.id)}
-                      className="rounded px-2 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
-                    >
-                      수정
-                    </button>
-                    <button
-                      onClick={() => setConfirmId(record.id)}
-                      className="rounded px-2 py-1 text-xs text-[#f87171]/70 hover:bg-[#f87171]/10 hover:text-[#f87171]"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-white/10 font-semibold text-white">
-              <td className="px-4 py-3 text-white/50" colSpan={2}>합계</td>
-              <td className="px-4 py-3 text-right tabular-nums text-[#4ade80]">
-                {totalMeso.toLocaleString()}
-              </td>
-              <td className="px-4 py-3 text-right tabular-nums">{totalSolErda}</td>
-              <td colSpan={4} />
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <Modal
-        isOpen={confirmId !== null}
-        onClose={() => setConfirmId(null)}
-        title="사냥 기록 삭제"
+    <nav aria-label="사냥 기록 페이지" className="flex items-center justify-center gap-[6px] px-6 pt-6 pb-[23px]">
+      <button type="button" disabled={page === 0} onClick={() => onPageChange(page - 1)} className={step}>
+        <img src={assets.left} alt="" />
+        이전
+      </button>
+      {pages.map((index) => (
+        <button
+          key={index}
+          type="button"
+          aria-current={index === page ? 'page' : undefined}
+          onClick={() => onPageChange(index)}
+          className={`flex size-[34px] items-center justify-center rounded-md border text-[13px] ${inter} ${index === page ? 'border-[var(--dash-accent)]/16 bg-[var(--dash-accent)]/8 font-bold text-[var(--dash-accent)]' : 'border-transparent text-[var(--dash-muted)]'}`}
+        >
+          {index + 1}
+        </button>
+      ))}
+      <button
+        type="button"
+        disabled={page >= pageCount - 1}
+        onClick={() => onPageChange(page + 1)}
+        className={step}
       >
-        <p className="mb-6 text-sm text-white/70">이 기록을 삭제하시겠습니까? 되돌릴 수 없습니다.</p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={() => setConfirmId(null)}
-            className="rounded-lg px-4 py-2 text-sm text-white/60 hover:bg-white/10"
-          >
-            취소
-          </button>
-          <button
-            onClick={() => {
-              if (confirmId !== null) {
-                onDelete(confirmId)
-                setConfirmId(null)
-              }
-            }}
-            className="rounded-lg bg-[#f87171] px-4 py-2 text-sm font-semibold text-white hover:bg-[#f87171]/80"
-          >
-            삭제
-          </button>
+        다음
+        <img src={assets.right} alt="" />
+      </button>
+    </nav>
+  )
+}
+
+export default function HuntingTable({
+  records,
+  summary,
+  characterNames,
+  page,
+  totalPages,
+  size,
+  status,
+  onSizeChange,
+  onPageChange,
+  onEdit,
+  onDelete,
+}: Props) {
+  const { theme } = useThemeStore()
+  const assets = huntingAssets[theme]
+  const cell = 'shrink-0 text-[13px]'
+  return (
+    <section className="relative z-10 rounded-2xl border border-[var(--dash-border)] bg-[var(--dash-card)] shadow-[var(--dash-card-shadow)] backdrop-blur-[12px]">
+      <div className="flex items-center justify-between px-6 pt-[23px] pb-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-[18px] leading-[1.45]">사냥 내역</h2>
+          <span className="rounded-full border border-[var(--dash-accent)]/16 bg-[var(--dash-accent)]/8 px-[10px] py-1 text-[11px] font-bold text-[var(--dash-accent)]">
+            {summary?.recordCount ?? 0}개 기록
+          </span>
         </div>
-      </Modal>
-    </>
+        <GlassSelect
+          label="표시 건수"
+          value={size}
+          size="sm"
+          menu="compact"
+          align="right"
+          menuClassName="w-[140px]"
+          triggerLabel={`${size}개씩 보기`}
+          options={pageSizes.map((value) => ({ value, label: `${value}개씩` }))}
+          onChange={onSizeChange}
+        />
+      </div>
+      <div className="overflow-x-auto">
+        <div role="table" aria-label="사냥 내역" className="min-w-[1280px]">
+          <div
+            role="row"
+            className="flex h-12 items-center gap-[18px] bg-[var(--dash-track)] px-6 text-center text-[12px] text-[var(--dash-muted)]"
+          >
+            {columns.map(([label, width]) => (
+              <span key={label} role="columnheader" className={`shrink-0 ${width}`}>
+                {label}
+              </span>
+            ))}
+          </div>
+          {status ??
+            records.map((record) => (
+              <div
+                key={record.id}
+                role="row"
+                className="flex h-[88px] items-center gap-[18px] border-b border-[var(--dash-border)] px-6"
+              >
+                <span role="cell" className={`${cell} w-[105px] text-center`}>
+                  {record.recordDate}
+                </span>
+                <span role="cell" className={`${cell} w-[120px] truncate text-center`}>
+                  {characterNames.get(record.characterId) ?? `#${record.characterId}`}
+                </span>
+                <span role="cell" className={`${cell} ${inter} w-[110px] text-right text-[var(--dash-meso)]`}>
+                  {record.mesoEarned.toLocaleString('ko-KR')}
+                </span>
+                <span role="cell" className={`${cell} ${inter} w-[96px] text-center`}>
+                  {record.solErdaEarned}
+                </span>
+                <span role="cell" className={`${cell} w-[180px] truncate text-center`}>
+                  {record.huntingGround ?? '-'}
+                </span>
+                <span role="cell" className={`${cell} ${inter} w-[85px] text-center`}>
+                  {formatDuration(record.playDurationMin)}
+                </span>
+                <span role="cell" className={`${cell} w-[300px] truncate`}>
+                  {record.memo || '-'}
+                </span>
+                <span role="cell" className="flex w-[110px] shrink-0 justify-center gap-[18px]">
+                  <button type="button" aria-label={`${record.recordDate} 기록 수정`} onClick={() => onEdit(record.id)}>
+                    <img src={assets.pencil} alt="" />
+                  </button>
+                  <button type="button" aria-label={`${record.recordDate} 기록 삭제`} onClick={() => onDelete(record)}>
+                    <img src={assets.trash} alt="" />
+                  </button>
+                </span>
+              </div>
+            ))}
+          <div role="row" className="flex h-16 items-center gap-[18px] bg-[var(--dash-accent)]/3 px-6">
+            <span role="cell" className="w-[243px] shrink-0 text-[14px] leading-[1.45]">
+              합계
+            </span>
+            <span role="cell" className={`${cell} ${inter} w-[110px] text-[var(--dash-meso)]`}>
+              {(summary?.totalMeso ?? 0).toLocaleString('ko-KR')}
+            </span>
+            <span role="cell" className={`${cell} ${inter} w-[96px] text-center`}>
+              {(summary?.totalSolErda ?? 0).toLocaleString('ko-KR')}
+            </span>
+            <span role="cell" className="w-[574px] shrink-0 text-[12px] leading-[1.45] text-[var(--dash-muted)]">
+              총 메소 / 총 솔 에르다 조각
+            </span>
+          </div>
+        </div>
+      </div>
+      <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+    </section>
   )
 }
