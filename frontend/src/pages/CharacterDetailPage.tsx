@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import DailyContent from '../components/character/DailyContent'
 import WeeklyContent from '../components/character/WeeklyContent'
 import BossContent from '../components/character/BossContent'
+import CharacterChangeModal from '../components/character/CharacterChangeModal'
 import { characterAssets } from '../components/character/assets'
 import { detailCard } from '../components/character/styles'
 import { worlds } from '../components/dashboard/worlds'
@@ -14,6 +16,7 @@ export default function CharacterDetailPage() {
   const navigate = useNavigate()
   const id = Number(characterId)
   const assets = characterAssets[useThemeStore().theme]
+  const [changing, setChanging] = useState(false)
 
   const today = localDate(new Date())
   const weekStart = thursdayWeekStart(new Date())
@@ -95,6 +98,7 @@ export default function CharacterDetailPage() {
         <button
           type="button"
           disabled={charLoading}
+          onClick={() => setChanging(true)}
           className="ml-auto flex h-11 shrink-0 items-center gap-2 rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] px-4 text-[14px] font-bold"
         >
           <img src={assets.imgSwap} alt="" className="size-4" />
@@ -104,7 +108,17 @@ export default function CharacterDetailPage() {
 
       <DailyContent characterId={id} date={today} />
       <WeeklyContent characterId={id} weekStart={weekStart} />
-      <BossContent characterId={id} date={today} />
+      <BossContent key={id} characterId={id} date={today} />
+      {changing && (
+        <CharacterChangeModal
+          currentId={id}
+          onClose={() => setChanging(false)}
+          onChange={(nextId) => {
+            setChanging(false)
+            navigate(`/dashboard/${nextId}`)
+          }}
+        />
+      )}
     </div>
   )
 }
