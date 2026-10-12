@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.maple.utility.dto.request.HuntingRecordRequest;
 import com.maple.utility.dto.response.HuntingRecordResponse;
 import com.maple.utility.dto.response.HuntingGroundResponse;
+import com.maple.utility.dto.response.HuntingSummaryResponse;
+import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.security.JwtAuthentication;
 import com.maple.utility.service.HuntingService;
 
@@ -42,6 +44,28 @@ public class HuntingController {
 			Authentication authentication
 	) {
 		return huntingService.getRecords(currentUserId(authentication), characterId, from, to);
+	}
+
+	@GetMapping("/page")
+	public PageResponse<HuntingRecordResponse> getRecordPage(
+			@RequestParam(required = false) Long characterId,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "10") int size,
+			Authentication authentication
+	) {
+		return huntingService.getRecordPage(currentUserId(authentication), characterId, from, to, page, size);
+	}
+
+	@GetMapping("/summary")
+	public HuntingSummaryResponse getSummary(
+			@RequestParam(required = false) Long characterId,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+			Authentication authentication
+	) {
+		return huntingService.getSummary(currentUserId(authentication), characterId, from, to);
 	}
 
 	@GetMapping("/{id}")
