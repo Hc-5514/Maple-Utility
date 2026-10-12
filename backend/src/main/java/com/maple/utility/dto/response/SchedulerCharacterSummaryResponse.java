@@ -12,6 +12,7 @@ public record SchedulerCharacterSummaryResponse(
 		TaskSummary daily,
 		TaskSummary weekly,
 		TaskSummary weeklyBoss,
-		TaskSummary monthlyBoss
+		TaskSummary monthlyBoss,
+		boolean hasRecords
 ) implements Serializable {
 }

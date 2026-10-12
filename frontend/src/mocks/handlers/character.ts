@@ -1,9 +1,22 @@
 import { http, HttpResponse } from 'msw'
 import { previewCharacters } from '../fixtures/nexonPreview'
+import { worldNames } from '../../components/dashboard/worlds'
 
 const mockCharacters = previewCharacters.map((character) => ({ ...character }))
+let selectedWorldNames: string[] = []
 
 export const characterHandlers = [
+  http.get('*/api/v1/characters/world-selection', () => HttpResponse.json({
+    success: true, data: { worldNames: selectedWorldNames },
+  })),
+  http.put('*/api/v1/characters/world-selection', async ({ request }) => {
+    const body = await request.json() as { worldNames?: unknown }
+    if (!Array.isArray(body.worldNames) || body.worldNames.some((name) => typeof name !== 'string' || !worldNames.includes(name))) {
+      return HttpResponse.json({ success: false, message: '잘못된 월드 선택' }, { status: 400 })
+    }
+    selectedWorldNames = worldNames.filter((name) => (body.worldNames as string[]).includes(name))
+    return HttpResponse.json({ success: true, data: { worldNames: selectedWorldNames } })
+  }),
   http.get('*/api/v1/characters/favorites', () => {
     return HttpResponse.json({ success: true, data: mockCharacters.filter(c => c.favorite).sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id) })
   }),

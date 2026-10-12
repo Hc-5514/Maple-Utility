@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.entity.BossMaster;
@@ -18,6 +19,7 @@ import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.SchedulerBossRecord;
 import com.maple.utility.entity.SchedulerDailyRecord;
 import com.maple.utility.entity.SchedulerWeeklyRecord;
+import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.BossMasterRepository;
 import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
@@ -34,6 +36,7 @@ public class SchedulerSyncService {
 	private final SchedulerWeeklyRecordRepository weeklyRecordRepository;
 	private final SchedulerBossRecordRepository bossRecordRepository;
 	private final Clock clock;
+	private final SchedulerSyncLock syncLock;
 
 	public SchedulerSyncService(
 			NexonOpenApiClient nexonOpenApiClient,
@@ -41,7 +44,8 @@ public class SchedulerSyncService {
 			SchedulerDailyRecordRepository dailyRecordRepository,
 			SchedulerWeeklyRecordRepository weeklyRecordRepository,
 			SchedulerBossRecordRepository bossRecordRepository,
-			Clock clock
+			Clock clock,
+			SchedulerSyncLock syncLock
 	) {
 		this.nexonOpenApiClient = nexonOpenApiClient;
 		this.bossMasterRepository = bossMasterRepository;
@@ -49,6 +53,7 @@ public class SchedulerSyncService {
 		this.weeklyRecordRepository = weeklyRecordRepository;
 		this.bossRecordRepository = bossRecordRepository;
 		this.clock = clock;
+		this.syncLock = syncLock;
 	}
 
 	@Transactional
@@ -67,9 +72,43 @@ public class SchedulerSyncService {
 
 	@Transactional
 	public void syncOneCharacter(Long userId, MapleCharacter character, boolean batch, boolean force) {
+		acquireLock(userId);
 		NexonSchedulerResponse scheduler = batch
 				? nexonOpenApiClient.getCharacterSchedulerForBatch(userId, character.getOcid())
 				: nexonOpenApiClient.getCharacterScheduler(userId, character.getOcid(), force);
+		persist(character, scheduler);
+	}
+
+	@Transactional
+	public boolean syncHistoricalCharacter(Long userId, MapleCharacter character, LocalDate recordDate) {
+		LocalDate today = LocalDate.now(clock);
+		if (!recordDate.isBefore(today) || recordDate.isBefore(today.minusDays(14))
+				|| recordDate.getDayOfWeek() != DayOfWeek.WEDNESDAY) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "NEXON_HISTORY_DATE_INVALID", "지난주 최종 조회 날짜 오류");
+		}
+		acquireLock(userId);
+		NexonSchedulerResponse scheduler = nexonOpenApiClient.getCharacterSchedulerForDate(userId, character.getOcid(), recordDate);
+		if (scheduler == null) {
+			return false;
+		}
+		LocalDate weekStart = recordDate.minusDays(6);
+		if (!recordDate.equals(scheduler.date())
+				|| scheduler.daily().stream().anyMatch(row -> !recordDate.equals(row.recordDate()))
+				|| scheduler.weekly().stream().anyMatch(row -> !weekStart.equals(row.weekStartDate()))
+				|| scheduler.boss().stream().anyMatch(row -> !recordDate.equals(row.recordDate()))) {
+			throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_HISTORY_DATE_MISMATCH", "Nexon 과거 스케줄러 조회 날짜 불일치");
+		}
+		persist(character, scheduler);
+		return true;
+	}
+
+	private void acquireLock(Long userId) {
+		if (!syncLock.tryAcquire(userId)) {
+			throw new ApiException(HttpStatus.CONFLICT, "SCHEDULER_SYNC_IN_PROGRESS", "스케줄러 동기화 진행 중");
+		}
+	}
+
+	private void persist(MapleCharacter character, NexonSchedulerResponse scheduler) {
 		LocalDateTime syncedAt = LocalDateTime.now(clock);
 		syncDailyRecords(character, scheduler.date(), scheduler.daily(), syncedAt);
 		syncWeeklyRecords(character, scheduler.date(), scheduler.weekly(), syncedAt);

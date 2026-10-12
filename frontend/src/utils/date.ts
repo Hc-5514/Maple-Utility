@@ -5,9 +5,18 @@ export function localDate(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+export function seoulDate(date = new Date()): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
 export function thursdayWeekStart(date: Date): string {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  start.setDate(start.getDate() - (start.getDay() + 3) % 7)
+  start.setDate(start.getDate() - ((start.getDay() + 3) % 7))
   return localDate(start)
 }
 

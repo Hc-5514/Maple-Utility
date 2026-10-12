@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
   --color-bg: #1a1a2e;
@@ -42,4 +42,80 @@ body {
   --color-maple-border: var(--color-border);
   --color-maple-success: var(--color-success);
   --color-maple-danger: var(--color-danger);
+}
+
+.dashboard-theme {
+  font-family: 'Noto Sans KR', sans-serif;
+  --dash-bg-start: #120f22;
+  --dash-bg-end: #0b0c16;
+  --dash-text: #f3f1ff;
+  --dash-muted: #9b96b8;
+  --dash-accent: #a78bfa;
+  --dash-card: rgba(255, 255, 255, 0.06);
+  --dash-border: rgba(255, 255, 255, 0.13);
+  --dash-track: rgba(255, 255, 255, 0.05);
+  --dash-selected: rgba(167, 139, 250, 0.13);
+  --dash-dialog: rgba(37, 34, 55, 0.96);
+  --dash-overlay: rgba(9, 10, 20, 0.42);
+  --dash-button-text: #211c3b;
+  --dash-card-shadow: 0px 8px 32px rgba(0, 0, 0, 0.09);
+  --dash-modal-shadow: 0px 24px 64px rgba(0, 0, 0, 0.33);
+  --dash-menu-shadow: 0px 12px 32px rgba(0, 0, 0, 0.33);
+  color-scheme: dark;
+}
+.dashboard-theme[data-theme='light'] {
+  --dash-bg-start: #f4f1ff;
+  --dash-bg-end: #eaf8fb;
+  --dash-text: #211c3b;
+  --dash-muted: #6e6890;
+  --dash-accent: #7c5cfa;
+  --dash-card: rgba(255, 255, 255, 0.64);
+  --dash-border: rgba(166, 151, 212, 0.22);
+  --dash-track: rgba(140, 124, 181, 0.1);
+  --dash-selected: rgba(124, 92, 250, 0.13);
+  --dash-dialog: rgba(252, 250, 255, 0.96);
+  --dash-overlay: rgba(33, 28, 59, 0.18);
+  --dash-button-text: #fff;
+  --dash-card-shadow: 0px 8px 32px rgba(101, 83, 148, 0.04);
+  --dash-modal-shadow: 0px 24px 64px rgba(101, 83, 148, 0.16);
+  --dash-menu-shadow: 0px 12px 32px rgba(101, 83, 148, 0.16);
+  color-scheme: light;
+}
+.dashboard-theme * {
+  scrollbar-color: var(--dash-selected) transparent;
+  scrollbar-width: thin;
+}
+
+html:has(.dashboard-theme main) {
+  scrollbar-width: thin;
+}
+
+.period-menu-scroll {
+  scrollbar-width: auto;
+  scrollbar-color: rgba(124, 92, 250, 0.19) transparent;
+}
+.period-menu-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.period-menu-scroll::-webkit-scrollbar-thumb {
+  background: rgba(124, 92, 250, 0.19);
+  border-radius: 999px;
+}
+.period-menu-scroll::-webkit-scrollbar-track {
+  border: 1px solid rgba(166, 151, 212, 0.22);
+  border-radius: 999px;
+  background: transparent;
+}
+.dashboard-theme[data-theme='dark'] .period-menu-scroll {
+  scrollbar-color: rgba(167, 139, 250, 0.5) rgba(255, 255, 255, 0.08);
+}
+.dashboard-theme[data-theme='dark'] .period-menu-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.dashboard-theme[data-theme='dark'] .period-menu-scroll::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.5);
+}
+.dashboard-theme[data-theme='dark'] .period-menu-scroll::-webkit-scrollbar-track {
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
 }

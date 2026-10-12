@@ -182,7 +182,7 @@ export const schedulerHandlers = [
     }] : [] })
   }),
 
-  http.get('*/api/v1/scheduler/summary', () => HttpResponse.json({
+  http.get('*/api/v1/scheduler/summary', ({ request }) => HttpResponse.json({
     success: true,
     data: {
       characters: previewCharacters.map((character) => {
@@ -192,6 +192,7 @@ export const schedulerHandlers = [
         const weeklyBosses = bosses.filter((boss) => boss.resetPeriod === 'WEEKLY')
         const monthlyBosses = bosses.filter((boss) => boss.resetPeriod === 'MONTHLY')
         return {
+          hasRecords: !new URL(request.url).searchParams.get('date') || new URL(request.url).searchParams.get('date') === previewDate,
           characterId: character.id,
           characterName: character.characterName,
           characterLevel: character.characterLevel,

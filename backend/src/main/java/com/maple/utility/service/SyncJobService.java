@@ -1,17 +1,11 @@
 package com.maple.utility.service;
 
 import java.time.Clock;
-import java.time.DayOfWeek;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
@@ -144,29 +138,20 @@ public class SyncJobService {
 					jobs.advance(id, true);
 				}
 			}
-			evictSchedulerCaches(userId, favorites);
 			jobs.complete(id, LocalDateTime.now(clock));
+			evictSchedulerCaches();
 		} catch (Exception exception) {
 			fail(id, exception);
 		}
 	}
 
-	private void evictSchedulerCaches(Long userId, List<MapleCharacter> favorites) {
+	private void evictSchedulerCaches() {
 		var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
 		if (cache == null) {
 			return;
 		}
-		LocalDate today = LocalDate.now(clock);
-		Set<String> dates = Stream.of("null", today.toString(),
-				today.with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY)).toString()).collect(Collectors.toSet());
-		for (String date : dates) {
-			cache.evict("summary:" + userId + ":" + date);
-			for (MapleCharacter character : favorites) {
-				for (String view : List.of("daily", "weekly", "boss", "guild")) {
-					cache.evict(view + ":" + userId + ":" + character.getId() + ":" + date);
-				}
-			}
-		}
+		// Includes historical summaries and independent weekly/monthly detail cache keys.
+		cache.clear();
 	}
 
 	private boolean favoritesChanged(Long userId, SyncJobResponse job) {

@@ -1,55 +1,79 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
-
+import { useThemeStore } from '../../stores/themeStore'
+import { dashboardAssets } from '../dashboard/assets'
 export default function Header() {
   const { user, hasApiKey, logout } = useAuthStore()
+  const { theme, setTheme } = useThemeStore()
+  const assets = dashboardAssets[theme]
   const navigate = useNavigate()
-
-  const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
-
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `text-sm font-medium transition-colors ${
-      isActive ? 'text-[#4ade80]' : 'text-white/70 hover:text-white'
-    }`
-
+    `flex h-10 items-center rounded-[10px] px-4 text-[14px] transition-colors ${isActive ? 'bg-[var(--dash-accent)]/9 text-[var(--dash-accent)]' : 'text-[var(--dash-muted)] hover:text-[var(--dash-text)]'}`
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#1a1a2e]">
-      <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-4">
-        <Link to="/" className="text-base font-bold text-white">
+    <header
+      data-theme={theme}
+      className="dashboard-theme sticky top-0 z-40 border-b border-[var(--dash-border)] bg-[var(--dash-card)] text-[var(--dash-text)] backdrop-blur-[16px]"
+    >
+      <div className="relative flex min-h-[87px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-12 lg:py-0">
+        <Link to="/" className="text-[23px] font-bold">
           🍁 메이플 유틸리티
         </Link>
-
-        <nav className="flex items-center gap-5">
+        <nav className="order-3 flex w-full flex-wrap items-center gap-2 lg:absolute lg:left-[calc(50%-192px)] lg:order-none lg:w-auto">
           {!user ? (
-            <Link
-              to="/login"
-              className="rounded-md bg-[#4ade80] px-3 py-1.5 text-sm font-semibold text-black hover:bg-[#22c55e]"
-            >
+            <Link to="/login" className={navClass({ isActive: false })}>
               로그인
             </Link>
           ) : (
             <>
               {hasApiKey && (
                 <>
-                  <NavLink to="/dashboard" className={navClass}>대시보드</NavLink>
-                  <NavLink to="/hunting" className={navClass}>사냥기록</NavLink>
-                  <NavLink to="/stats" className={navClass}>통계</NavLink>
+                  <NavLink to="/dashboard" className={navClass}>
+                    대시보드
+                  </NavLink>
+                  <NavLink to="/hunting" className={navClass}>
+                    사냥기록
+                  </NavLink>
+                  <NavLink to="/stats" className={navClass}>
+                    통계
+                  </NavLink>
                 </>
               )}
-              <NavLink to="/settings" className={navClass}>설정</NavLink>
-              <span className="text-sm text-white/40">{user.nickname ?? user.email}</span>
+              <NavLink to="/settings" className={navClass}>
+                설정
+              </NavLink>
               <button
-                onClick={handleLogout}
-                className="text-sm text-white/50 transition-colors hover:text-white"
+                type="button"
+                onClick={() => {
+                  logout()
+                  navigate('/login')
+                }}
+                className="min-h-10 text-[14px] text-[var(--dash-muted)]"
               >
                 로그아웃
               </button>
             </>
           )}
         </nav>
+        <div className="flex h-[38px] items-center gap-1 rounded-full border border-[var(--dash-border)] bg-[var(--dash-track)] p-1">
+          <button
+            type="button"
+            aria-label="라이트 모드"
+            aria-pressed={theme === 'light'}
+            onClick={() => setTheme('light')}
+            className={`flex size-[30px] items-center justify-center rounded-full ${theme === 'light' ? 'bg-[var(--dash-accent)]/19' : ''}`}
+          >
+            <img src={assets.imgControlIcon} alt="" />
+          </button>
+          <button
+            type="button"
+            aria-label="다크 모드"
+            aria-pressed={theme === 'dark'}
+            onClick={() => setTheme('dark')}
+            className={`flex size-[30px] items-center justify-center rounded-full ${theme === 'dark' ? 'bg-[var(--dash-accent)]/19' : ''}`}
+          >
+            <img src={assets.imgControlIcon1} alt="" />
+          </button>
+        </div>
       </div>
     </header>
   )

@@ -22,7 +22,7 @@ class FlywayMigrationOrderTest {
 	private static final Path MIGRATION_DIR = Path.of("src/main/resources/db/migration").toAbsolutePath();
 
 	@Test
-	void laterV9RequiresOutOfOrderOnDatabaseAlreadyAtV13() throws Exception {
+	void laterV9RequiresOutOfOrderOnDatabaseAlreadyAtLatestVersion() throws Exception {
 		String schema = schemaName();
 		Path initialMigrations = Files.createTempDirectory("flyway-without-v9-");
 		try {
@@ -33,7 +33,7 @@ class FlywayMigrationOrderTest {
 			}
 
 			flyway(schema, initialMigrations, false).migrate();
-			assertThat(latestVersion(schema)).isEqualTo("13");
+			assertThat(latestVersion(schema)).isEqualTo(latestMigrationVersion(initialMigrations));
 			assertThatThrownBy(() -> flyway(schema, MIGRATION_DIR, false).migrate())
 					.hasMessageContaining("migration not applied to database: 9");
 
@@ -58,7 +58,7 @@ class FlywayMigrationOrderTest {
 
 		assertThat(migrationSuccess(schema, "9")).isTrue();
 		assertThat(migrationSuccess(schema, "13")).isTrue();
-		assertThat(latestVersion(schema)).isEqualTo("13");
+		assertThat(latestVersion(schema)).isEqualTo(latestMigrationVersion(MIGRATION_DIR));
 		assertThat(bossSortOrder(schema, "스우", "HARD")).isEqualTo(170);
 	}
 
@@ -70,6 +70,16 @@ class FlywayMigrationOrderTest {
 				.locations("filesystem:" + location)
 				.outOfOrder(outOfOrder)
 				.load();
+	}
+
+	private String latestMigrationVersion(Path directory) throws Exception {
+		try (Stream<Path> files = Files.list(directory)) {
+			return Integer.toString(files
+					.filter(path -> path.getFileName().toString().matches("^V\\d+__.*$"))
+					.mapToInt(path -> Integer.parseInt(path.getFileName().toString().split("__", 2)[0].substring(1)))
+					.max()
+					.orElseThrow());
+		}
 	}
 
 	private String schemaName() {

@@ -214,6 +214,25 @@ class NexonOpenApiClientTest {
 	}
 
 	@Test
+	void historicalRequestIncludesDateAndBypassesCache() throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), eq("https://example.test/scheduler/character-state?ocid=ocid&date=2026-07-08"),
+				eq(NexonRequestMode.BATCH), eq(com.maple.utility.entity.SyncType.SCHEDULER_BATCH), eq(false)))
+				.thenReturn(objectMapper.readTree("{\"date\":\"2026-07-08\",\"daily_contents\":[],\"weekly_contents\":[],\"boss_contents\":[]}"));
+		assertThat(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", LocalDate.parse("2026-07-08")).date())
+				.isEqualTo(LocalDate.parse("2026-07-08"));
+	}
+
+	@Test
+	void historicalNullDateIsDistinctFromMalformedResponse() throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("date=2026-07-08"), eq(NexonRequestMode.BATCH),
+				eq(com.maple.utility.entity.SyncType.SCHEDULER_BATCH), eq(false)))
+				.thenReturn(objectMapper.readTree("{\"date\":null}"), objectMapper.readTree("{}"));
+		assertThat(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", LocalDate.parse("2026-07-08"))).isNull();
+		assertThatThrownBy(() -> nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", LocalDate.parse("2026-07-08")))
+				.isInstanceOf(ApiException.class);
+	}
+
+	@Test
 	void getCharacterSchedulerRejectsInvalidDateWithDedicatedCode() throws Exception {
 		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("ocid=ocid"), eq(NexonRequestMode.REALTIME)))
 				.thenReturn(objectMapper.readTree("""

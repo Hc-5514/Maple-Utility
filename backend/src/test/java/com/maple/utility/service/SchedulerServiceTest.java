@@ -132,13 +132,9 @@ class SchedulerServiceTest {
 				.thenReturn(List.of(daily));
 		when(weeklyRecordRepository.findByCharacterIdInAndWeekStartDateOrderByCharacterIdAscIdAsc(List.of(10L), LocalDate.parse("2026-07-09")))
 				.thenReturn(List.of(weekly));
-		when(bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(List.of(10L), LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY))
+		when(bossRecordRepository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(List.of(10L), LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY))
 				.thenReturn(List.of(weeklyBossRecord));
-		when(bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(List.of(10L), LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY))
-				.thenReturn(List.of(monthlyBossRecord));
-		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
-				.thenReturn(List.of(weeklyBossRecord));
-		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-31"), ResetPeriod.MONTHLY))
+		when(bossRecordRepository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(List.of(10L), LocalDate.parse("2026-07-01"), LocalDate.parse("2026-07-14"), ResetPeriod.MONTHLY))
 				.thenReturn(List.of(monthlyBossRecord));
 		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-09"), ResetPeriod.WEEKLY))
 				.thenReturn(List.of());
@@ -149,10 +145,53 @@ class SchedulerServiceTest {
 
 		assertThat(response.characters()).hasSize(1);
 		SchedulerCharacterSummaryResponse charSummary = response.characters().get(0);
+		assertThat(charSummary.hasRecords()).isTrue();
 		assertThat(charSummary.daily().total()).isEqualTo(1);
 		assertThat(charSummary.weekly().total()).isEqualTo(1);
 		assertThat(charSummary.weeklyBoss().total()).isEqualTo(1);
 		assertThat(charSummary.monthlyBoss().total()).isEqualTo(1);
+	}
+
+
+	@Test
+	void summaryWithoutAnyRecordsReportsNoRecords() {
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L))
+				.thenReturn(List.of(character(user())));
+		var summary = schedulerService.getSummary(1L, LocalDate.of(2026, 6, 3)).characters().getFirst();
+		assertThat(summary.hasRecords()).isFalse();
+		assertThat(summary.daily().total()).isZero();
+		assertThat(summary.weeklyBoss().total()).isZero();
+		verify(bossRecordRepository).findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+				List.of(10L), LocalDate.of(2026, 5, 28), LocalDate.of(2026, 6, 3), ResetPeriod.WEEKLY);
+		verify(bossRecordRepository).findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+				List.of(10L), LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 3), ResetPeriod.MONTHLY);
+	}
+
+	@Test
+	void summaryUsesEarlierSnapshotAndItsSyncTimeWhenSelectedDayHasNoBossRows() {
+		MapleCharacter character = character(user());
+		var syncedAt = LocalDateTime.of(2026, 7, 12, 15, 0);
+		var record = SchedulerBossRecord.create(character, boss(20L, ResetPeriod.WEEKLY),
+				LocalDate.of(2026, 7, 12), ResetPeriod.WEEKLY, false, syncedAt);
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(bossRecordRepository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+				List.of(10L), LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 14), ResetPeriod.WEEKLY))
+				.thenReturn(List.of(record));
+		var summary = schedulerService.getSummary(1L, LocalDate.of(2026, 7, 14));
+		assertThat(summary.syncedAt()).isEqualTo(syncedAt);
+		assertThat(summary.characters().getFirst().hasRecords()).isTrue();
+		assertThat(summary.characters().getFirst().weeklyBoss().total()).isEqualTo(1);
+		assertThat(summary.characters().getFirst().weeklyBoss().completed()).isZero();
+	}
+
+	@Test
+	void summaryCacheKeyNormalizesTodayAndSeparatesUsersAndDates() {
+		assertThat(schedulerService.summaryCacheKey(1L, null))
+				.isEqualTo(schedulerService.summaryCacheKey(1L, LocalDate.now(CLOCK)))
+				.isEqualTo("summary:v2:1:2026-07-14");
+		assertThat(schedulerService.summaryCacheKey(2L, null)).isNotEqualTo(schedulerService.summaryCacheKey(1L, null));
+		assertThat(schedulerService.summaryCacheKey(1L, LocalDate.of(2026, 7, 13)))
+				.isNotEqualTo(schedulerService.summaryCacheKey(1L, null));
 	}
 
 	@Test

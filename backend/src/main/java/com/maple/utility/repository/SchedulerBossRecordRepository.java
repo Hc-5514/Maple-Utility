@@ -45,6 +45,26 @@ public interface SchedulerBossRecordRepository extends JpaRepository<SchedulerBo
 			ResetPeriod resetPeriod
 	);
 
+	@Query("""
+			select record
+			from SchedulerBossRecord record
+			where record.character.id in :characterIds
+			  and record.recordDate between :startDate and :endDate
+			  and record.resetPeriod = :resetPeriod
+			  and record.recordDate = (
+					select max(latest.recordDate)
+					from SchedulerBossRecord latest
+					where latest.character.id = record.character.id
+					  and latest.boss.id = record.boss.id
+					  and latest.resetPeriod = record.resetPeriod
+					  and latest.recordDate between :startDate and :endDate
+				  )
+			order by record.character.id asc, record.boss.sortOrder asc, record.id asc
+			""")
+	List<SchedulerBossRecord> findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+			List<Long> characterIds, LocalDate startDate, LocalDate endDate, ResetPeriod resetPeriod
+	);
+
 	List<SchedulerBossRecord> findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(
 			List<Long> characterIds,
 			LocalDate recordDate,

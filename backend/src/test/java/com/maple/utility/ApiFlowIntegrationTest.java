@@ -4,6 +4,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -42,6 +43,7 @@ import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
 import com.maple.utility.repository.StatsQueryRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
+import com.maple.utility.repository.UserSelectedWorldRepository;
 import com.maple.utility.security.JwtTokenProvider;
 import com.maple.utility.security.NexonApiGateway;
 import com.maple.utility.security.NexonOpenApiClient;
@@ -49,6 +51,8 @@ import com.maple.utility.security.RefreshTokenRedisService;
 import com.maple.utility.service.AuthService;
 import com.maple.utility.service.CharacterService;
 import com.maple.utility.service.HuntingService;
+import com.maple.utility.service.WorldSelectionService;
+import com.maple.utility.dto.response.WorldSelectionResponse;
 
 @SpringBootTest(properties = {
 		"JWT_SECRET=test-jwt-secret-for-context-load-integration-test-key-32b",
@@ -67,6 +71,9 @@ import com.maple.utility.service.HuntingService;
 })
 class ApiFlowIntegrationTest {
 	@MockitoBean
+	private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+	@MockitoBean
 	private JdbcTemplate jdbcTemplate;
 
 	@Autowired
@@ -79,6 +86,9 @@ class ApiFlowIntegrationTest {
 
 	@MockitoBean
 	private EntityManager entityManager;
+
+	@MockitoBean
+	private UserSelectedWorldRepository userSelectedWorldRepository;
 
 	@MockitoBean
 	private UserRepository userRepository;
@@ -146,11 +156,36 @@ class ApiFlowIntegrationTest {
 	@MockitoBean
 	private HuntingService huntingService;
 
+	@MockitoBean
+	private WorldSelectionService worldSelectionService;
+
 	@BeforeEach
 	void setUp() {
 		mockMvc = MockMvcBuilders.webAppContextSetup(context)
 				.apply(springSecurity())
 				.build();
+	}
+
+	@Test
+	void 월드_선택_JWT_사용자별_조회_저장() throws Exception {
+		String token = jwtTokenProvider.createAccessToken(7L).value();
+		Mockito.when(worldSelectionService.getSelection(7L)).thenReturn(new WorldSelectionResponse(List.of("루나")));
+		Mockito.when(worldSelectionService.saveSelection(7L, List.of("베라")))
+				.thenReturn(new WorldSelectionResponse(List.of("베라")));
+		mockMvc.perform(get("/api/v1/characters/world-selection").header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.worldNames[0]").value("루나"));
+		mockMvc.perform(put("/api/v1/characters/world-selection").header("Authorization", "Bearer " + token)
+					.contentType(MediaType.APPLICATION_JSON).content("{\"worldNames\":[\"베라\"]}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$.worldNames[0]").value("베라"));
+		Mockito.verify(worldSelectionService).getSelection(7L);
+		Mockito.verify(worldSelectionService).saveSelection(7L, List.of("베라"));
+	}
+
+	@Test
+	void 월드_선택_미인증_조회_저장_401() throws Exception {
+		mockMvc.perform(get("/api/v1/characters/world-selection")).andExpect(status().isUnauthorized());
+		mockMvc.perform(put("/api/v1/characters/world-selection").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"worldNames\":[]}")).andExpect(status().isUnauthorized());
 	}
 
 	@Test
