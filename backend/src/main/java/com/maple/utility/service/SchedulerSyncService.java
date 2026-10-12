@@ -25,6 +25,7 @@ import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
 import com.maple.utility.security.NexonOpenApiClient;
+import com.maple.utility.security.NexonRequestMode;
 import com.maple.utility.security.NexonSchedulerResponse;
 
 @Service
@@ -81,13 +82,18 @@ public class SchedulerSyncService {
 
 	@Transactional
 	public boolean syncHistoricalCharacter(Long userId, MapleCharacter character, LocalDate recordDate) {
+		return syncHistoricalCharacter(userId, character, recordDate, NexonRequestMode.BATCH);
+	}
+
+	@Transactional
+	public boolean syncHistoricalCharacter(Long userId, MapleCharacter character, LocalDate recordDate, NexonRequestMode mode) {
 		LocalDate today = LocalDate.now(clock);
 		if (!recordDate.isBefore(today) || recordDate.isBefore(today.minusDays(14))
 				|| recordDate.getDayOfWeek() != DayOfWeek.WEDNESDAY) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "NEXON_HISTORY_DATE_INVALID", "지난주 최종 조회 날짜 오류");
 		}
 		acquireLock(userId);
-		NexonSchedulerResponse scheduler = nexonOpenApiClient.getCharacterSchedulerForDate(userId, character.getOcid(), recordDate);
+		NexonSchedulerResponse scheduler = nexonOpenApiClient.getCharacterSchedulerForDate(userId, character.getOcid(), recordDate, mode);
 		if (scheduler == null) {
 			return false;
 		}

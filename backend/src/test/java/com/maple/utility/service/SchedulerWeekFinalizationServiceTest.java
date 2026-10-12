@@ -34,6 +34,7 @@ import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.SchedulerWeekFinalizationRepository;
 import com.maple.utility.repository.SchedulerWeekFinalizationRepository.Target;
 import com.maple.utility.repository.UserRepository;
+import com.maple.utility.security.NexonRequestMode;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerWeekFinalizationServiceTest {
@@ -59,7 +60,7 @@ class SchedulerWeekFinalizationServiceTest {
 		ReflectionTestUtils.setField(user, "id", 1L);
 		character = MapleCharacter.create(user, "ocid", "캐릭터", "스카니아", "히어로", 280, 1);
 		ReflectionTestUtils.setField(character, "id", 10L);
-		when(users.findAll()).thenReturn(List.of(user));
+		lenient().when(users.findAll()).thenReturn(List.of(user));
 		lenient().when(manager.getTransaction(any())).thenReturn(status);
 		lenient().when(lock.tryAcquire(1L)).thenReturn(true);
 		lenient().when(characters.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
@@ -70,7 +71,7 @@ class SchedulerWeekFinalizationServiceTest {
 	@Test
 	void successfulWednesdaySnapshotCommitsFinalStateAndEvictsCaches() {
 		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
-		when(sync.syncHistoricalCharacter(1L, character, LocalDate.parse("2026-07-15"))).thenReturn(true);
+		when(sync.syncHistoricalCharacter(1L, character, LocalDate.parse("2026-07-15"), NexonRequestMode.BATCH)).thenReturn(true);
 		when(caches.getCache(RedisCacheNames.SCHEDULER)).thenReturn(cache);
 		service.finalizeWeeks();
 		verify(records).finish(100L, true, NOW);
@@ -79,6 +80,32 @@ class SchedulerWeekFinalizationServiceTest {
 		verify(records).seed(1L, LocalDate.parse("2026-07-09"));
 		verify(records).seed(1L, LocalDate.parse("2026-07-02"));
 		verify(records).expire(TODAY, NOW);
+	}
+
+	@Test
+	void liveSyncSeedsRecentWeeksAndFinalizesWithRealtimeBudget() {
+		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
+		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate(), NexonRequestMode.REALTIME)).thenReturn(true);
+		Runnable progress = mock(Runnable.class);
+
+		assertThat(service.prepareRecentWeeks(1L)).isEqualTo(1);
+		assertThat(service.finalizeRecentWeeks(1L, progress)).isTrue();
+
+		verify(records).seed(1L, LocalDate.parse("2026-07-09"));
+		verify(records).seed(1L, LocalDate.parse("2026-07-02"));
+		verify(records).finish(100L, true, NOW);
+		verify(progress).run();
+		verifyNoInteractions(caches);
+	}
+
+	@Test
+	void liveSyncSkipsCallsWhenRecentWeeksAreAlreadyFinalized() {
+		when(records.due(1L, TODAY)).thenReturn(List.of());
+
+		assertThat(service.prepareRecentWeeks(1L)).isZero();
+		assertThat(service.finalizeRecentWeeks(1L, () -> { })).isFalse();
+
+		verifyNoInteractions(sync);
 	}
 
 	@Test
@@ -93,7 +120,7 @@ class SchedulerWeekFinalizationServiceTest {
 	@Test
 	void failedSnapshotRollsBackBeforeDurableRetryState() {
 		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
-		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate()))
+		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate(), NexonRequestMode.BATCH))
 				.thenThrow(new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_SERVER_ERROR", "서버 오류"));
 		service.finalizeWeeks();
 		var order = inOrder(manager, records);
@@ -108,7 +135,7 @@ class SchedulerWeekFinalizationServiceTest {
 		Target second = new Target(101L, 1L, 10L, LocalDate.parse("2026-07-02"));
 		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET, second));
 		when(records.lockDue(101L, TODAY)).thenReturn(Optional.of(second));
-		when(sync.syncHistoricalCharacter(anyLong(), any(), any()))
+		when(sync.syncHistoricalCharacter(anyLong(), any(), any(), any()))
 				.thenThrow(new ApiException(HttpStatus.TOO_MANY_REQUESTS, "NEXON_BATCH_LIMIT_REACHED", "예산 소진"));
 		service.finalizeWeeks();
 		verify(records).retry(100L, "NEXON_BATCH_LIMIT_REACHED", false, NOW);
@@ -137,10 +164,10 @@ class SchedulerWeekFinalizationServiceTest {
 	@Test
 	void earlyRetryPassFinalizesDurableWorkWithoutCreatingNewWednesdayTargets() {
 		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
-		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate())).thenReturn(true);
+		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate(), NexonRequestMode.BATCH)).thenReturn(true);
 		service.retryPendingWeeks();
 		verify(records, never()).seed(anyLong(), any());
-		verify(sync).syncHistoricalCharacter(1L, character, TARGET.recordDate());
+		verify(sync).syncHistoricalCharacter(1L, character, TARGET.recordDate(), NexonRequestMode.BATCH);
 		verify(records).finish(100L, true, NOW);
 		verify(manager).commit(status);
 	}
@@ -156,7 +183,7 @@ class SchedulerWeekFinalizationServiceTest {
 	void fourHundredDailyCharactersCannotStarvePreviousDaysBudgetDeferredFinalization() {
 		var calls = new java.util.concurrent.atomic.AtomicInteger(400);
 		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
-		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate())).thenAnswer(invocation -> {
+		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate(), NexonRequestMode.BATCH)).thenAnswer(invocation -> {
 			if (calls.get() >= 400) {
 				throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "NEXON_BATCH_LIMIT_REACHED", "예산 소진");
 			}
