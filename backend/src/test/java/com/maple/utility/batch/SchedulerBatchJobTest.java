@@ -1,6 +1,8 @@
 package com.maple.utility.batch;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -53,6 +55,24 @@ class SchedulerBatchJobTest {
 	void weeklyFinalizationUsesDedicatedService() {
 		schedulerBatchJob.finalizeWeeklyScheduler();
 		verify(finalizationService).finalizeWeeks();
+	}
+
+	@Test
+	void pendingFinalizationsGetBudgetBeforeDailyEnqueueForEveryUser() {
+		when(userRepository.findAll()).thenReturn(List.of(user(1L), user(2L)));
+		schedulerBatchJob.syncDailyScheduler();
+		var ordered = inOrder(finalizationService, syncJobService);
+		ordered.verify(finalizationService).retryPendingWeeks();
+		ordered.verify(syncJobService).startScheduler(1L, true, true);
+		ordered.verify(syncJobService).startScheduler(2L, true, true);
+	}
+
+	@Test
+	void retryStorageFailureDoesNotSuppressDailyScheduling() {
+		when(userRepository.findAll()).thenReturn(List.of(user(1L)));
+		doThrow(new IllegalStateException("retry storage unavailable")).when(finalizationService).retryPendingWeeks();
+		schedulerBatchJob.syncDailyScheduler();
+		verify(syncJobService).startScheduler(1L, true, true);
 	}
 
 	private User user(Long id) {

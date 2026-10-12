@@ -29,6 +29,12 @@ public class SchedulerBatchJob {
 
 	@Scheduled(cron = "0 0 1 * * *", zone = "Asia/Seoul")
 	public void syncDailyScheduler() {
+		try {
+			// Existing retries finish before daily jobs can consume the available shared key budget.
+			finalizationService.retryPendingWeeks();
+		} catch (RuntimeException exception) {
+			log.error("Scheduler finalization retry pass failed before daily batch", exception);
+		}
 		for (User user : userRepository.findAll()) {
 			try {
 				syncJobService.startScheduler(user.getId(), true, true);

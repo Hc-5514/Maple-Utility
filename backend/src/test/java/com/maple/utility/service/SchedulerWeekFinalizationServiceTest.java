@@ -2,6 +2,7 @@ package com.maple.utility.service;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -24,6 +25,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 
 import com.maple.utility.config.RedisCacheNames;
+import com.maple.utility.batch.SchedulerBatchJob;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
@@ -130,5 +132,57 @@ class SchedulerWeekFinalizationServiceTest {
 		service.finalizeWeeks();
 		verify(records).retry(100L, "SCHEDULER_SYNC_IN_PROGRESS", false, NOW);
 		verifyNoInteractions(sync, characters);
+	}
+
+	@Test
+	void earlyRetryPassFinalizesDurableWorkWithoutCreatingNewWednesdayTargets() {
+		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
+		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate())).thenReturn(true);
+		service.retryPendingWeeks();
+		verify(records, never()).seed(anyLong(), any());
+		verify(sync).syncHistoricalCharacter(1L, character, TARGET.recordDate());
+		verify(records).finish(100L, true, NOW);
+		verify(manager).commit(status);
+	}
+
+	@Test
+	void earlyRetryPassWithoutDurableTargetsDoesNotCallNexonOrSeedNewWeek() {
+		service.retryPendingWeeks();
+		verify(records, never()).seed(anyLong(), any());
+		verifyNoInteractions(sync, characters);
+	}
+
+	@Test
+	void fourHundredDailyCharactersCannotStarvePreviousDaysBudgetDeferredFinalization() {
+		var calls = new java.util.concurrent.atomic.AtomicInteger(400);
+		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
+		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate())).thenAnswer(invocation -> {
+			if (calls.get() >= 400) {
+				throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "NEXON_BATCH_LIMIT_REACHED", "예산 소진");
+			}
+			calls.incrementAndGet();
+			return true;
+		});
+		service.finalizeWeeks();
+		verify(records).retry(100L, "NEXON_BATCH_LIMIT_REACHED", false, NOW);
+
+		Clock friday = Clock.fixed(Instant.parse("2026-07-16T16:00:00Z"), ZoneId.of("Asia/Seoul"));
+		LocalDate nextDay = LocalDate.now(friday);
+		when(records.due(1L, nextDay)).thenReturn(List.of(TARGET));
+		when(records.lockDue(100L, nextDay)).thenReturn(Optional.of(TARGET));
+		calls.set(0); // Seoul midnight resets both user and shared key budgets.
+		var priorityService = new SchedulerWeekFinalizationService(records, users, characters, sync, lock, caches, manager, friday);
+		SyncJobService daily = mock(SyncJobService.class);
+		var dailyCalls = new java.util.concurrent.atomic.AtomicInteger();
+		when(daily.startScheduler(1L, true, true)).thenAnswer(invocation -> {
+			for (int i = 0; i < 400; i++) {
+				if (calls.get() < 400) { calls.incrementAndGet(); dailyCalls.incrementAndGet(); }
+			}
+			return null;
+		});
+		new SchedulerBatchJob(users, daily, priorityService).syncDailyScheduler();
+		verify(records).finish(100L, true, LocalDateTime.now(friday));
+		assertThat(dailyCalls.get()).isEqualTo(399);
+		assertThat(calls.get()).isEqualTo(400);
 	}
 }

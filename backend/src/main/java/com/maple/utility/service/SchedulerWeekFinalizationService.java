@@ -45,16 +45,27 @@ public class SchedulerWeekFinalizationService {
 	}
 
 	public void finalizeWeeks() {
+		run(true);
+	}
+
+	/** Prioritize durable retries before the daily batch, without seeding a new Wednesday before 02:00. */
+	public void retryPendingWeeks() {
+		run(false);
+	}
+
+	private void run(boolean seedNewWeeks) {
 		LocalDate today = LocalDate.now(clock);
 		records.expire(today, LocalDateTime.now(clock));
 		boolean changed = false;
 		for (var user : users.findAll()) {
 			try {
 				// Seed the two completed Wednesdays still covered by Nexon's inclusive 14-day window.
-				LocalDate wednesday = today.with(TemporalAdjusters.previous(DayOfWeek.WEDNESDAY));
-				while (!wednesday.isBefore(today.minusDays(14))) {
-					records.seed(user.getId(), wednesday.minusDays(6));
-					wednesday = wednesday.minusWeeks(1);
+				if (seedNewWeeks) {
+					LocalDate wednesday = today.with(TemporalAdjusters.previous(DayOfWeek.WEDNESDAY));
+					while (!wednesday.isBefore(today.minusDays(14))) {
+						records.seed(user.getId(), wednesday.minusDays(6));
+						wednesday = wednesday.minusWeeks(1);
+					}
 				}
 				for (var target : records.due(user.getId(), today)) {
 					try {
