@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { AxiosResponse } from 'axios'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import client from '../../api/client'
@@ -63,7 +63,7 @@ describe('BossContent', () => {
     fireEvent.click((await screen.findAllByRole('button', { name: /스우/ }))[0])
     fireEvent.click(await screen.findByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }))
     expect(put).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: '닫기' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '저장' }))
     fireEvent.click(screen.getByRole('button', { name: '저장' }))
 
     await waitFor(() => expect(put).toHaveBeenCalledWith('/boss/5/period', expect.objectContaining({
@@ -71,6 +71,28 @@ describe('BossContent', () => {
       periodStart: '2026-10-08',
       items: [expect.objectContaining({ bossDropItemId: 10, acquired: true })],
     })))
+  })
+
+  it('restores the modal edits on cancel before the section save', async () => {
+    vi.spyOn(client, 'get').mockImplementation(async (url) => ({
+      data: { success: true, data: url.startsWith('/scheduler/') ? {
+        weeklyBosses: [{
+          characterId: 1, bossId: 5, bossName: '스우', difficulty: 'HARD',
+          resetPeriod: 'WEEKLY', isCompleted: true, syncedAt: null,
+        }], monthlyBosses: [],
+      } : period },
+    } as AxiosResponse))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /스우/ }))[0])
+    const checkbox = await screen.findByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' })
+    fireEvent.click(checkbox)
+    expect((checkbox as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '취소' }))
+    fireEvent.click((await screen.findAllByRole('button', { name: /스우/ }))[0])
+    expect((await screen.findByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }) as HTMLInputElement).checked).toBe(false)
   })
 
   it('saves a manually selected weekly boss when the selected week has no record', async () => {

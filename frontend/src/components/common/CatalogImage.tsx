@@ -21,6 +21,7 @@ interface Props {
   alt: string
   kind: 'boss' | 'item'
   className?: string
+  large?: boolean
 }
 
 const KIND_CLASSES = {
@@ -28,17 +29,18 @@ const KIND_CLASSES = {
   item: 'size-9 rounded-[10px] border border-[var(--dash-subtle-border)] bg-[var(--dash-subtle)]',
 }
 
-export default function CatalogImage({ src, alt, kind, className }: Props) {
+export default function CatalogImage({ src, alt, kind, className, large = false }: Props) {
   const { theme } = useThemeStore()
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const imageSrc = catalogImageSrc(src)
-  const classes = `${className ?? KIND_CLASSES[kind]} shrink-0`
+  const classes = `${className ?? KIND_CLASSES[kind]} ${large ? 'size-[52px]' : ''} shrink-0`
 
   if (!imageSrc || failedSrc === imageSrc) {
-    const icon = kind === 'boss' ? characterAssets[theme].imgSwords : characterAssets[theme].imgPkg
+    const assets = characterAssets[theme]
+    const icon = kind === 'item' ? assets.imgPkg : large ? assets.imgSwordsLarge : assets.imgSwords
     return (
       <div className={`${classes} flex items-center justify-center`} role="img" aria-label={alt}>
-        <img src={icon} alt="" className={kind === 'boss' ? 'size-[22px]' : 'size-[18px]'} />
+        <img src={icon} alt="" className={kind === 'item' ? 'size-[18px]' : large ? 'size-6' : 'size-[22px]'} />
       </div>
     )
   }
