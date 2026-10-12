@@ -23,6 +23,7 @@ import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
 import com.maple.utility.repository.StatsQueryRepository;
 import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
+import com.maple.utility.repository.UserSelectedWorldRepository;
 
 @SpringBootTest(properties = {
 		"JWT_SECRET=test-jwt-secret-for-context-load",
@@ -44,6 +45,9 @@ class MapleUtilityApplicationTests {
 
 	@MockitoBean
 	private EntityManager entityManager;
+
+	@MockitoBean
+	private UserSelectedWorldRepository userSelectedWorldRepository;
 
 	@MockitoBean
 	private UserRepository userRepository;
