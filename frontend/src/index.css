@@ -127,3 +127,19 @@ html:has(.dashboard-theme main) {
   border: 0;
   background: rgba(255, 255, 255, 0.08);
 }
+
+.glass-select-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--dash-accent) 40%, transparent) var(--dash-border);
+}
+.glass-select-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.glass-select-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dash-accent) 40%, transparent);
+}
+.glass-select-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: var(--dash-border);
+}
