@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { CharacterSchedulerSummary } from '../../types'
+import CharacterPortrait from '../common/CharacterPortrait'
 import { useThemeStore } from '../../stores/themeStore'
 import { dashboardAssets } from './assets'
 import { worlds } from './worlds'
@@ -37,11 +38,7 @@ export default function CharacterSummaryCard({
           className={`flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${avatarColors[index % avatarColors.length]}`}
         >
           {character.characterImage ? (
-            <img
-              src={character.characterImage}
-              alt={character.characterName}
-              className="size-14 object-cover"
-            />
+            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={56} />
           ) : (
             <span className="text-3xl">🍁</span>
           )}

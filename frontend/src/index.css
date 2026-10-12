@@ -426,11 +426,6 @@ html:has(.dashboard-theme main) {
   background: color-mix(in srgb, var(--avatar-color) 9%, transparent);
   overflow: hidden;
 }
-.settings-avatar .portrait {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-}
 .settings-character-info {
   display: flex;
   flex: 1;
