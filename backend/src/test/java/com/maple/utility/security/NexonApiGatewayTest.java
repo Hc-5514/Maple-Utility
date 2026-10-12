@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.HttpHeaders;
@@ -75,6 +76,11 @@ class NexonApiGatewayTest {
 			Duration.ofSeconds(1)
 	);
 
+	@BeforeEach
+	void reserveBudgets() {
+		org.mockito.Mockito.lenient().when(apiCallCounter.reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+	}
+
 	@Test
 	void getUsesDecryptedStoredApiKeyHeaderAndCachesResponse() {
 		AtomicReference<ClientRequest> capturedRequest = new AtomicReference<>();
@@ -100,7 +106,7 @@ class NexonApiGatewayTest {
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
 				.thenAnswer(invocation -> invocation.getArgument(0));
-		when(apiCallCounter.increment("1")).thenReturn(1L);
+
 
 		assertThat(gateway.getWithStoredKey(1L, "https://example.test/character/list", NexonRequestMode.REALTIME)
 				.path("ok").asBoolean()).isTrue();
@@ -111,7 +117,7 @@ class NexonApiGatewayTest {
 				org.mockito.ArgumentMatchers.eq("{\"ok\":true}"),
 				org.mockito.ArgumentMatchers.eq(Duration.ofMinutes(5))
 		);
-		verify(apiCallCounter).increment("1");
+		verify(apiCallCounter).reserve("1", 450L);
 	}
 
 	@Test
@@ -133,7 +139,7 @@ class NexonApiGatewayTest {
 		assertThat(gateway.get(1L, "plain-api-key", "https://example.test/character/list", NexonRequestMode.REALTIME)
 				.path("cached").asBoolean()).isTrue();
 		assertThat(calls).hasValue(0);
-		verify(apiCallCounter, never()).increment("1");
+		verify(apiCallCounter, never()).reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
 	}
 
 	@Test
@@ -237,7 +243,7 @@ class NexonApiGatewayTest {
 		when(valueOperations.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
 		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(userApiKey));
 		when(apiKeyCryptoService.decrypt("encrypted-api-key")).thenReturn("plain-api-key");
-		when(apiCallCounter.getCount("1")).thenReturn(450L);
+		when(apiCallCounter.getCount("1")).thenReturn(399L);
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
 				.thenAnswer(invocation -> {
@@ -245,7 +251,7 @@ class NexonApiGatewayTest {
 					startedLog.compareAndSet(null, log);
 					return log;
 				});
-		when(apiCallCounter.increment("1")).thenReturn(451L);
+
 
 		gateway.getWithStoredKey(1L, "https://example.test/character/scheduler", NexonRequestMode.BATCH, SyncType.SCHEDULER_BATCH);
 
@@ -271,6 +277,56 @@ class NexonApiGatewayTest {
 		gateway.get(1L, "plain-api-key", "https://example.test/two", NexonRequestMode.REALTIME);
 
 		assertThat(waitedMillis.get()).isEqualTo(Duration.ofSeconds(1).toMillis());
+	}
+
+	@Test
+	void retriesConsumeEveryOutboundAttemptAndLogFailures() {
+		AtomicInteger outbound = new AtomicInteger();
+		WebClient client = WebClient.builder().exchangeFunction(request -> {
+			outbound.incrementAndGet();
+			return Mono.just(ClientResponse.create(HttpStatus.SERVICE_UNAVAILABLE).body("{}").build());
+		}).build();
+		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+		when(userRepository.findById(1L)).thenReturn(Optional.of(user()));
+		AtomicReference<DataSyncLog> saved = new AtomicReference<>();
+		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> {
+			DataSyncLog record = invocation.getArgument(0);
+			saved.set(record);
+			return record;
+		});
+		assertThatThrownBy(() -> gateway(client, millis -> {}).get(1L, "key", "https://example.test/retry", NexonRequestMode.REALTIME))
+				.isInstanceOf(ApiException.class);
+		assertThat(outbound).hasValue(3);
+		verify(apiCallCounter, org.mockito.Mockito.times(3)).reserve("1", 450L);
+		assertThat(saved.get().getApiCallsUsed()).isEqualTo(3);
+	}
+
+	@Test
+	void retryCannotCrossAtomicBudgetBoundary() {
+		AtomicInteger outbound = new AtomicInteger();
+		WebClient client = WebClient.builder().exchangeFunction(request -> {
+			outbound.incrementAndGet();
+			return Mono.just(ClientResponse.create(HttpStatus.INTERNAL_SERVER_ERROR).body("{}").build());
+		}).build();
+		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+		when(userRepository.findById(1L)).thenReturn(Optional.of(user()));
+		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
+		when(apiCallCounter.reserve("1", 450L)).thenReturn(true, false);
+		assertThatThrownBy(() -> gateway(client, millis -> {}).get(1L, "key", "https://example.test/retry", NexonRequestMode.REALTIME))
+				.isInstanceOfSatisfying(ApiException.class, api -> assertThat(api.getCode()).isEqualTo("NEXON_REALTIME_LIMIT_REACHED"));
+		assertThat(outbound).hasValue(1);
+		verify(apiCallCounter, org.mockito.Mockito.times(2)).reserve("1", 450L);
+	}
+
+	@Test
+	void batchStopsAtFourHundredTotalCallsAndPreservesRealtimeHeadroom() {
+		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+		when(apiCallCounter.getCount("1")).thenReturn(400L);
+		assertThatThrownBy(() -> gateway(WebClient.builder().build(), millis -> {})
+				.get(1L, "key", "https://example.test", NexonRequestMode.BATCH))
+				.isInstanceOfSatisfying(ApiException.class, api -> assertThat(api.getCode()).isEqualTo("NEXON_BATCH_LIMIT_REACHED"));
+		verify(apiCallCounter, never()).reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
 	}
 
 	private NexonApiGateway gateway(WebClient webClient, NexonApiGateway.Sleeper sleeper) {

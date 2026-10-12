@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
@@ -15,6 +16,13 @@ public class NexonApiCallCounter {
 
 	private static final String KEY_PREFIX = "nexon:api:daily";
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+	private static final DefaultRedisScript<Long> RESERVE = new DefaultRedisScript<>("""
+			local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+			if count >= tonumber(ARGV[1]) then return 0 end
+			redis.call('INCR', KEYS[1])
+			redis.call('PEXPIRE', KEYS[1], ARGV[2])
+			return 1
+			""", Long.class);
 
 	private final StringRedisTemplate redisTemplate;
 	private final Clock clock;
@@ -35,6 +43,17 @@ public class NexonApiCallCounter {
 	public long getCount(String subject) {
 		String value = redisTemplate.opsForValue().get(key(subject));
 		return value == null ? 0L : Long.parseLong(value);
+	}
+
+	/** Reserve immediately before every outbound attempt, including retries. */
+	public boolean reserve(String subject, long limit) {
+		Assert.isTrue(limit > 0, "limit must be positive");
+		Long result = redisTemplate.execute(RESERVE, java.util.List.of(key(subject)),
+				Long.toString(limit), Long.toString(Math.max(1, durationUntilNextMidnight().toMillis())));
+		if (result == null) {
+			throw new IllegalStateException("Nexon API budget reservation unavailable");
+		}
+		return result == 1L;
 	}
 
 	public void reset(String subject) {
