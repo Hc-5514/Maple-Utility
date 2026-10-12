@@ -1,54 +1,9 @@
-import { useRef } from 'react'
 import { Link } from 'react-router-dom'
+import DateButton from '../common/DateButton'
 import GlassSelect from '../common/GlassSelect'
 import { useThemeStore } from '../../stores/themeStore'
 import { huntingAssets } from './assets'
-import { formatDotDate } from './format'
 import type { Character } from '../../types'
-
-function DateButton({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string
-  value: string
-  min?: string
-  max?: string
-  onChange: (value: string) => void
-}) {
-  const { theme } = useThemeStore()
-  const input = useRef<HTMLInputElement>(null)
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-label={`${label} ${value}`}
-        onClick={() => {
-          if (typeof input.current?.showPicker === 'function') input.current.showPicker()
-          else input.current?.focus()
-        }}
-        className="flex h-11 items-center gap-2 rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] px-[18px] text-[14px] font-bold whitespace-nowrap"
-      >
-        <img src={huntingAssets[theme].calendar} alt="" />
-        {formatDotDate(value)}
-      </button>
-      <input
-        ref={input}
-        type="date"
-        tabIndex={-1}
-        aria-label={label}
-        value={value}
-        min={min}
-        max={max}
-        onChange={(event) => event.target.value && onChange(event.target.value)}
-        className="pointer-events-none absolute inset-0 opacity-0"
-      />
-    </div>
-  )
-}
 
 export default function HuntingFilters({
   dateFrom,
@@ -58,6 +13,7 @@ export default function HuntingFilters({
   characters,
   onDateChange,
   onCharacterChange,
+  showAddButton = true,
 }: {
   dateFrom: string
   dateTo: string
@@ -66,6 +22,7 @@ export default function HuntingFilters({
   characters: Character[]
   onDateChange: (from: string, to: string) => void
   onCharacterChange: (characterId: number | null) => void
+  showAddButton?: boolean
 }) {
   const { theme } = useThemeStore()
   return (
@@ -99,13 +56,15 @@ export default function HuntingFilters({
           onChange={onCharacterChange}
         />
       </div>
-      <Link
-        to="/hunting/new"
-        className="flex h-11 items-center gap-2 rounded-[10px] border border-white/15 bg-[var(--dash-primary)] px-[18px] text-[14px] font-bold text-white"
-      >
-        <img src={huntingAssets[theme].plus} alt="" />
-        기록 추가
-      </Link>
+      {showAddButton && (
+        <Link
+          to="/hunting/new"
+          className="flex h-11 items-center gap-2 rounded-[10px] border border-white/15 bg-[var(--dash-primary)] px-[18px] text-[14px] font-bold text-white"
+        >
+          <img src={huntingAssets[theme].plus} alt="" />
+          기록 추가
+        </Link>
+      )}
     </div>
   )
 }

@@ -162,7 +162,7 @@ export default function GlassSelect<T extends string | number | null>({
             aria-label={label}
             aria-activedescendant={active >= 0 ? `${id}-option-${active}` : undefined}
             onKeyDown={onListKeyDown}
-            className={`glass-select-scroll flex flex-col overflow-y-auto outline-none ${field ? 'max-h-[238px]' : 'max-h-[320px]'}`}
+            className={`glass-select-scroll flex flex-col overflow-y-auto outline-none ${compact ? 'max-h-[238px]' : 'max-h-[320px]'}`}
           >
             {options.map((option, index) => {
               const isSelected = option.value === value

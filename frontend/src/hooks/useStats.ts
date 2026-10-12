@@ -17,13 +17,15 @@ interface StatsParams {
 export type BossItemPageSize = 10 | 20 | 30
 
 interface BossItemStatsParams extends StatsParams {
+  bossName?: string | null
   page: number
   size: BossItemPageSize
 }
 
-function buildQs(params: StatsParams & { page?: number; size?: number }): string {
+function buildQs(params: StatsParams & { bossName?: string | null; page?: number; size?: number }): string {
   const q: Record<string, string> = {}
   if (params.characterId) q.characterId = String(params.characterId)
+  if (params.bossName) q.bossName = params.bossName
   if (params.dateFrom) q.dateFrom = params.dateFrom
   if (params.dateTo) q.dateTo = params.dateTo
   if (params.page !== undefined) q.page = String(params.page)
@@ -65,5 +67,17 @@ export function useStatsBossItems(params: BossItemStatsParams) {
       )
       return data.data
     },
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useStatsBosses() {
+  return useQuery({
+    queryKey: ['stats/bosses'],
+    queryFn: async () => {
+      const { data } = await client.get<ApiResponse<string[]>>('/stats/bosses')
+      return data.data
+    },
+    staleTime: Infinity,
   })
 }
