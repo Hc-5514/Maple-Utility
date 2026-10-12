@@ -80,14 +80,14 @@ export default function WorldSelectionModal({
         onClick={(event) => event.stopPropagation()}
         style={
           placement === 'settings'
-            ? { marginTop: `min(26.8vh, ${theme === 'light' ? 326 : 317}px)` }
+            ? { marginTop: `min(26.81vh, ${theme === 'light' ? 326 : 317}px)` }
             : undefined
         }
         className="relative mx-auto mt-[min(22vh,248px)] mb-4 flex w-[calc(100%-32px)] max-w-[800px] flex-col gap-6 rounded-[24px] border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[23px] text-[var(--dash-text)] shadow-[var(--dash-modal-shadow)] backdrop-blur-[16px] sm:p-[31px]"
       >
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <h2 id={titleId} className="text-[26px] font-bold leading-[1.25]">
+            <h2 id={titleId} className="text-[26px] font-bold leading-[33px]">
               월드 선택
             </h2>
             <button
@@ -101,7 +101,7 @@ export default function WorldSelectionModal({
             </button>
           </div>
           <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:flex-nowrap">
-            <p className="text-[14px] leading-[1.45] text-[var(--dash-muted)]">
+            <p className="text-[14px] leading-5 text-[var(--dash-muted)] sm:self-stretch">
               {theme === 'light'
                 ? '관리할 월드를 여러 개 선택할 수 있습니다.'
                 : '여러 월드를 동시에 선택할 수 있습니다.'}
@@ -111,7 +111,7 @@ export default function WorldSelectionModal({
                 type="button"
                 disabled={saving}
                 onClick={() => setSelected(worldNames)}
-                className={`rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] font-bold ${theme === 'light' ? 'h-10 px-4 text-[14px] text-[var(--dash-text)]' : 'h-8 px-3 text-[13px] text-[var(--dash-muted)]'}`}
+                className={`flex items-center justify-center rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] font-bold ${theme === 'light' ? 'h-10 w-[116px] text-[14px] text-[var(--dash-text)]' : 'h-8 w-[102px] text-[13px] text-[var(--dash-muted)]'}`}
               >
                 전체 월드 선택
               </button>
@@ -119,7 +119,7 @@ export default function WorldSelectionModal({
                 type="button"
                 disabled={saving}
                 onClick={() => setSelected([])}
-                className={`flex items-center rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] font-bold text-[var(--dash-muted)] ${theme === 'light' ? 'h-10 gap-2 px-4 text-[14px]' : 'h-8 gap-[6px] px-3 text-[13px]'}`}
+                className={`flex items-center rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] font-bold text-[var(--dash-muted)] ${theme === 'light' ? 'h-10 w-[95px] justify-center gap-2 text-[14px]' : 'h-8 w-[80px] justify-center gap-[6px] text-[13px]'}`}
               >
                 <img src={assets.imgReset} alt="" />
                 초기화
@@ -133,7 +133,7 @@ export default function WorldSelectionModal({
             return (
               <label
                 key={name}
-                className={`relative flex h-16 cursor-pointer items-center gap-2 rounded-xl px-2 text-[14px] sm:gap-3 sm:px-[18px] sm:text-[15px] ${checked ? 'border-[1.5px] border-[var(--dash-accent)] bg-[var(--dash-selected)] font-bold text-[var(--dash-accent)]' : 'border border-[var(--dash-border)] bg-[var(--dash-card)] font-medium'}`}
+                className={`relative flex h-16 cursor-pointer items-center gap-2 rounded-xl px-2 text-[14px] sm:gap-3 sm:text-[15px] sm:leading-[18px] ${checked ? 'sm:px-[16.5px] border-[1.5px] border-[var(--dash-accent)] bg-[var(--dash-selected)] font-bold text-[var(--dash-accent)]' : 'sm:px-[17px] border border-[var(--dash-border)] bg-[var(--dash-card)] font-medium'}`}
               >
                 <input
                   type="checkbox"

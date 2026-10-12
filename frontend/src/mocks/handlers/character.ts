@@ -8,7 +8,10 @@ import {
 import { worldNames } from '../../components/dashboard/worlds'
 
 const mockCharacters = (settingsFigmaScenario ? settingsFigmaCharacters : previewCharacters).map(
-  (character) => ({ ...character })
+  (character) => ({
+    ...character,
+    sortOrder: settingsFigmaScenario ? character.sortOrder : character.sortOrder + 1,
+  })
 )
 let selectedWorldNames: string[] = settingsFigmaScenario ? [...settingsFigmaWorlds] : []
 
@@ -17,26 +20,43 @@ export const characterHandlers = [
     const body = (await request.json()) as {
       characters?: { characterId: number; favorite: boolean }[]
     }
-    const list = body.characters
+    const list = body?.characters
     if (
       !Array.isArray(list) ||
-      list.length !== mockCharacters.length ||
-      new Set(list.map((c) => c.characterId)).size !== mockCharacters.length ||
       list.some(
         (c) =>
+          !c ||
+          typeof c !== 'object' ||
+          !Number.isInteger(c.characterId) ||
+          c.characterId <= 0 ||
           typeof c.favorite !== 'boolean' ||
           !mockCharacters.some((saved) => saved.id === c.characterId)
-      )
+      ) ||
+      new Set(list.map((c) => c.characterId)).size !== list.length
     ) {
       return HttpResponse.json(
-        { success: false, message: '캐릭터 목록 재조회 필요' },
+        {
+          success: false,
+          errorCode: 'INVALID_CHARACTER_PREFERENCES',
+          message: '캐릭터 설정 목록 오류',
+        },
         { status: 400 }
+      )
+    }
+    if (list.length !== mockCharacters.length) {
+      return HttpResponse.json(
+        {
+          success: false,
+          errorCode: 'CHARACTER_LIST_CHANGED',
+          message: '캐릭터 목록 변경, 새로고침 후 저장 필요',
+        },
+        { status: 409 }
       )
     }
     const ordered = list.map((preference, index) => ({
       ...mockCharacters.find((c) => c.id === preference.characterId)!,
       favorite: preference.favorite,
-      sortOrder: index,
+      sortOrder: index + 1,
     }))
     mockCharacters.splice(0, mockCharacters.length, ...ordered)
     return HttpResponse.json({ success: true, data: mockCharacters })

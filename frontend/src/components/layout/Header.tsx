@@ -21,7 +21,10 @@ export default function Header() {
       className="dashboard-theme sticky top-0 z-40 border-b border-[var(--dash-border)] bg-[var(--dash-card)] text-[var(--dash-text)] backdrop-blur-[16px]"
     >
       <div className="relative flex min-h-[87px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-12 lg:py-0">
-        <Link to="/" className="text-[23px] leading-[28px] font-bold lg:w-[182px] lg:shrink-0">
+        <Link
+          to="/"
+          className="text-[23px] leading-[28px] font-bold whitespace-nowrap lg:w-[182px] lg:shrink-0"
+        >
           🍁 메이플 유틸리티
         </Link>
         <nav

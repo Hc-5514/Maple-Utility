@@ -544,3 +544,8 @@ html:has(.dashboard-theme main) {
     width: 52px;
   }
 }
+
+.settings-button[aria-expanded='true'] {
+  color: var(--dash-accent);
+  border-color: color-mix(in srgb, var(--dash-accent) 60%, transparent);
+}

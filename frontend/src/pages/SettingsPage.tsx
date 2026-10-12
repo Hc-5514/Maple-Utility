@@ -354,6 +354,7 @@ function CharacterSection() {
               type="button"
               className="settings-button"
               disabled={worlds.isLoading || worlds.isError || save.isPending}
+              aria-expanded={worldModal}
               onClick={() => setWorldModal(true)}
             >
               <img src={assets.imgControlIcon} alt="" />

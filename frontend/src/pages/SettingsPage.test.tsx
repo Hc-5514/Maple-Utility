@@ -11,7 +11,7 @@ import { useAuthStore } from '../stores/authStore'
 import { settingsFigmaCharacters } from '../mocks/fixtures/settingsFigma'
 import type { ApiKeyStatusResponse } from '../types'
 
-const original = settingsFigmaCharacters.map((c, index) => ({ ...c, sortOrder: index }))
+const original = settingsFigmaCharacters.map((c, index) => ({ ...c, sortOrder: index + 1 }))
 const NativeRequest = Request
 beforeEach(() => {
   vi.stubGlobal(
@@ -80,7 +80,7 @@ function setup(
       saved = preferences.map((c, index) => ({
         ...saved.find((s) => s.id === c.characterId)!,
         favorite: c.favorite,
-        sortOrder: index,
+        sortOrder: index + 1,
       }))
       return { data: { success: true, data: saved } } as AxiosResponse
     }
@@ -203,11 +203,9 @@ describe('Settings preferences', () => {
   })
   it('keeps the refresh button available and confirms draft disposal before synchronizing', async () => {
     setup()
-    const post = vi
-      .spyOn(client, 'post')
-      .mockResolvedValue({
-        data: { success: true, data: { id: 99, status: 'COMPLETED' } },
-      } as AxiosResponse)
+    const post = vi.spyOn(client, 'post').mockResolvedValue({
+      data: { success: true, data: { id: 99, status: 'COMPLETED' } },
+    } as AxiosResponse)
     await screen.findByText('꼬농')
     fireEvent.click(screen.getByRole('button', { name: '도끼꼬농 위로 이동' }))
     const refresh = screen.getByRole('button', { name: '캐릭터 새로고침' })
