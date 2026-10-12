@@ -18,9 +18,9 @@ export default function Header() {
   return (
     <header
       data-theme={theme}
-      className="dashboard-theme sticky top-0 z-40 border-b border-[var(--dash-border)] bg-[var(--dash-card)] text-[var(--dash-text)] backdrop-blur-[16px]"
+      className="dashboard-theme sticky top-0 z-40 shadow-[inset_0_-1px_0_var(--dash-border)] bg-[var(--dash-card)] text-[var(--dash-text)] backdrop-blur-[16px]"
     >
-      <div className="relative flex min-h-[87px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-12 lg:py-0">
+      <div className="relative flex min-h-[88px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-12 lg:py-0">
         <Link
           to="/"
           className="text-[23px] leading-[28px] font-bold whitespace-nowrap lg:w-[182px] lg:shrink-0"
