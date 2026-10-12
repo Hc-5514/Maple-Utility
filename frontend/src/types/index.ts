@@ -45,6 +45,7 @@ export type ApiKeyStatus = 'ACTIVE' | 'INVALID' | 'EXPIRED'
 
 export interface ApiKeyStatusResponse {
   registered: boolean
+  keySuffix: string | null
   keyStatus: ApiKeyStatus | null
   lastVerifiedAt: string | null
 }

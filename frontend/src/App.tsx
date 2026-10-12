@@ -1,6 +1,12 @@
 import { useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Outlet,
+  Route,
+  RouterProvider,
+} from 'react-router-dom'
 import client from './api/client'
 import type { ApiResponse, ApiKeyStatusResponse, User } from './types'
 import { useAuthStore } from './stores/authStore'
@@ -40,7 +46,8 @@ function AppRoutes() {
         const { data: userRes } = await client.get<ApiResponse<User>>('/auth/me')
         setUser(userRes.data)
         try {
-          const { data: keyRes } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
+          const { data: keyRes } =
+            await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
           if (keyRes.data.registered && keyRes.data.keyStatus === 'ACTIVE') setHasApiKey(true)
         } catch {
           // API key 미등록 — 정상 케이스
@@ -54,40 +61,42 @@ function AppRoutes() {
     void init()
   }, [setUser, setHasApiKey, setInitializing])
 
-  return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/auth/callback" element={<AuthCallbackPage />} />
-
-      {/* 로그인 필요 */}
-      <Route element={<PrivateRoute />}>
-        <Route element={<Layout />}>
-          <Route path="/hunting" element={<HuntingPage />} />
-          <Route path="/hunting/new" element={<HuntingNewPage />} />
-          <Route path="/hunting/:id/edit" element={<HuntingEditPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-      </Route>
-
-      {/* 로그인 + API키 필요 */}
-      <Route element={<PrivateRoute requireApiKey />}>
-        <Route element={<Layout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/dashboard/:characterId" element={<CharacterDetailPage />} />
-        </Route>
-      </Route>
-    </Routes>
-  )
+  return <Outlet />
 }
+
+const routes = (
+  <Route element={<AppRoutes />}>
+    <Route path="/" element={<HomePage />} />
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/auth/callback" element={<AuthCallbackPage />} />
+
+    {/* 로그인 필요 */}
+    <Route element={<PrivateRoute />}>
+      <Route element={<Layout />}>
+        <Route path="/hunting" element={<HuntingPage />} />
+        <Route path="/hunting/new" element={<HuntingNewPage />} />
+        <Route path="/hunting/:id/edit" element={<HuntingEditPage />} />
+        <Route path="/stats" element={<StatsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
+    </Route>
+
+    {/* 로그인 + API키 필요 */}
+    <Route element={<PrivateRoute requireApiKey />}>
+      <Route element={<Layout />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/dashboard/:characterId" element={<CharacterDetailPage />} />
+      </Route>
+    </Route>
+  </Route>
+)
+
+const router = createBrowserRouter(createRoutesFromElements(routes))
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   )
 }
