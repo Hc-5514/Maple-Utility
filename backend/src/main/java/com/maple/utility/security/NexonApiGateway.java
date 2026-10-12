@@ -141,12 +141,13 @@ public class NexonApiGateway {
 			return readJson(cachedResponse);
 		}
 
-		validateDailyLimit(userId, mode);
+		String sharedBudget = "api-key:" + sha256(apiKey);
+		validateDailyLimit(userId, sharedBudget, mode);
 		User user = findUser(userId);
 		DataSyncLog log = dataSyncLogRepository.save(DataSyncLog.start(user, syncType, now()));
 		AtomicInteger callsUsed = new AtomicInteger();
 		try {
-			String body = callWithRetry(userId, mode, callsUsed, uri, apiKey);
+			String body = callWithRetry(userId, sharedBudget, mode, callsUsed, uri, apiKey);
 			redisTemplate.opsForValue().set(cacheKey, body, redisPolicyProperties.cache().nexonApiTtl());
 			log.complete(callsUsed.get(), now());
 			dataSyncLogRepository.save(log);
@@ -161,8 +162,8 @@ public class NexonApiGateway {
 		}
 	}
 
-	private void validateDailyLimit(Long userId, NexonRequestMode mode) {
-		long count = apiCallCounter.getCount(String.valueOf(userId));
+	private void validateDailyLimit(Long userId, String sharedBudget, NexonRequestMode mode) {
+		long count = Math.max(apiCallCounter.getCount(String.valueOf(userId)), apiCallCounter.getCount(sharedBudget));
 		if (count >= nexonProperties.dailyCallLimit()) {
 			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "NEXON_DAILY_LIMIT_EXCEEDED", "Nexon API 일일 호출 한도 초과");
 		}
@@ -174,11 +175,11 @@ public class NexonApiGateway {
 		}
 	}
 
-	private void reserveAttempt(Long userId, NexonRequestMode mode) {
+	private void reserveAttempt(Long userId, String sharedBudget, NexonRequestMode mode) {
 		long limit = Math.min(nexonProperties.dailyCallLimit(),
 				mode == NexonRequestMode.BATCH ? 400 : nexonProperties.realtimeCallThreshold());
-		if (!apiCallCounter.reserve(String.valueOf(userId), limit)) {
-			validateDailyLimit(userId, mode);
+		if (!apiCallCounter.reserve(String.valueOf(userId), sharedBudget, limit)) {
+			validateDailyLimit(userId, sharedBudget, mode);
 			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS,
 					mode == NexonRequestMode.BATCH ? "NEXON_BATCH_LIMIT_REACHED" : "NEXON_REALTIME_LIMIT_REACHED",
 					"Nexon API 호출 예산 소진");
@@ -201,12 +202,12 @@ public class NexonApiGateway {
 		lastDispatch = new InstantHolder(nowMillis);
 	}
 
-	private String callWithRetry(Long userId, NexonRequestMode mode, AtomicInteger callsUsed, String uri, String apiKey) {
+	private String callWithRetry(Long userId, String sharedBudget, NexonRequestMode mode, AtomicInteger callsUsed, String uri, String apiKey) {
 		int attempts = 0;
 		try {
 			while (true) {
 				throttleDispatch();
-				reserveAttempt(userId, mode);
+				reserveAttempt(userId, sharedBudget, mode);
 				attempts++;
 				callsUsed.incrementAndGet();
 				GatewayResponse response = webClient.get()

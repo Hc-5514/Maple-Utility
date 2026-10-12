@@ -78,7 +78,7 @@ class NexonApiGatewayTest {
 
 	@BeforeEach
 	void reserveBudgets() {
-		org.mockito.Mockito.lenient().when(apiCallCounter.reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
+		org.mockito.Mockito.lenient().when(apiCallCounter.reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(true);
 	}
 
 	@Test
@@ -117,7 +117,7 @@ class NexonApiGatewayTest {
 				org.mockito.ArgumentMatchers.eq("{\"ok\":true}"),
 				org.mockito.ArgumentMatchers.eq(Duration.ofMinutes(5))
 		);
-		verify(apiCallCounter).reserve("1", 450L);
+		verify(apiCallCounter).reserve(org.mockito.ArgumentMatchers.eq("1"), org.mockito.ArgumentMatchers.startsWith("api-key:"), org.mockito.ArgumentMatchers.eq(450L));
 	}
 
 	@Test
@@ -139,7 +139,7 @@ class NexonApiGatewayTest {
 		assertThat(gateway.get(1L, "plain-api-key", "https://example.test/character/list", NexonRequestMode.REALTIME)
 				.path("cached").asBoolean()).isTrue();
 		assertThat(calls).hasValue(0);
-		verify(apiCallCounter, never()).reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
+		verify(apiCallCounter, never()).reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
 	}
 
 	@Test
@@ -297,7 +297,7 @@ class NexonApiGatewayTest {
 		assertThatThrownBy(() -> gateway(client, millis -> {}).get(1L, "key", "https://example.test/retry", NexonRequestMode.REALTIME))
 				.isInstanceOf(ApiException.class);
 		assertThat(outbound).hasValue(3);
-		verify(apiCallCounter, org.mockito.Mockito.times(3)).reserve("1", 450L);
+		verify(apiCallCounter, org.mockito.Mockito.times(3)).reserve(org.mockito.ArgumentMatchers.eq("1"), org.mockito.ArgumentMatchers.startsWith("api-key:"), org.mockito.ArgumentMatchers.eq(450L));
 		assertThat(saved.get().getApiCallsUsed()).isEqualTo(3);
 	}
 
@@ -312,11 +312,11 @@ class NexonApiGatewayTest {
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user()));
 		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
 				.thenAnswer(invocation -> invocation.getArgument(0));
-		when(apiCallCounter.reserve("1", 450L)).thenReturn(true, false);
+		when(apiCallCounter.reserve(org.mockito.ArgumentMatchers.eq("1"), org.mockito.ArgumentMatchers.startsWith("api-key:"), org.mockito.ArgumentMatchers.eq(450L))).thenReturn(true, false);
 		assertThatThrownBy(() -> gateway(client, millis -> {}).get(1L, "key", "https://example.test/retry", NexonRequestMode.REALTIME))
 				.isInstanceOfSatisfying(ApiException.class, api -> assertThat(api.getCode()).isEqualTo("NEXON_REALTIME_LIMIT_REACHED"));
 		assertThat(outbound).hasValue(1);
-		verify(apiCallCounter, org.mockito.Mockito.times(2)).reserve("1", 450L);
+		verify(apiCallCounter, org.mockito.Mockito.times(2)).reserve(org.mockito.ArgumentMatchers.eq("1"), org.mockito.ArgumentMatchers.startsWith("api-key:"), org.mockito.ArgumentMatchers.eq(450L));
 	}
 
 	@Test
@@ -326,7 +326,48 @@ class NexonApiGatewayTest {
 		assertThatThrownBy(() -> gateway(WebClient.builder().build(), millis -> {})
 				.get(1L, "key", "https://example.test", NexonRequestMode.BATCH))
 				.isInstanceOfSatisfying(ApiException.class, api -> assertThat(api.getCode()).isEqualTo("NEXON_BATCH_LIMIT_REACHED"));
-		verify(apiCallCounter, never()).reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
+		verify(apiCallCounter, never()).reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
+	}
+
+	@Test
+	void identicalApiKeySharesBudgetAcrossUsersAndOtherKeysRemainIndependent() throws Exception {
+		String shared = "api-key:" + java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+				.digest("shared-key".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+		java.util.Map<String, Long> counts = new java.util.HashMap<>();
+		counts.put(shared, 449L);
+		when(apiCallCounter.getCount(org.mockito.ArgumentMatchers.anyString()))
+				.thenAnswer(invocation -> counts.getOrDefault(invocation.getArgument(0), 0L));
+		when(apiCallCounter.reserve(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.anyLong())).thenAnswer(invocation -> {
+			String userBudget = invocation.getArgument(0);
+			String keyBudget = invocation.getArgument(1);
+			long limit = invocation.getArgument(2);
+			if (counts.getOrDefault(userBudget, 0L) >= limit || counts.getOrDefault(keyBudget, 0L) >= limit) { return false; }
+			counts.merge(userBudget, 1L, Long::sum);
+			counts.merge(keyBudget, 1L, Long::sum);
+			return true;
+		});
+		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+		when(userRepository.findById(org.mockito.ArgumentMatchers.anyLong())).thenReturn(Optional.of(user()));
+		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
+		AtomicInteger outbound = new AtomicInteger();
+		var client = WebClient.builder().exchangeFunction(request -> {
+			outbound.incrementAndGet();
+			return Mono.just(ClientResponse.create(HttpStatus.OK).body("{}").build());
+		}).build();
+		var gateway = gateway(client, millis -> {});
+		gateway.get(1L, "shared-key", "https://example.test/user-one", NexonRequestMode.REALTIME);
+		assertThatThrownBy(() -> gateway.get(2L, "shared-key", "https://example.test/user-two", NexonRequestMode.REALTIME))
+				.isInstanceOfSatisfying(ApiException.class, api -> assertThat(api.getCode()).isEqualTo("NEXON_REALTIME_LIMIT_REACHED"));
+		assertThat(counts.get(shared)).isEqualTo(450);
+		assertThat(counts.get("1")).isEqualTo(1);
+		assertThat(counts).doesNotContainKey("2");
+		assertThat(outbound).hasValue(1);
+		gateway.get(2L, "different-key", "https://example.test/other-key", NexonRequestMode.REALTIME);
+		assertThat(outbound).hasValue(2);
+		assertThat(counts.get("2")).isEqualTo(1);
+		assertThat(counts.keySet()).noneMatch(key -> key.contains("shared-key") || key.contains("different-key"));
 	}
 
 	private NexonApiGateway gateway(WebClient webClient, NexonApiGateway.Sleeper sleeper) {

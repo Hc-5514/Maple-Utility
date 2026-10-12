@@ -17,10 +17,14 @@ public class NexonApiCallCounter {
 	private static final String KEY_PREFIX = "nexon:api:daily";
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 	private static final DefaultRedisScript<Long> RESERVE = new DefaultRedisScript<>("""
-			local count = tonumber(redis.call('GET', KEYS[1]) or '0')
-			if count >= tonumber(ARGV[1]) then return 0 end
-			redis.call('INCR', KEYS[1])
-			redis.call('PEXPIRE', KEYS[1], ARGV[2])
+			for _, key in ipairs(KEYS) do
+			  local count = tonumber(redis.call('GET', key) or '0')
+			  if count >= tonumber(ARGV[1]) then return 0 end
+			end
+			for _, key in ipairs(KEYS) do
+			  redis.call('INCR', key)
+			  redis.call('PEXPIRE', key, ARGV[2])
+			end
 			return 1
 			""", Long.class);
 
@@ -47,8 +51,18 @@ public class NexonApiCallCounter {
 
 	/** Reserve immediately before every outbound attempt, including retries. */
 	public boolean reserve(String subject, long limit) {
+		return reserveKeys(java.util.List.of(key(subject)), limit);
+	}
+
+	/** User and shared API key budgets are checked/incremented together, or neither is changed. */
+	public boolean reserve(String subject, String sharedSubject, long limit) {
+		Assert.isTrue(!subject.equals(sharedSubject), "budget subjects must differ");
+		return reserveKeys(java.util.List.of(key(subject), key(sharedSubject)), limit);
+	}
+
+	private boolean reserveKeys(java.util.List<String> keys, long limit) {
 		Assert.isTrue(limit > 0, "limit must be positive");
-		Long result = redisTemplate.execute(RESERVE, java.util.List.of(key(subject)),
+		Long result = redisTemplate.execute(RESERVE, keys,
 				Long.toString(limit), Long.toString(Math.max(1, durationUntilNextMidnight().toMillis())));
 		if (result == null) {
 			throw new IllegalStateException("Nexon API budget reservation unavailable");
