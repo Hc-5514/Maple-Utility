@@ -114,6 +114,7 @@ public class StatsService {
 	public PageResponse<StatsBossItemResponse> getBossItemStats(
 			Long userId,
 			Long characterId,
+			String bossName,
 			LocalDate dateFrom,
 			LocalDate dateTo,
 			int page,
@@ -123,7 +124,14 @@ public class StatsService {
 		if (page < 0 || (size != 10 && size != 20 && size != 30)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAGE_REQUEST", "페이지 요청 오류");
 		}
-		return statsQueryRepository.findBossItemStats(characterIds(userId, characterId), dateFrom, dateTo, page, size);
+		String normalizedBossName = bossName == null || bossName.isBlank() ? null : bossName.strip();
+		return statsQueryRepository.findBossItemStats(
+				characterIds(userId, characterId), normalizedBossName, dateFrom, dateTo, page, size);
+	}
+
+	@Transactional(readOnly = true)
+	public List<String> getBossNames() {
+		return statsQueryRepository.findActiveBossNames();
 	}
 
 	@Transactional(readOnly = true)

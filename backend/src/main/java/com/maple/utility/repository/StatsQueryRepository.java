@@ -12,6 +12,7 @@ import com.maple.utility.dto.response.StatsHuntingDailyResponse;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.QBossItemAcquisition;
+import com.maple.utility.entity.QBossMaster;
 import com.maple.utility.entity.QHuntingRecord;
 import com.maple.utility.entity.QSchedulerBossRecord;
 import com.maple.utility.entity.QSchedulerDailyRecord;
@@ -92,6 +93,7 @@ public class StatsQueryRepository {
 
 	public PageResponse<StatsBossItemResponse> findBossItemStats(
 			List<Long> characterIds,
+			String bossName,
 			LocalDate dateFrom,
 			LocalDate dateTo,
 			int page,
@@ -104,6 +106,9 @@ public class StatsQueryRepository {
 		QBossItemAcquisition acquisition = QBossItemAcquisition.bossItemAcquisition;
 		BooleanBuilder condition = bossItemCondition(acquisition, characterIds, dateFrom, dateTo)
 				.and(acquisition.bossDropItem.itemKind.ne(BossItemKind.CRYSTAL));
+		if (bossName != null) {
+			condition.and(acquisition.bossDropItem.boss.bossName.eq(bossName));
+		}
 		Long count = queryFactory.select(acquisition.id.count())
 				.from(acquisition)
 				.where(condition)
@@ -134,6 +139,17 @@ public class StatsQueryRepository {
 				.toList();
 		return new PageResponse<>(content, totalElements,
 				Math.toIntExact((totalElements + size - 1) / size), page, size);
+	}
+
+	public List<String> findActiveBossNames() {
+		QBossMaster boss = QBossMaster.bossMaster;
+		return queryFactory
+				.select(boss.bossName)
+				.from(boss)
+				.where(boss.active.isTrue())
+				.groupBy(boss.bossName)
+				.orderBy(boss.sortOrder.min().asc(), boss.bossName.asc())
+				.fetch();
 	}
 
 	public StatsCompletionDetailResponse findDailyCompletion(

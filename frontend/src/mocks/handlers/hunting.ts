@@ -60,6 +60,9 @@ export function resetHuntingRecords() {
 }
 resetHuntingRecords()
 
+export const currentHuntingRecords = () => huntingRecords
+export const isFavoriteCharacter = isFavorite
+
 const badRequest = (code: string, message: string) =>
   HttpResponse.json({ success: false, code, message }, { status: 400 })
 

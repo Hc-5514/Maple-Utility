@@ -1,6 +1,7 @@
 package com.maple.utility.controller;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
@@ -50,13 +51,20 @@ public class StatsController {
 	@GetMapping("/boss-items")
 	public PageResponse<StatsBossItemResponse> getBossItemStats(
 			@RequestParam(required = false) Long characterId,
+			@RequestParam(required = false) String bossName,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "10") int size,
 			Authentication authentication
 	) {
-		return statsService.getBossItemStats(currentUserId(authentication), characterId, dateFrom, dateTo, page, size);
+		return statsService.getBossItemStats(
+				currentUserId(authentication), characterId, bossName, dateFrom, dateTo, page, size);
+	}
+
+	@GetMapping("/bosses")
+	public List<String> getBossNames() {
+		return statsService.getBossNames();
 	}
 
 	@GetMapping("/completion")
