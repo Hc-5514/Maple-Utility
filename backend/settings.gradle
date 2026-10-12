@@ -1,1 +1,2 @@
 rootProject.name = 'utility'
+// Vercel 빌드 생략 확인용 임시 주석 (#226)
