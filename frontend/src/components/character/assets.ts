@@ -1,0 +1,28 @@
+export const characterAssets = {
+  light: {
+    imgStar: '/assets/character/light-571e6.svg',
+    imgSwap: '/assets/character/light-551cf.svg',
+    imgCheckCircle: '/assets/character/light-3a4a8.svg',
+    imgCal: '/assets/character/light-38e0c.svg',
+    imgChev: '/assets/character/light-f2b1d.svg',
+    imgManage: '/assets/character/light-c8e74.svg',
+    imgSave: '/assets/character/light-db404.svg',
+    imgSwords: '/assets/character/light-81c5c.svg',
+    imgTrash: '/assets/character/light-3c8ed.svg',
+    imgCheck: '/assets/character/light-630c5.svg',
+    imgPkg: '/assets/character/light-3d7f0.svg',
+  },
+  dark: {
+    imgStar: '/assets/character/dark-d2348.svg',
+    imgSwap: '/assets/character/dark-6489f.svg',
+    imgCheckCircle: '/assets/character/dark-56694.svg',
+    imgCal: '/assets/character/dark-8858f.svg',
+    imgChev: '/assets/character/dark-23d31.svg',
+    imgManage: '/assets/character/dark-deb9b.svg',
+    imgSave: '/assets/character/dark-d7009.svg',
+    imgSwords: '/assets/character/dark-88a18.svg',
+    imgTrash: '/assets/character/dark-4ac71.svg',
+    imgCheck: '/assets/character/dark-7b5de.svg',
+    imgPkg: '/assets/character/dark-3e4c9.svg',
+  },
+} as const

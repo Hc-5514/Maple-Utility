@@ -1,5 +1,6 @@
 import ProgressBar from '../common/ProgressBar'
 import { useCharacterDaily } from '../../hooks/useCharacterDetail'
+import { detailCard, subtleRow } from './styles'
 
 interface Props {
   characterId: number
@@ -9,40 +10,39 @@ interface Props {
 export default function DailyContent({ characterId, date }: Props) {
   const { data, isLoading, isError } = useCharacterDaily(characterId, date)
 
-  const allDone =
-    data && data.length > 0 && data.every((r) => r.completedCount >= r.totalCount)
-
   return (
-    <section className="rounded-xl bg-[#2d2d44] p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <h2 className="font-semibold text-white">일일 컨텐츠</h2>
-        {allDone && <span className="text-[#4ade80]">✓</span>}
-        <span className="ml-auto text-xs text-white/40">{date}</span>
+    <section className={`${detailCard} flex flex-col gap-4 p-6`}>
+      <div className="flex items-center gap-3">
+        <h2 className="text-[18px] font-bold">일일 컨텐츠</h2>
+        <span className="ml-auto text-[13px] text-[var(--dash-muted)] [font-family:Inter,sans-serif]">{date}</span>
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-8 animate-pulse rounded bg-white/10" />
-          ))}
-        </div>
+        [...Array(3)].map((_, i) => <div key={i} className={`${subtleRow} h-[72px] animate-pulse`} />)
       ) : isError ? (
-        <p className="text-sm text-[#f87171]">불러오는 중 오류가 발생했습니다.</p>
+        <p className="text-[14px] text-[var(--dash-danger)]">불러오는 중 오류가 발생했습니다.</p>
       ) : !data || data.length === 0 ? (
-        <p className="text-sm text-white/40">기록 없음</p>
+        <p className="text-[14px] text-[var(--dash-muted)]">기록 없음</p>
       ) : (
-        <ul className="space-y-2.5">
-          {data.map((record) => (
-            <li key={record.id} className="rounded-lg bg-[#1a1a2e] px-4 py-3">
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-sm text-white/80">{record.contentName}</span>
-                <span className="text-xs text-white/50">
-                  {record.completedCount}/{record.totalCount}
-                </span>
-              </div>
-              <ProgressBar value={record.completedCount} max={record.totalCount || 1} />
-            </li>
-          ))}
+        <ul className="flex flex-col gap-4">
+          {data.map((record) => {
+            const total = record.totalCount || 1
+            const done = record.completedCount >= total
+            const countColor = done
+              ? 'text-[var(--dash-success)]'
+              : record.completedCount === 0 ? 'text-[var(--dash-muted)]' : ''
+            return (
+              <li key={record.id} className={`${subtleRow} flex flex-col gap-3 px-[18px] py-4`}>
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 truncate text-[14px]">{record.contentName}</span>
+                  <span className={`ml-auto text-[13px] font-semibold [font-family:Inter,sans-serif] ${countColor}`}>
+                    {record.completedCount}/{record.totalCount}
+                  </span>
+                </div>
+                <ProgressBar value={record.completedCount} max={total} />
+              </li>
+            )
+          })}
         </ul>
       )}
     </section>

@@ -36,7 +36,8 @@ describe('BossContent', () => {
     await waitFor(() => expect(get).toHaveBeenCalledWith(
       '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-10-01',
     ))
-    fireEvent.change(screen.getByLabelText('보스 월'), { target: { value: '2026-09-01' } })
+    fireEvent.click(screen.getByRole('button', { name: /^보스 월/ }))
+    fireEvent.click(screen.getByRole('option', { name: '2026년 9월' }))
 
     await waitFor(() => expect(get).toHaveBeenLastCalledWith(
       '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-09-01',
@@ -89,7 +90,7 @@ describe('BossContent', () => {
 
     render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
 
-    fireEvent.click(await screen.findByRole('button', { name: '주간 보스 추가' }))
+    fireEvent.click(await screen.findByRole('button', { name: '보스 선택' }))
     fireEvent.click(await screen.findByRole('checkbox', { name: '스우 HARD' }))
     fireEvent.click(screen.getByRole('button', { name: '선택 저장' }))
 
@@ -99,7 +100,6 @@ describe('BossContent', () => {
   })
 
   it('deletes a boss and its selected-period acquisitions after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     vi.spyOn(client, 'get').mockResolvedValue({
       data: { success: true, data: { weeklyBosses: [{
         characterId: 1, bossId: 5, bossName: '스우', difficulty: 'HARD',
@@ -111,6 +111,7 @@ describe('BossContent', () => {
 
     render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
     fireEvent.click(await screen.findByRole('button', { name: '스우 삭제' }))
+    fireEvent.click(await screen.findByRole('button', { name: '삭제' }))
 
     await waitFor(() => expect(remove).toHaveBeenCalledWith(
       '/scheduler/1/boss/selection/5?periodStart=2026-10-08&resetPeriod=WEEKLY',

@@ -68,6 +68,14 @@ body {
   --dash-danger: #ff6b8b;
   --dash-normal: #4ade80;
   --dash-easy: #60a5fa;
+  --dash-subtle: rgba(255, 255, 255, 0.04);
+  --dash-subtle-border: rgba(255, 255, 255, 0.08);
+  --dash-progress-track: rgba(255, 255, 255, 0.07);
+  --dash-progress-end: #11b7d2;
+  --dash-success: #34d399;
+  --dash-hard: #f87171;
+  --dash-extreme: #fb923c;
+  --dash-chaos: #c084fc;
   color-scheme: dark;
 }
 .dashboard-theme[data-theme='light'] {
@@ -93,6 +101,13 @@ body {
   --dash-danger: #e11d48;
   --dash-normal: #16a34a;
   --dash-easy: #2563eb;
+  --dash-subtle: rgba(140, 124, 181, 0.06);
+  --dash-subtle-border: rgba(166, 151, 212, 0.18);
+  --dash-progress-track: rgba(140, 124, 181, 0.12);
+  --dash-success: #059669;
+  --dash-hard: #dc2626;
+  --dash-extreme: #ea580c;
+  --dash-chaos: #9333ea;
   color-scheme: light;
 }
 .dashboard-theme * {

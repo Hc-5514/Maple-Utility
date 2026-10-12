@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, Plus, Save, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import BossCard from './BossCard'
 import BossDropModal from './BossDropModal'
+import PeriodMenu from './PeriodMenu'
+import ThemedConfirmDialog from '../common/ThemedConfirmDialog'
+import { useThemeStore } from '../../stores/themeStore'
+import { characterAssets } from './assets'
+import { controlButton, countPill, detailCard } from './styles'
 import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useBossCandidates, useCharacterBoss } from '../../hooks/useCharacterDetail'
 import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
 import type { BossPeriod, BossPeriodDraft, ResetPeriod, SchedulerBossRecord } from '../../types'
@@ -16,32 +20,36 @@ interface Props {
 
 function BossGroup({
   title,
+  limit,
   records,
   onClickDetail,
-  onAdd,
   onDelete,
 }: {
   title: string
+  limit: number
   records: SchedulerBossRecord[]
   onClickDetail: (record: SchedulerBossRecord) => void
-  onAdd: () => void
   onDelete: (record: SchedulerBossRecord) => void
 }) {
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white/60">{title}</h3>
-        <button type="button" onClick={onAdd} aria-label={`${title} 추가`} title={`${title} 추가`} className="grid size-7 place-items-center rounded text-white/60 hover:bg-white/10 hover:text-white"><Plus size={16} /></button>
+    <>
+      <div className="flex items-center gap-[10px]">
+        <h3 className="text-[15px] font-bold">{title}</h3>
+        <span className={countPill}>{records.length}/{limit}</span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {records.map((record, idx) => (
-          <div key={record.id ?? `${record.characterId}-${record.bossId}-${idx}`} className="relative">
-            <BossCard record={record} onClickDetail={() => onClickDetail(record)} />
-            <button type="button" onClick={() => onDelete(record)} aria-label={`${record.bossName} 삭제`} title={`${record.bossName} 삭제`} className="absolute right-2 top-2 grid size-7 place-items-center rounded bg-[#1a1a2e] text-white/50 hover:bg-[#f87171]/20 hover:text-[#f87171]"><Trash2 size={15} /></button>
-          </div>
-        ))}
-      </div>
-    </div>
+      {records.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {records.map((record, idx) => (
+            <BossCard
+              key={record.id ?? `${record.characterId}-${record.bossId}-${idx}`}
+              record={record}
+              onClickDetail={() => onClickDetail(record)}
+              onDelete={() => onDelete(record)}
+            />
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -57,6 +65,9 @@ export default function BossContent({ characterId, date }: Props) {
   const [manualSaving, setManualSaving] = useState(false)
   const [manualError, setManualError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<SchedulerBossRecord | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const assets = characterAssets[useThemeStore().theme]
   const [drafts, setDrafts] = useState<Record<string, BossPeriodDraft>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
@@ -167,8 +178,8 @@ export default function BossContent({ characterId, date }: Props) {
 
   const deleteBoss = async (record: SchedulerBossRecord) => {
     if (!record.bossId) return
-    if (!window.confirm(`${record.bossName} 보스를 이 기간에서 삭제하시겠습니까? 해당 기간의 아이템·결정석 획득 내역도 삭제됩니다.`)) return
     setDeleteError(null)
+    setDeleting(true)
     const start = periodStart(record)
     try {
       await hideBossFromPeriod(characterId, record.bossId, start, record.resetPeriod)
@@ -184,102 +195,110 @@ export default function BossContent({ characterId, date }: Props) {
       await queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('stats/') })
     } catch {
       setDeleteError('보스 삭제에 실패했습니다.')
+    } finally {
+      setDeleting(false)
+      setPendingDelete(null)
     }
   }
 
   return (
-    <section className="rounded-xl bg-[#2d2d44] p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="font-semibold text-white">보스 컨텐츠</h2>
-        <div className="flex items-center gap-2">
-          <label className="sr-only" htmlFor="boss-week">보스 주차</label>
-          <div className="relative">
-            <CalendarDays size={15} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-white/50" />
-            <select
-              id="boss-week"
-              value={selectedWeekStart}
-              onChange={(event) => {
-                setSelectedWeekStart(event.target.value)
-                setSelectedRecord(null)
-                setManualPeriod(null)
-              }}
-              className="max-w-48 appearance-none rounded bg-[#1a1a2e] py-1.5 pl-7 pr-2 text-xs text-white"
-            >
-              {weekOptions.map((option) => <option key={option.start} value={option.start}>{option.label}</option>)}
-            </select>
-          </div>
-          <label className="sr-only" htmlFor="boss-month">보스 월</label>
-          <select
-            id="boss-month"
-            value={selectedMonthStart}
-            onChange={(event) => {
-              setSelectedMonthStart(event.target.value)
+    <section className={`${detailCard} flex flex-col gap-5 p-6`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[18px] font-bold">보스 컨텐츠</h2>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <PeriodMenu
+            label="보스 주차"
+            icon={assets.imgCal}
+            value={selectedWeekStart}
+            options={weekOptions.map((option) => ({ value: option.start, label: option.label }))}
+            onChange={(value) => {
+              setSelectedWeekStart(value)
               setSelectedRecord(null)
               setManualPeriod(null)
             }}
-            className="rounded bg-[#1a1a2e] px-2 py-1.5 text-xs text-white"
-          >
-            {monthOptions.map((option) => <option key={option.start} value={option.start}>{option.label}</option>)}
-          </select>
+          />
+          <PeriodMenu
+            label="보스 월"
+            value={selectedMonthStart}
+            options={monthOptions.map((option) => ({ value: option.start, label: option.label }))}
+            onChange={(value) => {
+              setSelectedMonthStart(value)
+              setSelectedRecord(null)
+              setManualPeriod(null)
+            }}
+          />
+          <button type="button" onClick={() => openManualEditor('WEEKLY')} className={controlButton}>
+            <img src={assets.imgManage} alt="" className="size-4" />
+            보스 선택
+          </button>
           <button
             type="button"
             onClick={() => void handleSave()}
             disabled={dirtyDrafts.length === 0 || saving}
-            className="flex items-center gap-1.5 rounded bg-[#4ade80] px-3 py-1.5 text-sm font-medium text-[#102116] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 shrink-0 items-center gap-2 rounded-[10px] bg-[var(--dash-accent)] px-4 text-[14px] font-bold text-[var(--dash-button-text)] disabled:cursor-not-allowed"
           >
-            <Save size={16} aria-hidden="true" />
+            <img src={assets.imgSave} alt="" className="size-4" />
             {saving ? '저장 중' : '저장'}
           </button>
         </div>
       </div>
-      {saveError && <p role="alert" className="mb-3 text-sm text-[#f87171]">저장에 실패했습니다.</p>}
-      {deleteError && <p role="alert" className="mb-3 text-sm text-[#f87171]">{deleteError}</p>}
-      {saveSuccess && !saveError && <p role="status" className="mb-3 text-sm text-[#4ade80]">저장 완료</p>}
+      {saveError && <p role="alert" className="text-[13px] text-[var(--dash-danger)]">저장에 실패했습니다.</p>}
+      {deleteError && <p role="alert" className="text-[13px] text-[var(--dash-danger)]">{deleteError}</p>}
+      {saveSuccess && !saveError && <p role="status" className="text-[13px] text-[var(--dash-success)]">저장 완료</p>}
 
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-white/10" />
+            <div key={i} className="h-[118px] animate-pulse rounded-[14px] bg-[var(--dash-subtle)]" />
           ))}
         </div>
       ) : isError ? (
-        <p className="text-sm text-[#f87171]">불러오는 중 오류가 발생했습니다.</p>
+        <p className="text-[14px] text-[var(--dash-danger)]">불러오는 중 오류가 발생했습니다.</p>
       ) : (
-        <div className="space-y-5">
+        <>
           <BossGroup
             title="주간 보스"
+            limit={BOSS_LIMITS.WEEKLY}
             records={weeklyRecords}
             onClickDetail={setSelectedRecord}
-            onAdd={() => openManualEditor('WEEKLY')}
-            onDelete={(record) => void deleteBoss(record)}
+            onDelete={setPendingDelete}
           />
           <BossGroup
             title="월간 보스"
+            limit={BOSS_LIMITS.MONTHLY}
             records={monthlyRecords}
             onClickDetail={setSelectedRecord}
-            onAdd={() => openManualEditor('MONTHLY')}
-            onDelete={(record) => void deleteBoss(record)}
+            onDelete={setPendingDelete}
           />
-          {weeklyRecords.length === 0 && monthlyRecords.length === 0 && (
-            <p className="text-sm text-white/40">보스 기록 없음</p>
-          )}
-        </div>
+        </>
       )}
 
       {manualPeriod && (
-        <div className="mt-4 border-t border-white/10 pt-4">
+        <div className="border-t border-[var(--dash-border)] pt-4">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-white">{manualPeriod === 'WEEKLY' ? '주간' : '월간'} 보스 선택</p>
-            <span className="text-xs text-white/50">{periodRecords.length + selectedBossIds.length}/{BOSS_LIMITS[manualPeriod]}</span>
+            <div className="flex items-center gap-2">
+              {(['WEEKLY', 'MONTHLY'] as const).map((period) => (
+                <button
+                  key={period}
+                  type="button"
+                  aria-pressed={manualPeriod === period}
+                  onClick={() => openManualEditor(period)}
+                  className={`rounded-lg px-3 py-1.5 text-[14px] font-bold ${manualPeriod === period ? 'bg-[var(--dash-selected)] text-[var(--dash-accent)]' : 'text-[var(--dash-muted)]'}`}
+                >
+                  {period === 'WEEKLY' ? '주간' : '월간'} 보스 선택
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-[var(--dash-muted)]">{periodRecords.length + selectedBossIds.length}/{BOSS_LIMITS[manualPeriod]}</span>
           </div>
-          {candidatesLoading ? <p className="text-sm text-white/50">후보 불러오는 중</p> : (
+          {candidatesLoading ? <p className="text-sm text-[var(--dash-muted)]">후보 불러오는 중</p> : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {candidates.filter((boss) => !periodRecords.some((record) => record.bossId === boss.id)).map((boss) => {
                 const checked = selectedBossIds.includes(boss.id)
                 const disable = !checked && (periodRecords.length + selectedBossIds.length >= BOSS_LIMITS[manualPeriod]
                   || [...periodRecords, ...candidates.filter((candidate) => selectedBossIds.includes(candidate.id))].some((selected) => selected.bossName === boss.bossName))
                 return (
-                  <label key={boss.id} className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm ${checked ? 'border-[#4ade80] bg-[#4ade80]/10 text-white' : 'border-white/10 text-white/70'} ${disable ? 'cursor-not-allowed opacity-40' : ''}`}>
+                  <label key={boss.id} className={`flex cursor-pointer items-center gap-2 rounded-[10px] border px-3 py-2 text-sm ${checked ? 'border-[var(--dash-accent)] bg-[var(--dash-selected)]' : 'border-[var(--dash-subtle-border)] bg-[var(--dash-subtle)]'} ${disable ? 'cursor-not-allowed opacity-40' : ''}`}>
                     <input type="checkbox" checked={checked} disabled={disable} onChange={() => toggleCandidate(boss.id)} />
                     <span className="truncate">{boss.bossName} {boss.difficulty}</span>
                   </label>
@@ -287,10 +306,10 @@ export default function BossContent({ characterId, date }: Props) {
               })}
             </div>
           )}
-          {manualError && <p role="alert" className="mt-3 text-sm text-[#f87171]">{manualError}</p>}
+          {manualError && <p role="alert" className="mt-3 text-sm text-[var(--dash-danger)]">{manualError}</p>}
           <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setManualPeriod(null)} className="rounded px-3 py-2 text-sm text-white/60 hover:text-white">취소</button>
-            <button type="button" onClick={() => void saveManual()} disabled={selectedBossIds.length === 0 || manualSaving} className="rounded bg-[#4ade80] px-3 py-2 text-sm font-medium text-[#102116] disabled:opacity-40">
+            <button type="button" onClick={() => setManualPeriod(null)} className="settings-button">취소</button>
+            <button type="button" onClick={() => void saveManual()} disabled={selectedBossIds.length === 0 || manualSaving} className="settings-button settings-primary">
               {manualSaving ? '저장 중' : '선택 저장'}
             </button>
           </div>
@@ -311,6 +330,17 @@ export default function BossContent({ characterId, date }: Props) {
             setSaveSuccess(false)
           }}
         />
+      )}
+      {pendingDelete && (
+        <ThemedConfirmDialog
+          title="보스 삭제"
+          confirmLabel="삭제"
+          busy={deleting}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void deleteBoss(pendingDelete)}
+        >
+          {pendingDelete.bossName} 보스를 이 기간에서 삭제하시겠습니까? 해당 기간의 아이템·결정석 획득 내역도 삭제됩니다.
+        </ThemedConfirmDialog>
       )}
     </section>
   )
