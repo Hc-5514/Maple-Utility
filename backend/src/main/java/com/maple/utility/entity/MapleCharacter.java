@@ -109,6 +109,11 @@ public class MapleCharacter extends BaseTimeEntity {
 		this.favorite = !this.favorite;
 	}
 
+	public void updatePreferences(boolean favorite, int sortOrder) {
+		this.favorite = favorite;
+		this.sortOrder = sortOrder;
+	}
+
 	public void updateSortOrder(int sortOrder) {
 		this.sortOrder = sortOrder;
 	}

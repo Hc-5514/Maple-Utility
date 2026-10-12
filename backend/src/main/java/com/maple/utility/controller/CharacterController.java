@@ -8,11 +8,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.maple.utility.dto.request.CharacterSortOrderRequest;
+import com.maple.utility.dto.request.CharacterPreferencesRequest;
 import com.maple.utility.dto.request.FavoriteSortOrderRequest;
 import com.maple.utility.dto.response.CharacterResponse;
 import com.maple.utility.dto.response.SyncJobResponse;
@@ -40,6 +42,14 @@ public class CharacterController {
 	@GetMapping("/favorites")
 	public List<CharacterResponse> getFavoriteCharacters(Authentication authentication) {
 		return characterService.getFavoriteCharacters(currentUserId(authentication));
+	}
+
+	@PutMapping("/preferences")
+	public List<CharacterResponse> updatePreferences(
+			@Valid @RequestBody CharacterPreferencesRequest request,
+			Authentication authentication
+	) {
+		return characterService.updatePreferences(currentUserId(authentication), request.characters());
 	}
 
 	@PatchMapping("/favorites/sort-order")

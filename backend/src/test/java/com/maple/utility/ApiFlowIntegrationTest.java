@@ -167,6 +167,24 @@ class ApiFlowIntegrationTest {
 	}
 
 	@Test
+	void 캐릭터_설정_일괄_저장_JWT_사용자_전달() throws Exception {
+		String token = jwtTokenProvider.createAccessToken(7L).value();
+		var items = List.of(new com.maple.utility.dto.request.CharacterPreferencesRequest.Preference(10L, true));
+		Mockito.when(characterService.updatePreferences(7L, items)).thenReturn(List.of());
+		mockMvc.perform(put("/api/v1/characters/preferences").header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"characters\":[{\"characterId\":10,\"favorite\":true}]}"))
+				.andExpect(status().isOk()).andExpect(jsonPath("$").isArray());
+		Mockito.verify(characterService).updatePreferences(7L, items);
+	}
+
+	@Test
+	void 캐릭터_설정_미인증_저장_거부() throws Exception {
+		mockMvc.perform(put("/api/v1/characters/preferences").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"characters\":[]}")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void 월드_선택_JWT_사용자별_조회_저장() throws Exception {
 		String token = jwtTokenProvider.createAccessToken(7L).value();
 		Mockito.when(worldSelectionService.getSelection(7L)).thenReturn(new WorldSelectionResponse(List.of("루나")));

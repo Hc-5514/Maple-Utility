@@ -3,6 +3,7 @@ package com.maple.utility.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,6 +13,7 @@ import java.util.HashMap;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -24,6 +26,7 @@ import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
 import com.maple.utility.exception.NexonApiException;
 import com.maple.utility.repository.CharacterRepository;
+import com.maple.utility.repository.UserRepository;
 import com.maple.utility.security.NexonCharacterBasic;
 import com.maple.utility.security.NexonCharacterSummary;
 import com.maple.utility.security.NexonOpenApiClient;
@@ -37,9 +40,17 @@ class CharacterSyncServiceTest {
 	@Mock
 	private NexonOpenApiClient nexonOpenApiClient;
 
+	@Mock
+	private UserRepository userRepository;
+
+	@BeforeEach
+	void setUp() {
+		lenient().when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user()));
+	}
+
 	@Test
 	void syncCharactersCreatesNewCharacter() {
-		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
 		User user = user();
 		Map<String, MapleCharacter> persisted = new HashMap<>();
 		when(characterRepository.findByUserIdAndOcid(1L, "ocid")).thenAnswer(invocation -> Optional.ofNullable(persisted.get("ocid")));
@@ -71,7 +82,7 @@ class CharacterSyncServiceTest {
 
 	@Test
 	void syncCharactersUpdatesExistingCharacterAndKeepsFavorite() {
-		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
 		User user = user();
 		MapleCharacter existingCharacter = MapleCharacter.create(user, "ocid", "이전", "리부트", "팔라딘", 270, 3);
 		existingCharacter.toggleFavorite();
@@ -94,7 +105,7 @@ class CharacterSyncServiceTest {
 
 	@Test
 	void syncSummariesCreatesCharactersWithoutBasicApiCall() {
-		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
 		User user = user();
 		when(characterRepository.findByUserIdAndOcid(1L, "ocid")).thenReturn(Optional.empty());
 		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -114,7 +125,7 @@ class CharacterSyncServiceTest {
 
 	@Test
 	void syncSummariesUpdatesExistingCharacterAndKeepsFavorite() {
-		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
 		User user = user();
 		MapleCharacter existingCharacter = MapleCharacter.create(user, "ocid", "이전", "리부트", "팔라딘", 270, 3);
 		existingCharacter.toggleFavorite();
@@ -133,7 +144,7 @@ class CharacterSyncServiceTest {
 
 	@Test
 	void syncCharactersSkipsInvalidNexonCharacterId() {
-		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient);
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
 		User user = user();
 		List<NexonCharacterSummary> summaries = List.of(
 				new NexonCharacterSummary("invalid-ocid", "꼬농닉화긱", "엘리시움", "엔젤릭버스터", 250),
@@ -164,6 +175,41 @@ class CharacterSyncServiceTest {
 		assertThat(persisted.keySet()).containsExactlyInAnyOrder("invalid-ocid", "valid-ocid");
 		assertThat(persisted.get("invalid-ocid").getCharacterName()).isEqualTo("꼬농닉화긱");
 		assertThat(persisted.get("valid-ocid").getSortOrder()).isEqualTo(2);
+	}
+
+	@Test
+	void newCharactersAppendAfterSavedGlobalOrder() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
+		User user = user();
+		MapleCharacter existing = MapleCharacter.create(user, "existing", "기존", "루나", "히어로", 280, 7);
+		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(existing));
+		when(characterRepository.findByUserIdAndOcid(1L, "existing")).thenReturn(Optional.of(existing));
+		when(characterRepository.findByUserIdAndOcid(1L, "new")).thenReturn(Optional.empty());
+		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		service.syncSummaries(user, List.of(
+				new NexonCharacterSummary("existing", "기존", "루나", "히어로", 280),
+				new NexonCharacterSummary("new", "신규", "루나", "히어로", 260)));
+		ArgumentCaptor<MapleCharacter> captor = ArgumentCaptor.forClass(MapleCharacter.class);
+		verify(characterRepository).save(captor.capture());
+		assertThat(captor.getValue().getSortOrder()).isEqualTo(8);
+		assertThat(existing.getSortOrder()).isEqualTo(7);
+	}
+
+	@Test
+	void basicSyncReadsPreferencesOnlyAfterExternalCallAndUserLock() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
+		MapleCharacter existing = MapleCharacter.create(user(), "ocid", "이전", "루나", "히어로", 280, 5);
+		existing.toggleFavorite();
+		when(nexonOpenApiClient.getCharacterBasic(1L, "ocid"))
+				.thenReturn(new NexonCharacterBasic("ocid", "변경", "루나", "히어로", 281, "image", "길드"));
+		when(characterRepository.findByUserIdAndOcid(1L, "ocid")).thenReturn(Optional.of(existing));
+		service.syncCharacterBasic(1L, new NexonCharacterSummary("ocid", "변경", "루나", "히어로", 281));
+		var order = org.mockito.Mockito.inOrder(nexonOpenApiClient, userRepository, characterRepository);
+		order.verify(nexonOpenApiClient).getCharacterBasic(1L, "ocid");
+		order.verify(userRepository).findByIdForUpdate(1L);
+		order.verify(characterRepository).findByUserIdAndOcid(1L, "ocid");
+		assertThat(existing.isFavorite()).isTrue();
+		assertThat(existing.getSortOrder()).isEqualTo(5);
 	}
 
 	private User user() {
