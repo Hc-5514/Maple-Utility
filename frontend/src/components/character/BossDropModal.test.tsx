@@ -49,7 +49,6 @@ function renderModal() {
     const [draft, setDraft] = useState<BossPeriodDraft>()
     return (
       <BossDropModal
-        isOpen
         onClose={vi.fn()}
         record={record}
         characterId={1}
@@ -77,8 +76,9 @@ describe('BossDropModal', () => {
 
     expect(await screen.findByText('강렬한 힘의 결정')).toBeTruthy()
     expect(get).toHaveBeenCalledWith('/boss/5/period?characterId=1&periodStart=2026-10-08')
-    fireEvent.change(screen.getByLabelText('파티 인원'), { target: { value: '2' } })
-    await waitFor(() => expect(screen.getByLabelText('결정 금액')).toHaveProperty('value', '24450000'))
+    fireEvent.click(screen.getByRole('button', { name: /^파티 인원/ }))
+    fireEvent.click(screen.getByRole('option', { name: '2명' }))
+    await waitFor(() => expect(screen.getByLabelText('결정 금액')).toHaveProperty('value', '24,450,000'))
     fireEvent.click(screen.getByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }))
     expect(put).not.toHaveBeenCalled()
   })

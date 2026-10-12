@@ -318,7 +318,7 @@ export default function BossContent({ characterId, date }: Props) {
 
       {selectedRecord && (
         <BossDropModal
-          isOpen={true}
+          key={selectedKey}
           onClose={() => setSelectedRecord(null)}
           record={selectedRecord}
           characterId={characterId}

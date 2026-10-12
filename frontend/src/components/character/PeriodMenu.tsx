@@ -15,9 +15,10 @@ interface Props {
   options: Option[]
   onChange: (value: string) => void
   icon?: string
+  compact?: boolean
 }
 
-export default function PeriodMenu({ label, value, options, onChange, icon }: Props) {
+export default function PeriodMenu({ label, value, options, onChange, icon, compact = false }: Props) {
   const { theme } = useThemeStore()
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -48,7 +49,7 @@ export default function PeriodMenu({ label, value, options, onChange, icon }: Pr
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen(!open)}
-        className={controlButton}
+        className={compact ? `${controlButton} h-9 pr-3 pl-[14px]` : controlButton}
       >
         {icon && <img src={icon} alt="" className="size-4" />}
         {selected?.label}
@@ -59,7 +60,7 @@ export default function PeriodMenu({ label, value, options, onChange, icon }: Pr
           id={menuId}
           role="listbox"
           aria-label={label}
-          className="absolute top-[48px] right-0 z-30 min-w-full overflow-hidden rounded-xl border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[7px] shadow-[var(--dash-menu-shadow)] backdrop-blur-[16px]"
+          className={`absolute right-0 z-30 min-w-full overflow-hidden rounded-xl border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[7px] shadow-[var(--dash-menu-shadow)] backdrop-blur-[16px] ${compact ? 'top-[44px]' : 'top-[48px]'}`}
         >
           <div className="period-menu-scroll flex max-h-[196px] flex-col gap-1 overflow-y-auto">
             {options.map((option) => (
