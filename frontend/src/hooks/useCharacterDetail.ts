@@ -8,7 +8,6 @@ import type {
   BossItemAcquisition,
   BossPeriod,
   Character,
-  GuildRecord,
   SchedulerBossDetail,
   SchedulerBossRecord,
   SchedulerDailyRecord,
@@ -107,19 +106,6 @@ export async function hideBossFromPeriod(
 ) {
   const query = new URLSearchParams({ periodStart, resetPeriod })
   await client.delete(`/scheduler/${characterId}/boss/selection/${bossId}?${query}`)
-}
-
-export function useCharacterGuild(characterId: number, date: string) {
-  return useQuery({
-    queryKey: ['scheduler/guild', characterId, date],
-    queryFn: async () => {
-      const { data } = await client.get<ApiResponse<GuildRecord[]>>(
-        `/scheduler/${characterId}/guild?date=${date}`,
-      )
-      return data.data
-    },
-    enabled: characterId > 0,
-  })
 }
 
 export function useToggleFavorite(characterId: number) {
