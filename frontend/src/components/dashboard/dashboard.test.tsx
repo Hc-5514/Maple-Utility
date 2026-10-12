@@ -6,6 +6,7 @@ import WorldSelectionModal from './WorldSelectionModal'
 import WeeklyPeriodSelect, { recentWeeks } from './WeeklyPeriodSelect'
 import CharacterSummaryCard from './CharacterSummaryCard'
 import type { CharacterSchedulerSummary } from '../../types'
+import { seoulDate } from '../../utils/date'
 
 afterEach(cleanup)
 describe('dashboard interactions', () => {
@@ -15,6 +16,22 @@ describe('dashboard interactions', () => {
     expect(weeks[0]).toEqual({ start: '2026-10-08', end: '2026-10-14', date: '2026-10-14' })
     expect(weeks[1]).toEqual({ start: '2026-10-01', end: '2026-10-07', date: '2026-10-07' })
     expect(recentWeeks(new Date('2026-10-15T12:00:00'))[0].start).toBe('2026-10-15')
+  })
+  it('shows the current Thursday-to-Wednesday period by default', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-12T03:00:00.000Z')) // 2026-10-12 12:00 in Seoul
+    try {
+      const today = seoulDate()
+      const currentWeek = recentWeeks()[0]
+      const label = `${currentWeek.start.replace(/-/g, '.')} ~ ${currentWeek.end.replace(/-/g, '.')}`
+
+      expect(today).toBe('2026-10-12')
+      expect(currentWeek).toEqual({ start: '2026-10-08', end: '2026-10-14', date: today })
+      render(<WeeklyPeriodSelect value={today} onChange={vi.fn()} />)
+      expect(screen.getByRole('button', { name: label })).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
   })
   it('starts empty, selects multiple worlds, and commits only after confirmation', async () => {
     const save = vi.fn().mockResolvedValue(undefined),
