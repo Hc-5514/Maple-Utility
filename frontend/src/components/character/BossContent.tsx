@@ -7,7 +7,7 @@ import ThemedConfirmDialog from '../common/ThemedConfirmDialog'
 import { useThemeStore } from '../../stores/themeStore'
 import { characterAssets } from './assets'
 import { controlButton, countPill, detailCard } from './styles'
-import BossSelectionModal, { BOSS_LIMITS, type BossSelectionChange } from './BossSelectionModal'
+import BossSelectionModal, { BOSS_LIMITS, clearedCount, type BossSelectionChange } from './BossSelectionModal'
 import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useCharacterBoss } from '../../hooks/useCharacterDetail'
 import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
 import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
@@ -34,7 +34,7 @@ function BossGroup({
     <>
       <div className="flex items-center gap-[10px]">
         <h3 className="text-[15px] font-bold">{title}</h3>
-        <span className={countPill}>{records.length}/{limit}</span>
+        <span className={countPill}>{clearedCount(records.map((record) => record.isCompleted), limit)}/{limit}</span>
       </div>
       {records.length > 0 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

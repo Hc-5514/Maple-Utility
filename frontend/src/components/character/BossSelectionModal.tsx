@@ -14,6 +14,11 @@ const LOCKED_NOTICE: Record<ResetPeriod, string> = {
   MONTHLY: '이번 달은 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
 }
 
+/** n/limit means bosses cleared out of the clearable maximum, independent of how many the scheduler lists. */
+export function clearedCount(clearedFlags: boolean[], limit: number) {
+  return Math.min(clearedFlags.filter(Boolean).length, limit)
+}
+
 export interface BossSelectionChange {
   add: Record<ResetPeriod, number[]>
   remove: SchedulerBossRecord[]
@@ -61,6 +66,10 @@ export default function BossSelectionModal({ characterId, weeklyRecords, monthly
   const [confirming, setConfirming] = useState<SchedulerBossRecord[] | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
+
+  // Newly selected custom bosses are recorded as cleared.
+  const recordFor = (period: ResetPeriod, bossId: number) =>
+    (period === 'WEEKLY' ? weeklyRecords : monthlyRecords).find((record) => record.bossId === bossId)
 
   const candidatesFor = (period: ResetPeriod) => (period === 'WEEKLY' ? weekly.data : monthly.data) ?? []
 
@@ -115,7 +124,7 @@ export default function BossSelectionModal({ characterId, weeklyRecords, monthly
   const sectionHeader = (period: ResetPeriod, title: string) => (
     <div className="flex items-center gap-[10px]">
       <h3 className="text-[16px] font-bold">{title}</h3>
-      <span className={countPill}>{selected[period].length}/{BOSS_LIMITS[period]}</span>
+      <span className={countPill}>{clearedCount(selected[period].map((id) => recordFor(period, id)?.isCompleted ?? true), BOSS_LIMITS[period])}/{BOSS_LIMITS[period]}</span>
       {!customizable[period] ? (
         <span className="ml-auto text-[12px] text-[var(--dash-muted)]">{LOCKED_NOTICE[period]}</span>
       ) : period === 'WEEKLY' && selected[period].length >= BOSS_LIMITS[period] && (
