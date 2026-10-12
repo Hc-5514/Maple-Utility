@@ -11,6 +11,7 @@ export const characterAssets = {
     imgTrash: '/assets/character/light-3c8ed.svg',
     imgCheck: '/assets/character/light-630c5.svg',
     imgPkg: '/assets/character/light-3d7f0.svg',
+    imgCheckOnAccent: '/assets/character/light-421de.svg',
   },
   dark: {
     imgStar: '/assets/character/dark-d2348.svg',
@@ -24,5 +25,6 @@ export const characterAssets = {
     imgTrash: '/assets/character/dark-4ac71.svg',
     imgCheck: '/assets/character/dark-7b5de.svg',
     imgPkg: '/assets/character/dark-3e4c9.svg',
+    imgCheckOnAccent: '/assets/character/dark-98cc6.svg',
   },
 } as const
