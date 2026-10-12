@@ -1,0 +1,18 @@
+{
+  "light": {
+    "mean_absolute_channel_difference": 1.488,
+    "pixels_over_20_percent": 1.456
+  },
+  "dark": {
+    "mean_absolute_channel_difference": 1.692,
+    "pixels_over_20_percent": 1.466
+  },
+  "light-world": {
+    "mean_absolute_channel_difference": 1.271,
+    "pixels_over_20_percent": 0.986
+  },
+  "dark-world": {
+    "mean_absolute_channel_difference": 1.13,
+    "pixels_over_20_percent": 0.85
+  }
+}
