@@ -7,6 +7,8 @@ import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useBossCandidate
 import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
 import type { BossPeriod, BossPeriodDraft, ResetPeriod, SchedulerBossRecord } from '../../types'
 
+const BOSS_LIMITS: Record<ResetPeriod, number> = { WEEKLY: 11, MONTHLY: 1 }
+
 interface Props {
   characterId: number
   date: string
@@ -114,6 +116,7 @@ export default function BossContent({ characterId, date }: Props) {
 
   const weeklyRecords = bossRecords?.weeklyBosses ?? []
   const monthlyRecords = bossRecords?.monthlyBosses ?? []
+  const periodRecords = manualPeriod === 'MONTHLY' ? monthlyRecords : weeklyRecords
   const weekOptions = Array.from({ length: 12 }, (_, index) => {
     const current = new Date(`${thursdayWeekStart(pageDate)}T12:00:00`)
     current.setDate(current.getDate() - index * 7)
@@ -267,13 +270,14 @@ export default function BossContent({ characterId, date }: Props) {
         <div className="mt-4 border-t border-white/10 pt-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-white">{manualPeriod === 'WEEKLY' ? '주간' : '월간'} 보스 선택</p>
-            {manualPeriod === 'WEEKLY' && <span className="text-xs text-white/50">{weeklyRecords.length + selectedBossIds.length}/12</span>}
+            <span className="text-xs text-white/50">{periodRecords.length + selectedBossIds.length}/{BOSS_LIMITS[manualPeriod]}</span>
           </div>
           {candidatesLoading ? <p className="text-sm text-white/50">후보 불러오는 중</p> : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {candidates.filter((boss) => !(manualPeriod === 'WEEKLY' ? weeklyRecords : monthlyRecords).some((record) => record.bossId === boss.id)).map((boss) => {
+              {candidates.filter((boss) => !periodRecords.some((record) => record.bossId === boss.id)).map((boss) => {
                 const checked = selectedBossIds.includes(boss.id)
-                const disable = manualPeriod === 'WEEKLY' && !checked && weeklyRecords.length + selectedBossIds.length >= 12
+                const disable = !checked && (periodRecords.length + selectedBossIds.length >= BOSS_LIMITS[manualPeriod]
+                  || [...periodRecords, ...candidates.filter((candidate) => selectedBossIds.includes(candidate.id))].some((selected) => selected.bossName === boss.bossName))
                 return (
                   <label key={boss.id} className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm ${checked ? 'border-[#4ade80] bg-[#4ade80]/10 text-white' : 'border-white/10 text-white/70'} ${disable ? 'cursor-not-allowed opacity-40' : ''}`}>
                     <input type="checkbox" checked={checked} disabled={disable} onChange={() => toggleCandidate(boss.id)} />

@@ -27,6 +27,29 @@ function bossCandidates(resetPeriod: 'WEEKLY' | 'MONTHLY'): BossCandidate[] {
     }))
 }
 
+const bossLimits = { WEEKLY: 11, MONTHLY: 1 } as const
+
+function periodBossRecords(characterId: number, weeklyDate: string, monthlyDate: string) {
+  const monthlyStart = `${monthlyDate.slice(0, 7)}-01`
+  const records = [
+    ...previewBossRecords(characterId),
+    ...(manualBossRecords.get(`${characterId}:${weeklyDate}:WEEKLY`) ?? []),
+    ...(manualBossRecords.get(`${characterId}:${monthlyStart}:MONTHLY`) ?? []),
+    ...periodSelections.values(),
+  ].filter((record) => {
+    const start = record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate
+    const inPeriod = record.recordDate === start || (record.recordDate === previewDate && (
+      record.resetPeriod === 'WEEKLY' ? start === previewWeekStart : start === `${previewDate.slice(0, 7)}-01`
+    ))
+    return record.characterId === characterId && inPeriod && !hiddenBosses.has(selectionKey(characterId, start, record.resetPeriod, record.bossId ?? 0))
+  })
+  return [...new Map(records.map((record) => [selectionKey(characterId, record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate, record.resetPeriod, record.bossId ?? 0), record])).values()]
+}
+
+function invalidSelection(resetPeriod: 'WEEKLY' | 'MONTHLY', bossNames: string[]) {
+  return bossNames.length > bossLimits[resetPeriod] || new Set(bossNames).size !== bossNames.length
+}
+
 function dailyRecords(characterId: number) {
   return (previewCharacter(characterId)?.daily ?? []).map((item, index) => ({
     id: characterId * 100 + index,
@@ -87,7 +110,8 @@ export const schedulerHandlers = [
   http.post('*/api/v1/scheduler/:characterId/boss/manual', async ({ params, request }) => {
     const characterId = Number(params.characterId)
     const body = await request.json() as { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] }
-    if (body.resetPeriod === 'WEEKLY' && body.bossIds.length > 12) {
+    const names = new Map(bossCandidates(body.resetPeriod).map((boss) => [boss.id, boss.bossName]))
+    if (invalidSelection(body.resetPeriod, body.bossIds.map((id) => names.get(id) ?? String(id)))) {
       return HttpResponse.json({ success: false }, { status: 400 })
     }
     const normalizedStart = body.resetPeriod === 'MONTHLY' ? `${body.periodStart.slice(0, 7)}-01` : body.periodStart
@@ -120,6 +144,13 @@ export const schedulerHandlers = [
     const body = await request.json() as { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] }
     const start = body.resetPeriod === 'MONTHLY' ? `${body.periodStart.slice(0, 7)}-01` : body.periodStart
     const candidates = new Map(bossCandidates(body.resetPeriod).map((boss) => [boss.id, boss]))
+    const existing = periodBossRecords(characterId, start, start).filter((record) => record.resetPeriod === body.resetPeriod)
+    const existingIds = new Set(existing.map((record) => record.bossId))
+    const names = [
+      ...existing.map((record) => record.bossName ?? ''),
+      ...body.bossIds.filter((id) => !existingIds.has(id)).map((id) => candidates.get(id)?.bossName ?? String(id)),
+    ]
+    if (invalidSelection(body.resetPeriod, names)) return HttpResponse.json({ success: false }, { status: 400 })
     const records = body.bossIds.flatMap((bossId) => {
       const boss = candidates.get(bossId)
       if (!boss) return []
@@ -153,20 +184,7 @@ export const schedulerHandlers = [
     const searchParams = new URL(request.url).searchParams
     const weeklyDate = searchParams.get('weeklyDate') ?? searchParams.get('date') ?? previewDate
     const monthlyDate = searchParams.get('monthlyDate') ?? searchParams.get('date') ?? previewDate
-    const monthlyStart = `${monthlyDate.slice(0, 7)}-01`
-    const records = [
-      ...previewBossRecords(characterId),
-      ...(manualBossRecords.get(`${characterId}:${weeklyDate}:WEEKLY`) ?? []),
-      ...(manualBossRecords.get(`${characterId}:${monthlyStart}:MONTHLY`) ?? []),
-      ...periodSelections.values(),
-    ].filter((record) => {
-      const start = record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate
-      const inPeriod = record.recordDate === start || (record.recordDate === previewDate && (
-        record.resetPeriod === 'WEEKLY' ? start === previewWeekStart : start === `${previewDate.slice(0, 7)}-01`
-      ))
-      return record.characterId === characterId && inPeriod && !hiddenBosses.has(selectionKey(characterId, start, record.resetPeriod, record.bossId ?? 0))
-    })
-    const unique = [...new Map(records.map((record) => [selectionKey(characterId, record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate, record.resetPeriod, record.bossId ?? 0), record])).values()]
+    const unique = periodBossRecords(characterId, weeklyDate, monthlyDate)
     return HttpResponse.json({ success: true, data: {
       weeklyBosses: unique.filter((record) => record.resetPeriod === 'WEEKLY'),
       monthlyBosses: unique.filter((record) => record.resetPeriod === 'MONTHLY'),

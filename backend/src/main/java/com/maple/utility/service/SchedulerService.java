@@ -5,6 +5,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,6 +49,9 @@ import com.maple.utility.repository.SyncJobRepository;
 
 @Service
 public class SchedulerService {
+
+	private static final int WEEKLY_BOSS_LIMIT = 11;
+	private static final int MONTHLY_BOSS_LIMIT = 1;
 
 	private final CharacterRepository characterRepository;
 	private final SchedulerDailyRecordRepository dailyRecordRepository;
@@ -223,13 +227,12 @@ public class SchedulerService {
 				.collect(Collectors.toMap(selection -> selection.getBoss().getId(), selection -> selection));
 		List<SchedulerBossResponse> existing = bossResponsesForPeriod(character, start, request.resetPeriod());
 		var existingBossIds = existing.stream().map(SchedulerBossResponse::bossId).collect(Collectors.toSet());
-		long newCount = request.bossIds().stream()
+		List<String> selectedBossNames = new ArrayList<>(existing.stream().map(SchedulerBossResponse::bossName).toList());
+		request.bossIds().stream()
 				.filter(id -> !existingBossIds.contains(id))
-				.count();
-		if (request.resetPeriod() == ResetPeriod.WEEKLY
-				&& existing.size() + newCount > 12) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "WEEKLY_BOSS_LIMIT_EXCEEDED", "주간 보스 선택 한도 초과");
-		}
+				.map(id -> candidates.get(id).getBossName())
+				.forEach(selectedBossNames::add);
+		validateBossSelection(request.resetPeriod(), selectedBossNames);
 		for (Long bossId : request.bossIds()) {
 			BossPeriodSelection selection = selections.get(bossId);
 			if (selection == null) {
@@ -270,8 +273,8 @@ public class SchedulerService {
 	) {
 		MapleCharacter character = findCharacter(userId, characterId);
 		LocalDate periodStart = periodStart(request.periodStart(), request.resetPeriod());
-		if (request.resetPeriod() == ResetPeriod.WEEKLY && request.bossIds().size() > 12) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "WEEKLY_BOSS_LIMIT_EXCEEDED", "주간 보스 선택 한도 초과");
+		if (request.bossIds().size() > selectionLimit(request.resetPeriod())) {
+			throw selectionLimitExceeded(request.resetPeriod());
 		}
 		if (request.bossIds().stream().distinct().count() != request.bossIds().size()) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "DUPLICATE_BOSS_SELECTION", "중복 보스 선택");
@@ -288,6 +291,7 @@ public class SchedulerService {
 		if (selected.stream().anyMatch(boss -> boss == null)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_BOSS_SELECTION", "활성 보스 후보 아님");
 		}
+		validateBossSelection(request.resetPeriod(), selected.stream().map(BossMaster::getBossName).toList());
 
 		return bossRecordRepository.saveAll(selected.stream()
 				.map(boss -> SchedulerBossRecord.create(character, boss, periodStart, request.resetPeriod(), true, null))
@@ -295,6 +299,25 @@ public class SchedulerService {
 				.sorted(Comparator.comparing(record -> record.getBoss().getSortOrder()))
 				.map(SchedulerBossResponse::from)
 				.toList();
+	}
+
+	private int selectionLimit(ResetPeriod resetPeriod) {
+		return resetPeriod == ResetPeriod.WEEKLY ? WEEKLY_BOSS_LIMIT : MONTHLY_BOSS_LIMIT;
+	}
+
+	private ApiException selectionLimitExceeded(ResetPeriod resetPeriod) {
+		return resetPeriod == ResetPeriod.WEEKLY
+				? new ApiException(HttpStatus.BAD_REQUEST, "WEEKLY_BOSS_LIMIT_EXCEEDED", "주간 보스 선택 한도 초과")
+				: new ApiException(HttpStatus.BAD_REQUEST, "MONTHLY_BOSS_LIMIT_EXCEEDED", "월간 보스 선택 한도 초과");
+	}
+
+	private void validateBossSelection(ResetPeriod resetPeriod, List<String> bossNames) {
+		if (bossNames.size() > selectionLimit(resetPeriod)) {
+			throw selectionLimitExceeded(resetPeriod);
+		}
+		if (bossNames.stream().distinct().count() != bossNames.size()) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "BOSS_DIFFICULTY_DUPLICATED", "보스당 1개 난이도만 선택 가능");
+		}
 	}
 
 	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'guild:' + #userId + ':' + #characterId + ':' + #date")
