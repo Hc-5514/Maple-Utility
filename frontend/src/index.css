@@ -207,22 +207,24 @@ html:has(.dashboard-theme main) {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  width: 189px;
+  white-space: nowrap;
 }
 .settings-api-copy h2 {
   font:
-    400 18px/normal Inter,
+    400 18px/22px Inter,
     sans-serif;
 }
 .settings-api-copy p {
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 17px;
   color: var(--dash-muted);
 }
 .settings-status {
-  padding: 4px 10px;
+  padding: 3px 9px;
   font-size: 11px;
   font-weight: 700;
-  line-height: normal;
+  line-height: 13px;
   border: 1px solid color-mix(in srgb, var(--status-color) 16%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--status-color) 8%, transparent);
@@ -316,13 +318,13 @@ html:has(.dashboard-theme main) {
 .settings-character-title p {
   color: var(--dash-muted);
   font-size: 12px;
-  line-height: 1.45;
+  line-height: 17px;
 }
 .settings-count {
   font-size: 11px;
   font-weight: 700;
-  line-height: normal;
-  padding: 4px 10px;
+  line-height: 13px;
+  padding: 3px 9px;
   border: 1px solid color-mix(in srgb, var(--dash-accent) 16%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--dash-accent) 8%, transparent);
