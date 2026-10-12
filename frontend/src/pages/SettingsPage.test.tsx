@@ -180,6 +180,48 @@ describe('Settings preferences', () => {
     await waitFor(() => expect(rows()).toEqual(['1', '2', '3', '4', '5', '6']))
     expect(screen.queryByText('저장하지 않은 변경사항이 있어요')).toBeNull()
   })
+  it('refreshes characters after key registration while retaining the current draft', async () => {
+    const { get } = setup({
+      status: { registered: false, keyStatus: null, keySuffix: null, lastVerifiedAt: null },
+    })
+    const post = vi
+      .spyOn(client, 'post')
+      .mockResolvedValue({ data: { success: true, data: {} } } as AxiosResponse)
+    await screen.findByText('꼬농')
+    fireEvent.click(screen.getByRole('button', { name: '도끼꼬농 위로 이동' }))
+    const before = get.mock.calls.filter(([url]) => url === '/characters').length
+    fireEvent.change(screen.getByLabelText('Nexon API Key', { selector: 'input' }), {
+      target: { value: 'test-key-abcd' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '등록' }))
+    await waitFor(() =>
+      expect(get.mock.calls.filter(([url]) => url === '/characters').length).toBeGreaterThan(before)
+    )
+    expect(post).toHaveBeenCalledWith('/api-key', { apiKey: 'test-key-abcd' })
+    expect(rows()).toEqual(['1', '2', '3', '4', '6', '5'])
+    expect(screen.getByText('저장하지 않은 변경사항이 있어요')).toBeTruthy()
+  })
+  it('keeps the refresh button available and confirms draft disposal before synchronizing', async () => {
+    setup()
+    const post = vi
+      .spyOn(client, 'post')
+      .mockResolvedValue({
+        data: { success: true, data: { id: 99, status: 'COMPLETED' } },
+      } as AxiosResponse)
+    await screen.findByText('꼬농')
+    fireEvent.click(screen.getByRole('button', { name: '도끼꼬농 위로 이동' }))
+    const refresh = screen.getByRole('button', { name: '캐릭터 새로고침' })
+    expect((refresh as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(refresh)
+    fireEvent.click(screen.getByRole('button', { name: '취소' }))
+    expect(post).not.toHaveBeenCalled()
+    expect(rows()).toEqual(['1', '2', '3', '4', '6', '5'])
+    fireEvent.click(refresh)
+    fireEvent.click(screen.getByRole('button', { name: '변경사항 버리고 새로고침' }))
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/characters/sync'))
+    expect(rows()).toEqual(['1', '2', '3', '4', '5', '6'])
+    expect(screen.queryByText('저장하지 않은 변경사항이 있어요')).toBeNull()
+  })
   it('opens the reusable world modal, cancels with Escape, and saves zero selection', async () => {
     const { put } = setup()
     await screen.findByText('꼬농')
