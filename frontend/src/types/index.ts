@@ -225,6 +225,8 @@ export interface SchedulerSummary {
 export interface SchedulerBossDetail {
   weeklyBosses: SchedulerBossRecord[]
   monthlyBosses: SchedulerBossRecord[]
+  weeklyCustomizable: boolean
+  monthlyCustomizable: boolean
 }
 
 export interface SyncJob {
