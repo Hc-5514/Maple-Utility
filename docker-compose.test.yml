@@ -1,0 +1,19 @@
+name: maple-utility-test
+
+services:
+  postgres-test:
+    image: postgres:16.9-alpine
+    ports:
+      - "127.0.0.1:5433:5432"
+    environment:
+      POSTGRES_DB: maple_flyway_test
+      POSTGRES_USER: ${FLYWAY_TEST_USER:?FLYWAY_TEST_USER is required}
+      POSTGRES_PASSWORD: ${FLYWAY_TEST_PASSWORD:?FLYWAY_TEST_PASSWORD is required}
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
