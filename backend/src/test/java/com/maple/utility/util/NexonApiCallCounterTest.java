@@ -52,4 +52,30 @@ class NexonApiCallCounterTest {
 
 		verify(redisTemplate).delete("nexon:api:daily:20260714:user-1");
 	}
+
+	@Test
+	void reservationExecutesAtomicLimitAndIncrementScriptWithMidnightExpiration() {
+		when(redisTemplate.execute(org.mockito.ArgumentMatchers.any(org.springframework.data.redis.core.script.RedisScript.class),
+				org.mockito.ArgumentMatchers.eq(java.util.List.of("nexon:api:daily:20260714:user-1")),
+				org.mockito.ArgumentMatchers.eq("400"), org.mockito.ArgumentMatchers.eq("1800000"))).thenReturn(1L);
+		assertThat(counter.reserve("user-1", 400)).isTrue();
+	}
+
+	@Test
+	void unavailableReservationFailsClosed() {
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> counter.reserve("user-1", 400))
+				.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void userAndSharedKeyAreReservedInOneAtomicOperation() {
+		var keys = java.util.List.of("nexon:api:daily:20260714:user-1", "nexon:api:daily:20260714:api-key:hash");
+		when(redisTemplate.execute(org.mockito.ArgumentMatchers.any(org.springframework.data.redis.core.script.RedisScript.class),
+				org.mockito.ArgumentMatchers.eq(keys), org.mockito.ArgumentMatchers.eq("400"),
+				org.mockito.ArgumentMatchers.eq("1800000"))).thenReturn(0L);
+		assertThat(counter.reserve("user-1", "api-key:hash", 400)).isFalse();
+		verify(redisTemplate).execute(org.mockito.ArgumentMatchers.any(org.springframework.data.redis.core.script.RedisScript.class),
+				org.mockito.ArgumentMatchers.eq(keys), org.mockito.ArgumentMatchers.eq("400"),
+				org.mockito.ArgumentMatchers.eq("1800000"));
+	}
 }

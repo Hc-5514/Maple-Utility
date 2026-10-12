@@ -71,6 +71,9 @@ import com.maple.utility.dto.response.WorldSelectionResponse;
 })
 class ApiFlowIntegrationTest {
 	@MockitoBean
+	private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+	@MockitoBean
 	private JdbcTemplate jdbcTemplate;
 
 	@Autowired

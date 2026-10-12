@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
@@ -15,6 +16,17 @@ public class NexonApiCallCounter {
 
 	private static final String KEY_PREFIX = "nexon:api:daily";
 	private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+	private static final DefaultRedisScript<Long> RESERVE = new DefaultRedisScript<>("""
+			for _, key in ipairs(KEYS) do
+			  local count = tonumber(redis.call('GET', key) or '0')
+			  if count >= tonumber(ARGV[1]) then return 0 end
+			end
+			for _, key in ipairs(KEYS) do
+			  redis.call('INCR', key)
+			  redis.call('PEXPIRE', key, ARGV[2])
+			end
+			return 1
+			""", Long.class);
 
 	private final StringRedisTemplate redisTemplate;
 	private final Clock clock;
@@ -35,6 +47,27 @@ public class NexonApiCallCounter {
 	public long getCount(String subject) {
 		String value = redisTemplate.opsForValue().get(key(subject));
 		return value == null ? 0L : Long.parseLong(value);
+	}
+
+	/** Reserve immediately before every outbound attempt, including retries. */
+	public boolean reserve(String subject, long limit) {
+		return reserveKeys(java.util.List.of(key(subject)), limit);
+	}
+
+	/** User and shared API key budgets are checked/incremented together, or neither is changed. */
+	public boolean reserve(String subject, String sharedSubject, long limit) {
+		Assert.isTrue(!subject.equals(sharedSubject), "budget subjects must differ");
+		return reserveKeys(java.util.List.of(key(subject), key(sharedSubject)), limit);
+	}
+
+	private boolean reserveKeys(java.util.List<String> keys, long limit) {
+		Assert.isTrue(limit > 0, "limit must be positive");
+		Long result = redisTemplate.execute(RESERVE, keys,
+				Long.toString(limit), Long.toString(Math.max(1, durationUntilNextMidnight().toMillis())));
+		if (result == null) {
+			throw new IllegalStateException("Nexon API budget reservation unavailable");
+		}
+		return result == 1L;
 	}
 
 	public void reset(String subject) {

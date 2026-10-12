@@ -3,6 +3,8 @@ package com.maple.utility.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -60,6 +62,9 @@ class SchedulerSyncServiceTest {
 	@Mock
 	private SchedulerBossRecordRepository bossRecordRepository;
 
+	@Mock
+	private SchedulerSyncLock syncLock;
+
 	private SchedulerSyncService schedulerSyncService;
 
 	@BeforeEach
@@ -70,12 +75,13 @@ class SchedulerSyncServiceTest {
 				dailyRecordRepository,
 				weeklyRecordRepository,
 				bossRecordRepository,
-				CLOCK
+				CLOCK, syncLock
 		);
 	}
 
 	@Test
 	void syncCharactersCreatesSchedulerRecords() {
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
 		User user = user();
 		MapleCharacter character = character(user);
 		BossMaster boss = boss();
@@ -113,6 +119,7 @@ class SchedulerSyncServiceTest {
 
 	@Test
 	void syncCharactersForBatchUsesBatchSchedulerApi() {
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
 		User user = user();
 		MapleCharacter character = character(user);
 		NexonSchedulerResponse response = new NexonSchedulerResponse(LocalDate.parse("2026-07-14"), List.of(), List.of(), List.of());
@@ -125,6 +132,7 @@ class SchedulerSyncServiceTest {
 
 	@Test
 	void syncOneCharacterRemovesRecordsNoLongerRegistered() {
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
 		MapleCharacter character = character(user());
 		LocalDate date = LocalDate.parse("2026-07-14");
 		LocalDate weekStart = LocalDate.parse("2026-07-09");
@@ -142,6 +150,53 @@ class SchedulerSyncServiceTest {
 		verify(dailyRecordRepository).deleteAll(List.of(staleDaily));
 		verify(weeklyRecordRepository).deleteAll(List.of(staleWeekly));
 		verify(bossRecordRepository).deleteAll(List.of(staleBoss));
+	}
+
+	@Test
+	void historicalSnapshotUsesWednesdayAndPreviousThursdayOnly() {
+		var character = character(user());
+		var date = LocalDate.parse("2026-07-08");
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
+		when(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", date))
+				.thenReturn(new NexonSchedulerResponse(date, List.of(), List.of(), List.of()));
+		assertThat(schedulerSyncService.syncHistoricalCharacter(1L, character, date)).isTrue();
+		verify(dailyRecordRepository).findByCharacterIdAndRecordDateOrderByIdAsc(10L, date);
+		verify(weeklyRecordRepository).findByCharacterIdAndWeekStartDateOrderByIdAsc(10L, date.minusDays(6));
+		verify(bossRecordRepository).findByCharacterIdAndRecordDateOrderByBoss_SortOrderAscIdAsc(10L, date);
+	}
+
+	@Test
+	void historicalDateMismatchCannotModifyAnyRecord() {
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
+		var date = LocalDate.parse("2026-07-08");
+		when(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", date))
+				.thenReturn(new NexonSchedulerResponse(LocalDate.parse("2026-07-14"), List.of(), List.of(), List.of()));
+		assertThatThrownBy(() -> schedulerSyncService.syncHistoricalCharacter(1L, character(user()), date))
+				.isInstanceOf(com.maple.utility.exception.ApiException.class);
+		verify(dailyRecordRepository, never()).deleteAll(any());
+		verify(weeklyRecordRepository, never()).deleteAll(any());
+		verify(bossRecordRepository, never()).deleteAll(any());
+	}
+
+	@Test
+	void noHistoricalDataPreservesExistingRecords() {
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
+		assertThat(schedulerSyncService.syncHistoricalCharacter(1L, character(user()), LocalDate.parse("2026-07-08"))).isFalse();
+		org.mockito.Mockito.verifyNoInteractions(dailyRecordRepository, weeklyRecordRepository, bossRecordRepository);
+	}
+
+	@Test
+	void historicalDateOutsideWindowNeverCallsNexon() {
+		assertThatThrownBy(() -> schedulerSyncService.syncHistoricalCharacter(1L, character(user()), LocalDate.parse("2026-06-24")))
+				.isInstanceOf(com.maple.utility.exception.ApiException.class);
+		org.mockito.Mockito.verifyNoInteractions(nexonOpenApiClient);
+	}
+
+	@Test
+	void liveSyncDoesNotCallNexonWhileHistoricalTransactionOwnsUserLock() {
+		assertThatThrownBy(() -> schedulerSyncService.syncOneCharacter(1L, character(user()), false, true))
+				.isInstanceOf(com.maple.utility.exception.ApiException.class);
+		org.mockito.Mockito.verifyNoInteractions(nexonOpenApiClient);
 	}
 
 	private User user() {
