@@ -87,7 +87,7 @@ public class SchedulerService {
 		this.clock = clock;
 	}
 
-	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'summary:' + #userId + ':' + #date")
+	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "#root.target.summaryCacheKey(#userId, #date)")
 	@Transactional(readOnly = true)
 	public SchedulerSummaryResponse getSummary(Long userId, LocalDate date) {
 		LocalDate targetDate = dateOrToday(date);
@@ -102,19 +102,22 @@ public class SchedulerService {
 
 		List<SchedulerDailyRecord> dailyRecords = dailyRecordRepository.findByCharacterIdInAndRecordDateOrderByCharacterIdAscIdAsc(characterIds, targetDate);
 		List<SchedulerWeeklyRecord> weeklyRecords = weeklyRecordRepository.findByCharacterIdInAndWeekStartDateOrderByCharacterIdAscIdAsc(characterIds, weekStartDate);
-		List<SchedulerBossRecord> weeklyBossRecords = bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(characterIds, targetDate, ResetPeriod.WEEKLY);
-		List<SchedulerBossRecord> monthlyBossRecords = bossRecordRepository.findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(characterIds, targetDate, ResetPeriod.MONTHLY);
+		List<SchedulerBossRecord> weeklyBossRecords = bossRecordRepository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(characterIds, weekStartDate, targetDate, ResetPeriod.WEEKLY);
+		List<SchedulerBossRecord> monthlyBossRecords = bossRecordRepository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(characterIds, targetDate.withDayOfMonth(1), targetDate, ResetPeriod.MONTHLY);
 
 		Map<Long, List<SchedulerDailyRecord>> dailyByChar = dailyRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
 		Map<Long, List<SchedulerWeeklyRecord>> weeklyByChar = weeklyRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
+
+		Map<Long, List<SchedulerBossRecord>> weeklyBossByChar = weeklyBossRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
+		Map<Long, List<SchedulerBossRecord>> monthlyBossByChar = monthlyBossRecords.stream().collect(Collectors.groupingBy(r -> r.getCharacter().getId()));
 
 		List<SchedulerCharacterSummaryResponse> characters = favoriteCharacters.stream()
 				.map(character -> {
 					Long id = character.getId();
 					List<SchedulerDailyRecord> daily = dailyByChar.getOrDefault(id, List.of());
 					List<SchedulerWeeklyRecord> weekly = weeklyByChar.getOrDefault(id, List.of());
-					List<SchedulerBossResponse> weeklyBoss = bossResponsesForPeriod(character, targetDate, ResetPeriod.WEEKLY);
-					List<SchedulerBossResponse> monthlyBoss = bossResponsesForPeriod(character, targetDate, ResetPeriod.MONTHLY);
+					List<SchedulerBossResponse> weeklyBoss = bossResponsesForPeriod(character, targetDate, ResetPeriod.WEEKLY, weeklyBossByChar.getOrDefault(id, List.of()));
+					List<SchedulerBossResponse> monthlyBoss = bossResponsesForPeriod(character, targetDate, ResetPeriod.MONTHLY, monthlyBossByChar.getOrDefault(id, List.of()));
 					return new SchedulerCharacterSummaryResponse(
 							id,
 							character.getCharacterName(),
@@ -125,7 +128,9 @@ public class SchedulerService {
 							new TaskSummary((int) daily.stream().filter(r -> r.getCompletedCount() == r.getTotalCount()).count(), daily.size()),
 							new TaskSummary((int) weekly.stream().filter(SchedulerWeeklyRecord::isCompleted).count(), weekly.size()),
 							new TaskSummary((int) weeklyBoss.stream().filter(SchedulerBossResponse::isCompleted).count(), weeklyBoss.size()),
-							new TaskSummary((int) monthlyBoss.stream().filter(SchedulerBossResponse::isCompleted).count(), monthlyBoss.size())
+							new TaskSummary((int) monthlyBoss.stream().filter(SchedulerBossResponse::isCompleted).count(), monthlyBoss.size()),
+							!daily.isEmpty() || !weekly.isEmpty() || !weeklyBossByChar.getOrDefault(id, List.of()).isEmpty()
+									|| !monthlyBossByChar.getOrDefault(id, List.of()).isEmpty() || !weeklyBoss.isEmpty() || !monthlyBoss.isEmpty()
 					);
 				})
 				.toList();
@@ -144,6 +149,10 @@ public class SchedulerService {
 				: jobCompletedAt == null || recordSyncedAt.isAfter(jobCompletedAt) ? recordSyncedAt : jobCompletedAt;
 
 		return new SchedulerSummaryResponse(characters, syncedAt);
+	}
+
+	public String summaryCacheKey(Long userId, LocalDate date) {
+		return "summary:v2:" + userId + ":" + dateOrToday(date);
 	}
 
 	private LocalDateTime latestCompletedAt(Long userId) {
@@ -329,10 +338,15 @@ public class SchedulerService {
 	}
 
 	private List<SchedulerBossResponse> bossResponsesForPeriod(MapleCharacter character, LocalDate date, ResetPeriod resetPeriod) {
+		return bossResponsesForPeriod(character, date, resetPeriod, bossRecordsForPeriod(character.getId(), date, resetPeriod));
+	}
+
+	private List<SchedulerBossResponse> bossResponsesForPeriod(
+			MapleCharacter character, LocalDate date, ResetPeriod resetPeriod, List<SchedulerBossRecord> snapshots) {
 		LocalDate start = periodStart(date, resetPeriod);
 		Map<Long, SchedulerBossResponse> records = new LinkedHashMap<>();
 		Map<Long, BossMaster> bosses = new LinkedHashMap<>();
-		for (SchedulerBossRecord record : bossRecordsForPeriod(character.getId(), date, resetPeriod)) {
+		for (SchedulerBossRecord record : snapshots) {
 			records.put(record.getBoss().getId(), SchedulerBossResponse.from(record));
 			bosses.put(record.getBoss().getId(), record.getBoss());
 		}

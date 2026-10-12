@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.time.Clock;
-import java.time.LocalDate;
 
 import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
@@ -87,8 +86,7 @@ public class CharacterService {
 		Runnable evictSummary = () -> {
 			var cache = cacheManager.getCache(RedisCacheNames.SCHEDULER);
 			if (cache != null) {
-				cache.evict("summary:" + userId + ":null");
-				cache.evict("summary:" + userId + ":" + LocalDate.now(clock));
+				cache.clear();
 			}
 		};
 		if (TransactionSynchronizationManager.isSynchronizationActive()) {

@@ -70,6 +70,20 @@ class SchedulerBossRecordRepositoryTest {
 		List<SchedulerBossRecord> monthly = repository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(
 				character.getId(), LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), ResetPeriod.MONTHLY);
 
+		List<SchedulerBossRecord> asOfWeekly = repository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+				List.of(character.getId()), LocalDate.of(2026, 7, 9), LocalDate.of(2026, 7, 12), ResetPeriod.WEEKLY);
+		List<SchedulerBossRecord> asOfMonthly = repository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+				List.of(character.getId()), LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 14), ResetPeriod.MONTHLY);
+		assertThat(asOfWeekly).extracting(SchedulerBossRecord::getRecordDate)
+				.containsExactly(LocalDate.of(2026, 7, 10), LocalDate.of(2026, 7, 12));
+		assertThat(asOfWeekly.getFirst().isCompleted()).isFalse();
+		assertThat(asOfMonthly).singleElement().satisfies(record -> {
+			assertThat(record.getRecordDate()).isEqualTo(LocalDate.of(2026, 7, 2));
+			assertThat(record.isCompleted()).isFalse();
+		});
+		assertThat(repository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+				List.of(character.getId()), LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), ResetPeriod.MONTHLY)).isEmpty();
+
 		assertThat(weekly).hasSize(2)
 				.extracting(SchedulerBossRecord::getRecordDate)
 				.containsExactly(LocalDate.of(2026, 7, 14), LocalDate.of(2026, 7, 12));
