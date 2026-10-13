@@ -391,27 +391,41 @@ html:has(.dashboard-theme main) {
   align-items: center;
   gap: 10px;
 }
-.settings-columns {
-  display: flex;
-  height: 44px;
+.settings-character-card {
+  --settings-favorite-width: 75px;
+  --settings-order-width: 130px;
+  --settings-column-gap: 18px;
+  --settings-column-padding: 24px;
+}
+.settings-columns,
+.settings-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) var(--settings-favorite-width) var(--settings-order-width);
+  column-gap: var(--settings-column-gap);
   align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
+  padding-inline: var(--settings-column-padding);
+}
+.settings-columns {
+  height: 44px;
   background: var(--dash-track);
   font-size: 12px;
   line-height: 1.45;
   color: var(--dash-muted);
 }
-.settings-columns > div {
-  display: flex;
-  gap: 58px;
+.settings-columns > p:first-child {
+  grid-column: 1 / 3;
+}
+.settings-favorite-heading {
+  text-align: center;
+  white-space: nowrap;
+}
+.settings-order-heading {
+  width: 80px;
+  justify-self: end;
+  text-align: center;
 }
 .settings-row {
-  display: flex;
-  align-items: center;
-  gap: 18px;
   height: 88px;
-  padding: 0 24px;
   border-bottom: 1px solid var(--dash-border);
 }
 .settings-avatar {
@@ -446,13 +460,13 @@ html:has(.dashboard-theme main) {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 75px;
+  width: var(--settings-favorite-width);
   height: 38px;
 }
 .settings-order {
   display: flex;
   flex-shrink: 0;
-  width: 130px;
+  width: var(--settings-order-width);
   gap: 8px;
   justify-content: flex-end;
 }
@@ -505,21 +519,16 @@ html:has(.dashboard-theme main) {
   .settings-action-buttons {
     flex-wrap: wrap;
   }
+  .settings-character-card {
+    --settings-favorite-width: 44px;
+    --settings-order-width: 80px;
+    --settings-column-gap: 10px;
+    --settings-column-padding: 16px;
+  }
   .settings-row {
-    padding: 12px 16px;
+    padding-block: 12px;
     height: auto;
     min-height: 88px;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .settings-character-info {
-    flex-basis: calc(100% - 60px);
-  }
-  .settings-order {
-    width: auto;
-  }
-  .settings-columns > div {
-    gap: 20px;
   }
   .settings-guidance {
     padding: 16px;
@@ -546,7 +555,7 @@ html:has(.dashboard-theme main) {
 .settings-favorite[aria-pressed='true']::after {
   content: '';
   position: absolute;
-  left: 35px;
+  left: calc(50% - 2.5px);
   top: 35px;
   width: 5px;
   height: 2px;
