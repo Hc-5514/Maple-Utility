@@ -580,8 +580,13 @@ html:has(.dashboard-theme main) {
   .app-navigation[data-full-nav='true'] > a:nth-child(4) {
     width: 58px;
   }
+  /* The extra padding must not re-center the menu: keep the other items at their Figma positions. */
   .app-navigation[data-full-nav='true'] > button {
-    width: 52px;
+    width: 84px;
+    margin-right: -32px;
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
   }
 }
 
