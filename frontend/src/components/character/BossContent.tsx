@@ -9,12 +9,13 @@ import { characterAssets } from './assets'
 import { controlButton, countPill, detailCard } from './styles'
 import BossSelectionModal, { BOSS_LIMITS, clearedCount, type BossSelectionChange } from './BossSelectionModal'
 import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useCharacterBoss } from '../../hooks/useCharacterDetail'
-import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
+import { monthStart } from '../../utils/date'
 import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
 
 interface Props {
   characterId: number
   date: string
+  weekStart: string
 }
 
 function BossGroup({
@@ -52,13 +53,17 @@ function BossGroup({
   )
 }
 
-export default function BossContent({ characterId, date }: Props) {
+export default function BossContent({ characterId, date, weekStart: selectedWeekStart }: Props) {
   const queryClient = useQueryClient()
   const pageDate = new Date(`${date}T12:00:00`)
-  const [selectedWeekStart, setSelectedWeekStart] = useState(() => thursdayWeekStart(pageDate))
   const [selectedMonthStart, setSelectedMonthStart] = useState(() => monthStart(pageDate))
   const { data: bossRecords, isLoading, isError } = useCharacterBoss(characterId, selectedWeekStart, selectedMonthStart)
   const [selectedRecord, setSelectedRecord] = useState<SchedulerBossRecord | null>(null)
+  const [shownWeekStart, setShownWeekStart] = useState(selectedWeekStart)
+  if (shownWeekStart !== selectedWeekStart) {
+    setShownWeekStart(selectedWeekStart)
+    setSelectedRecord(null)
+  }
   const [selecting, setSelecting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<SchedulerBossRecord | null>(null)
@@ -126,14 +131,6 @@ export default function BossContent({ characterId, date }: Props) {
     MONTHLY: bossRecords?.monthlyCustomizable === true,
   }
   const monthlyRecords = bossRecords?.monthlyBosses ?? []
-  const weekOptions = Array.from({ length: 12 }, (_, index) => {
-    const current = new Date(`${thursdayWeekStart(pageDate)}T12:00:00`)
-    current.setDate(current.getDate() - index * 7)
-    const start = localDate(current)
-    const endDate = new Date(current)
-    endDate.setDate(endDate.getDate() + 6)
-    return { start, label: `${start.replace(/-/g, '.')} ~ ${localDate(endDate).replace(/-/g, '.')}` }
-  })
   const monthOptions = Array.from({ length: 3 }, (_, index) => {
     const current = new Date(`${monthStart(pageDate)}T12:00:00`)
     current.setMonth(current.getMonth() - index)
@@ -200,16 +197,6 @@ export default function BossContent({ characterId, date }: Props) {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-[18px] font-bold">보스 컨텐츠</h2>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <PeriodMenu
-            label="보스 주차"
-            icon={assets.imgCal}
-            value={selectedWeekStart}
-            options={weekOptions.map((option) => ({ value: option.start, label: option.label }))}
-            onChange={(value) => {
-              setSelectedWeekStart(value)
-              setSelectedRecord(null)
-            }}
-          />
           <PeriodMenu
             label="보스 월"
             value={selectedMonthStart}

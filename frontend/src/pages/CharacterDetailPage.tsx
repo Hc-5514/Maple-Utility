@@ -5,12 +5,14 @@ import WeeklyContent from '../components/character/WeeklyContent'
 import BossContent from '../components/character/BossContent'
 import CharacterPortrait from '../components/common/CharacterPortrait'
 import CharacterChangeModal from '../components/character/CharacterChangeModal'
+import PeriodMenu from '../components/character/PeriodMenu'
 import { characterAssets } from '../components/character/assets'
 import { detailCard } from '../components/character/styles'
 import { worlds } from '../components/dashboard/worlds'
 import { useCharacter, useToggleFavorite } from '../hooks/useCharacterDetail'
+import { useSelectedWeek } from '../hooks/useSelectedWeek'
 import { useThemeStore } from '../stores/themeStore'
-import { localDate, thursdayWeekStart } from '../utils/date'
+import { seoulDate } from '../utils/date'
 
 export default function CharacterDetailPage() {
   const { characterId } = useParams<{ characterId: string }>()
@@ -19,8 +21,10 @@ export default function CharacterDetailPage() {
   const assets = characterAssets[useThemeStore().theme]
   const [changing, setChanging] = useState(false)
 
-  const today = localDate(new Date())
-  const weekStart = thursdayWeekStart(new Date())
+  const today = seoulDate()
+  const { week, weeks, setWeek, search } = useSelectedWeek()
+  const weekLabel = (item: { start: string; end: string }) =>
+    `${item.start.replace(/-/g, '.')} ~ ${item.end.replace(/-/g, '.')}`
 
   const { data: character, isLoading: charLoading, isError: charError } = useCharacter(id)
   const toggleFav = useToggleFavorite(id)
@@ -47,7 +51,7 @@ export default function CharacterDetailPage() {
 
   return (
     <div className="flex flex-col gap-6 leading-[1.2]">
-      <section className={`${detailCard} flex items-center gap-5 px-7 py-6`}>
+      <section className={`${detailCard} relative z-20 flex items-center gap-5 px-7 py-6`}>
         <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[rgba(196,173,255,0.21)] bg-[rgba(196,173,255,0.09)]">
           {charLoading ? (
             <div className="size-[73px] animate-pulse rounded-xl bg-[var(--dash-track)]" />
@@ -96,27 +100,37 @@ export default function CharacterDetailPage() {
           ) : null}
         </div>
 
-        <button
-          type="button"
-          disabled={charLoading}
-          onClick={() => setChanging(true)}
-          className="ml-auto flex h-11 shrink-0 items-center gap-2 rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] px-4 text-[14px] font-bold"
-        >
-          <img src={assets.imgSwap} alt="" className="size-4" />
-          캐릭터 변경
-        </button>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <PeriodMenu
+            label="주차"
+            icon={assets.imgCal}
+            value={week.start}
+            options={weeks.map((item) => ({ value: item.start, label: weekLabel(item) }))}
+            onChange={setWeek}
+            fitWidth
+          />
+          <button
+            type="button"
+            disabled={charLoading}
+            onClick={() => setChanging(true)}
+            className="flex h-11 shrink-0 items-center gap-2 rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] px-4 text-[14px] font-bold"
+          >
+            <img src={assets.imgSwap} alt="" className="size-4" />
+            캐릭터 변경
+          </button>
+        </div>
       </section>
 
       <DailyContent characterId={id} date={today} />
-      <WeeklyContent characterId={id} weekStart={weekStart} />
-      <BossContent key={id} characterId={id} date={today} />
+      <WeeklyContent characterId={id} weekStart={week.start} />
+      <BossContent key={id} characterId={id} date={today} weekStart={week.start} />
       {changing && (
         <CharacterChangeModal
           currentId={id}
           onClose={() => setChanging(false)}
           onChange={(nextId) => {
             setChanging(false)
-            navigate(`/dashboard/${nextId}`)
+            navigate(`/dashboard/${nextId}${search}`)
           }}
         />
       )}
