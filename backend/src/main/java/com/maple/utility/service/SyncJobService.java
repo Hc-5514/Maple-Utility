@@ -116,7 +116,10 @@ public class SyncJobService {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
             org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
                 new org.springframework.transaction.support.TransactionSynchronization() {
-                    @Override public void afterCommit() { submit(id, pinned); }
+                    @Override public void afterCommit() {
+                        try { submit(id, pinned); }
+                        catch (ApiException rejected) { log.warn("Committed sync job rejected: jobId={}", id); }
+                    }
                 });
         } else submit(id, pinned);
     }
@@ -125,7 +128,7 @@ public class SyncJobService {
 		try {
 			executor.execute(task);
 		} catch (RejectedExecutionException exception) {
-			jobs.fail(id, "동기화 작업 대기열 포화", LocalDateTime.now(clock));
+			jobs.failIsolated(id, "동기화 작업 대기열 포화", LocalDateTime.now(clock));
 			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "SYNC_QUEUE_FULL", "동기화 요청 과다");
 		}
 	}

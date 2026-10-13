@@ -37,6 +37,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
 	}
 
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return java.util.Set.of("/api/v1/auth/kakao", "/api/v1/auth/nexon-apikey", "/api/v1/auth/refresh")
+                .contains(request.getRequestURI());
+    }
+
 	@Override
 	protected void doFilterInternal(
 			HttpServletRequest request,

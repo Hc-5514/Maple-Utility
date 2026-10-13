@@ -21,7 +21,7 @@ public interface UserApiKeyRepository extends JpaRepository<UserApiKey, Long> {
 	List<UserApiKey> findByContextIdOrderByIdAsc(Long contextId);
 	List<UserApiKey> findByUserIdOrderByIdAsc(Long userId);
 
-    @Query(value = "SELECT k.* FROM user_api_keys k JOIN data_contexts c ON c.id=k.context_id WHERE c.owner_user_id=:ownerId AND c.canonical_context_id IS NULL AND k.key_status='ACTIVE' ORDER BY k.id LIMIT 1", nativeQuery = true)
+    @Query(value = "SELECT k.* FROM user_api_keys k JOIN data_contexts c ON c.id=k.context_id WHERE c.owner_user_id=:ownerId AND c.canonical_context_id IS NULL AND k.key_status='ACTIVE' ORDER BY k.last_verified_at DESC NULLS LAST,k.id DESC LIMIT 1", nativeQuery = true)
     Optional<UserApiKey> findActiveByDataOwnerId(Long ownerId);
 
     void deleteByUserId(Long userId);

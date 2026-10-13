@@ -84,7 +84,7 @@ public class DataContextService {
         Long credentialId = principal.credentialId();
         // Legacy tokens alone can pick a credential. New tokens with a deleted credential remain pinned to it.
         if (principal.contextId() == null && credentialId == null) {
-            credentialId = keys.findByContextIdOrderByIdAsc(context.id()).stream().findFirst().map(UserApiKey::getId).orElse(null);
+            credentialId = preferredCredential(context.id()).map(UserApiKey::getId).orElse(null);
         }
         if (credentialId != null) {
             UserApiKey key = keys.findById(credentialId).orElse(null);
@@ -210,6 +210,7 @@ public class DataContextService {
         // An existing selected key keeps its ID, including legacy duplicate credentials.
         key.replaceKey(key.getEncryptedKey(), LocalDateTime.now(clock));
         key.assignContext(connection.principal().contextId(), key.getKeyFingerprint());
+        keys.saveAndFlush(key);
         return new JwtAuthentication(connection.principal().userId(), identityId, connection.principal().contextId(), credentialId);
     }
 
@@ -219,10 +220,17 @@ public class DataContextService {
                 (rs, row) -> rs.getLong(1), identity.getId());
         for (Long id : connected) {
             Context candidate = canonical(id);
-            List<UserApiKey> credentials = keys.findByContextIdOrderByIdAsc(candidate.id());
-            if (!credentials.isEmpty()) return new JwtAuthentication(candidate.ownerUserId(), identity.getId(), candidate.id(), credentials.getFirst().getId());
+            var credential = preferredCredential(candidate.id());
+            if (credential.isPresent()) return new JwtAuthentication(candidate.ownerUserId(), identity.getId(), candidate.id(), credential.get().getId());
         }
         return new JwtAuthentication(context.ownerUserId(), identity.getId(), context.id(), null);
+    }
+
+    private java.util.Optional<UserApiKey> preferredCredential(Long contextId) {
+        return keys.findByContextIdOrderByIdAsc(contextId).stream()
+                .filter(key -> key.getKeyStatus() == com.maple.utility.entity.ApiKeyStatus.ACTIVE)
+                .max(Comparator.comparing(UserApiKey::getLastVerifiedAt, Comparator.nullsFirst(Comparator.naturalOrder()))
+                        .thenComparing(UserApiKey::getId));
     }
 
     @Transactional(readOnly = true)

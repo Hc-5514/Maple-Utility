@@ -96,6 +96,7 @@ public class AuthService {
 
     @Transactional
     public RefreshResult refreshSession(String refreshTokenValue) {
+        contexts.lockBusinessRequest();
 		JwtTokenProvider.RefreshTokenClaims claims = jwtTokenProvider.parseRefreshToken(refreshTokenValue);
 		String storedRefreshToken = refreshTokenRedisService.find(claims.userId(), claims.tokenId())
 				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "REFRESH_TOKEN_NOT_FOUND", "Refresh Token 없음"));
