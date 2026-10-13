@@ -131,8 +131,8 @@ public class SchedulerService {
 							character.getWorldName(),
 							new TaskSummary((int) daily.stream().filter(r -> r.getCompletedCount() == r.getTotalCount()).count(), daily.size()),
 							new TaskSummary((int) weekly.stream().filter(SchedulerWeeklyRecord::isCompleted).count(), weekly.size()),
-							new TaskSummary((int) weeklyBoss.stream().filter(SchedulerBossResponse::isCompleted).count(), weeklyBoss.size()),
-							new TaskSummary((int) monthlyBoss.stream().filter(SchedulerBossResponse::isCompleted).count(), monthlyBoss.size()),
+							bossSummary(weeklyBoss, WEEKLY_BOSS_LIMIT),
+							bossSummary(monthlyBoss, MONTHLY_BOSS_LIMIT),
 							!daily.isEmpty() || !weekly.isEmpty() || !weeklyBossByChar.getOrDefault(id, List.of()).isEmpty()
 									|| !monthlyBossByChar.getOrDefault(id, List.of()).isEmpty() || !weeklyBoss.isEmpty() || !monthlyBoss.isEmpty()
 					);
@@ -313,6 +313,14 @@ public class SchedulerService {
 		return resetPeriod == ResetPeriod.WEEKLY
 				? new ApiException(HttpStatus.BAD_REQUEST, "WEEKLY_BOSS_LIMIT_EXCEEDED", "주간 보스 선택 한도 초과")
 				: new ApiException(HttpStatus.BAD_REQUEST, "MONTHLY_BOSS_LIMIT_EXCEEDED", "월간 보스 선택 한도 초과");
+	}
+
+	/** Cleared bosses out of the in-game clear limit; the number of scheduler entries is irrelevant. */
+	private TaskSummary bossSummary(List<SchedulerBossResponse> bosses, int clearLimit) {
+		if (bosses.isEmpty()) {
+			return new TaskSummary(0, 0);
+		}
+		return new TaskSummary((int) bosses.stream().filter(SchedulerBossResponse::isCompleted).count(), clearLimit);
 	}
 
 	/** Applies only to user customization; synced Nexon snapshots may exceed the clearable limit. */

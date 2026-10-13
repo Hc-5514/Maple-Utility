@@ -246,8 +246,9 @@ export const schedulerHandlers = [
             total: daily.reduce((sum, record) => sum + record.totalCount, 0),
           },
           weekly: { completed: weekly.filter((record) => record.isCompleted).length, total: weekly.length },
-          weeklyBoss: { completed: weeklyBosses.filter((boss) => boss.isCompleted).length, total: weeklyBosses.length },
-          monthlyBoss: { completed: monthlyBosses.filter((boss) => boss.isCompleted).length, total: monthlyBosses.length },
+          // Cleared bosses out of the in-game clear limit, independent of registered scheduler entries.
+          weeklyBoss: { completed: weeklyBosses.filter((boss) => boss.isCompleted).length, total: weeklyBosses.length > 0 ? bossLimits.WEEKLY : 0 },
+          monthlyBoss: { completed: monthlyBosses.filter((boss) => boss.isCompleted).length, total: monthlyBosses.length > 0 ? bossLimits.MONTHLY : 0 },
         }
       }),
       syncedAt,
