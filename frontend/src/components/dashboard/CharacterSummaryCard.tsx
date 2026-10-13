@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { CharacterSchedulerSummary } from '../../types'
 import CharacterPortrait from '../common/CharacterPortrait'
 import { useThemeStore } from '../../stores/themeStore'
+import { useSelectedWeek } from '../../hooks/useSelectedWeek'
 import { dashboardAssets } from './assets'
 import { worlds } from './worlds'
 const progressItems = [
@@ -26,6 +27,7 @@ export default function CharacterSummaryCard({
   index?: number
 }) {
   const { theme } = useThemeStore()
+  const { search } = useSelectedWeek()
   const assets = dashboardAssets[theme]
   const world = worlds.find(([name]) => name === character.worldName)
   const nonTarget = progressItems.some(({ key }) => character[key].total === 0)
@@ -33,12 +35,12 @@ export default function CharacterSummaryCard({
     <article
       className={`relative flex h-full flex-col gap-[23px] rounded-2xl border border-[var(--dash-border)] bg-[var(--dash-card)] p-[23px] shadow-[var(--dash-card-shadow)] backdrop-blur-[12px] ${nonTarget ? 'min-h-[339px]' : 'min-h-[322px]'}`}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         <div
-          className={`flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${avatarColors[index % avatarColors.length]}`}
+          className={`flex size-[110px] shrink-0 items-center justify-center overflow-hidden rounded-xl border ${avatarColors[index % avatarColors.length]}`}
         >
           {character.characterImage ? (
-            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={56} />
+            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={100} />
           ) : (
             <span className="text-3xl">🍁</span>
           )}
@@ -105,7 +107,7 @@ export default function CharacterSummaryCard({
         </div>
       )}
       <Link
-        to={`/dashboard/${character.characterId}`}
+        to={`/dashboard/${character.characterId}${search}`}
         className="absolute right-[23px] bottom-[9px] flex min-h-11 min-w-[104px] items-center justify-end gap-[6px] rounded-lg text-[12px] leading-[14px] text-[var(--dash-accent)] focus-visible:outline-2 focus-visible:outline-[var(--dash-accent)]"
       >
         상세 보기

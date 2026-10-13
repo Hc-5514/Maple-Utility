@@ -29,6 +29,20 @@ import jakarta.persistence.EntityManager;
 		"spring.test.database.replace=none"
 })
 class HuntingRecordPostgresTest {
+    private static final String SCHEMA="task259_hunting_"+UUID.randomUUID().toString().replace("-", "").substring(0,12);
+    @org.springframework.test.context.DynamicPropertySource
+    static void isolatedDatabase(org.springframework.test.context.DynamicPropertyRegistry r) {
+        r.add("spring.datasource.url", () -> System.getenv("FLYWAY_TEST_URL")+"?currentSchema="+SCHEMA);
+        r.add("spring.flyway.schemas", () -> SCHEMA);
+        r.add("spring.flyway.default-schema", () -> SCHEMA);
+        r.add("spring.jpa.properties.hibernate.default_schema", () -> SCHEMA);
+    }
+    @org.junit.jupiter.api.AfterAll static void cleanupSchema() throws Exception {
+        try(var c=java.sql.DriverManager.getConnection(System.getenv("FLYWAY_TEST_URL"),System.getenv("FLYWAY_TEST_USER"),System.getenv("FLYWAY_TEST_PASSWORD"));var s=c.createStatement()) {
+            s.execute("DROP SCHEMA IF EXISTS "+SCHEMA+" CASCADE");
+        }
+    }
+
 
 	@Autowired
 	private EntityManager entityManager;

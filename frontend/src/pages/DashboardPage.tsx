@@ -4,7 +4,7 @@ import client from '../api/client'
 import type { ApiResponse, SyncJob } from '../types'
 import { useSchedulerSummary } from '../hooks/useScheduler'
 import { useSaveWorldSelection, useWorldSelection } from '../hooks/useWorldSelection'
-import { seoulDate } from '../utils/date'
+import { useSelectedWeek } from '../hooks/useSelectedWeek'
 import { useThemeStore } from '../stores/themeStore'
 import { dashboardAssets } from '../components/dashboard/assets'
 import CharacterSlider from '../components/dashboard/CharacterSlider'
@@ -16,9 +16,9 @@ export default function DashboardPage() {
   const { theme } = useThemeStore()
   const assets = dashboardAssets[theme]
   const [jobId, setJobId] = useState<number | null>(null)
-  const [date, setDate] = useState(() => seoulDate())
+  const { week, weeks, setWeek } = useSelectedWeek()
   const [manageOpen, setManageOpen] = useState(false)
-  const { data, isLoading, isError } = useSchedulerSummary(date)
+  const { data, isLoading, isError } = useSchedulerSummary(week.date)
   const worlds = useWorldSelection()
   const saveWorlds = useSaveWorldSelection()
   const syncMutation = useMutation({
@@ -111,7 +111,10 @@ export default function DashboardPage() {
             {characters.length} 캐릭터
           </span>
         </div>
-        <WeeklyPeriodSelect value={date} onChange={setDate} />
+        <WeeklyPeriodSelect
+          value={week.date}
+          onChange={(date) => setWeek(weeks.find((item) => item.date === date)?.start ?? weeks[0].start)}
+        />
       </div>
       {(syncMutation.isError || syncJob?.status === 'FAILED') && (
         <p role="alert" className="text-sm text-red-500">

@@ -49,12 +49,13 @@ class SyncJobServiceTest {
 	@Mock NexonOpenApiClient nexon;
 	@Mock CacheManager cacheManager;
 	@Mock JdbcTemplate jdbcTemplate;
+	@Mock com.maple.utility.repository.UserApiKeyRepository keys;
 	private SyncJobService service;
 
 	@BeforeEach
 	void setUp() {
 		service = new SyncJobService(jobs, users, characters, characterSync, schedulerSync,
-				weekFinalization, nexon, cacheManager, jdbcTemplate, Runnable::run, CLOCK);
+				weekFinalization, nexon, cacheManager, jdbcTemplate, Runnable::run, CLOCK, keys);
 	}
 
 	@Test
@@ -91,7 +92,7 @@ class SyncJobServiceTest {
 	void startReturnsBeforeSlowCharacterFetch() {
 		List<Runnable> queued = new ArrayList<>();
 		var deferredService = new SyncJobService(jobs, users, characters, characterSync, schedulerSync,
-				weekFinalization, nexon, cacheManager, jdbcTemplate, queued::add, CLOCK);
+				weekFinalization, nexon, cacheManager, jdbcTemplate, queued::add, CLOCK, keys);
 		var job = job(33L, "CHARACTER", "STARTED", 0, 0, null);
 		when(jobs.start(1L, "CHARACTER")).thenReturn(new SyncJobRepository.StartResult(job, true));
 

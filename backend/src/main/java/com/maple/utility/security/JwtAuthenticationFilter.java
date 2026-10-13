@@ -25,11 +25,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	private final JwtTokenProvider jwtTokenProvider;
 	private final ObjectMapper objectMapper;
+    private final com.maple.utility.service.DataContextService contexts;
+    private final org.springframework.transaction.support.TransactionTemplate transaction;
 
-	public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, ObjectMapper objectMapper) {
+	public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, ObjectMapper objectMapper,
+            com.maple.utility.service.DataContextService contexts,
+            org.springframework.transaction.PlatformTransactionManager transactionManager) {
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.objectMapper = objectMapper;
+        this.contexts = contexts;
+        this.transaction = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
 	}
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return java.util.Set.of("/api/v1/auth/kakao", "/api/v1/auth/nexon-apikey", "/api/v1/auth/refresh")
+                .contains(request.getRequestURI());
+    }
 
 	@Override
 	protected void doFilterInternal(
@@ -43,19 +55,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			return;
 		}
 
-		try {
-			JwtAuthentication principal = jwtTokenProvider.parseAccessToken(token);
-			UsernamePasswordAuthenticationToken authentication =
-					new UsernamePasswordAuthenticationToken(principal, null, List.of());
-			SecurityContextHolder.getContext().setAuthentication(authentication);
-			filterChain.doFilter(request, response);
-		} catch (ApiException exception) {
-			SecurityContextHolder.clearContext();
-			writeErrorResponse(response, exception);
-		}
+        try {
+            JwtAuthentication parsed = jwtTokenProvider.parseAccessToken(token);
+            transaction.executeWithoutResult(status -> {
+                boolean switching = request.getRequestURI().equals("/api/v1/auth/data-context")
+                        || (request.getRequestURI().startsWith("/api/v1/api-key") && !"GET".equals(request.getMethod()));
+                if (switching) contexts.lockConnections(); else contexts.lockBusinessRequest();
+                JwtAuthentication principal = contexts.resolve(parsed);
+                var authentication = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                try (var scope = CredentialScope.use(principal.credentialId() == null ? -1L : principal.credentialId())) {
+                    filterChain.doFilter(request, response);
+                    if (response.getStatus() >= 400) status.setRollbackOnly();
+                } catch (ServletException | IOException exception) {
+                    throw new FilterFailure(exception);
+                }
+            });
+        } catch (ApiException exception) {
+            SecurityContextHolder.clearContext();
+            writeErrorResponse(response, exception);
+        } catch (FilterFailure failure) {
+            if (failure.getCause() instanceof IOException exception) throw exception;
+            throw (ServletException) failure.getCause();
+        }
+
 	}
 
-	private String resolveToken(HttpServletRequest request) {
+    private static class FilterFailure extends RuntimeException {
+        FilterFailure(Exception cause) { super(cause); }
+    }
+
+    private String resolveToken(HttpServletRequest request) {
 		String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
 		if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
 			return null;

@@ -422,7 +422,7 @@ function CharacterSection() {
                 <CharacterPortrait
                   src={character.characterImage}
                   alt={character.characterName}
-                  size={40}
+                  size={44}
                 />
               ) : (
                 <span aria-hidden="true">🍁</span>

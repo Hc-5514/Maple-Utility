@@ -1,22 +1,11 @@
 package com.maple.utility.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Optional;
-
+import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,197 +13,106 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
-
-import com.maple.utility.dto.response.AuthResponse;
-import com.maple.utility.entity.OAuthProvider;
-import com.maple.utility.entity.User;
-import com.maple.utility.entity.UserApiKey;
+import com.maple.utility.entity.*;
 import com.maple.utility.exception.ApiException;
-import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
-import com.maple.utility.security.ApiKeyCryptoService;
-import com.maple.utility.security.JwtToken;
-import com.maple.utility.security.JwtTokenProvider;
-import com.maple.utility.security.NexonCharacterSummary;
-import com.maple.utility.security.NexonOpenApiClient;
-import com.maple.utility.security.OAuthClient;
-import com.maple.utility.security.OAuthUserInfo;
-import com.maple.utility.security.RefreshTokenRedisService;
+import com.maple.utility.security.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
-
-	@Mock
-	private OAuthClient kakaoOAuthClient;
-
-	@Mock
-	private UserRepository userRepository;
-
-	@Mock
-	private UserApiKeyRepository userApiKeyRepository;
-
-	@Mock
-	private JwtTokenProvider jwtTokenProvider;
-
-	@Mock
-	private RefreshTokenRedisService refreshTokenRedisService;
-
-	@Mock
-	private NexonOpenApiClient nexonOpenApiClient;
-
-	@Mock
-	private ApiKeyCryptoService apiKeyCryptoService;
-
-	private AuthService authService;
-
-	@BeforeEach
-	void setUp() {
-		when(kakaoOAuthClient.provider()).thenReturn(OAuthProvider.KAKAO);
-		authService = new AuthService(
-				List.of(kakaoOAuthClient),
-				userRepository,
-				jwtTokenProvider,
-				refreshTokenRedisService,
-				userApiKeyRepository,
-				nexonOpenApiClient,
-				apiKeyCryptoService,
-				Clock.fixed(Instant.parse("2026-07-23T00:00:00Z"), ZoneId.of("Asia/Seoul"))
-		);
-	}
-
-	@Test
-	void loginCreatesUserAndSavesRefreshToken() {
-		OAuthUserInfo userInfo = new OAuthUserInfo(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
-		User savedUser = User.create(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
-		ReflectionTestUtils.setField(savedUser, "id", 1L);
-		JwtToken accessToken = new JwtToken("access-token", "access-token-id", Duration.ofMinutes(30));
-		JwtToken refreshToken = new JwtToken("refresh-token", "refresh-token-id", Duration.ofDays(7));
-
-		when(kakaoOAuthClient.getUserInfo("authorization-code")).thenReturn(userInfo);
-		when(userRepository.findByOauthProviderAndOauthId(OAuthProvider.KAKAO, "oauth-id")).thenReturn(Optional.empty());
-		when(userRepository.save(any(User.class))).thenReturn(savedUser);
-		when(jwtTokenProvider.createAccessToken(1L)).thenReturn(accessToken);
-		when(jwtTokenProvider.createRefreshToken(1L)).thenReturn(refreshToken);
-
-		AuthService.LoginResult result = authService.login(OAuthProvider.KAKAO, "authorization-code");
-
-		assertThat(result.response().accessToken()).isEqualTo("access-token");
-		assertThat(result.response().expiresIn()).isEqualTo(1800);
-		assertThat(result.response().user().isNewUser()).isTrue();
-		assertThat(result.refreshToken()).isEqualTo(refreshToken);
-		verify(refreshTokenRedisService).save(1L, "refresh-token-id", "refresh-token", Duration.ofDays(7));
-	}
-
-	@Test
-	void loginWithNexonApiKeyCreatesUserAndStoresEncryptedKey() {
-		String oauthId = sha256Hex("plain-api-key");
-		User savedUser = User.create(OAuthProvider.NEXON_APIKEY, oauthId, null, null);
-		ReflectionTestUtils.setField(savedUser, "id", 1L);
-		UserApiKey savedApiKey = UserApiKey.create(savedUser, "encrypted-api-key", null);
-		JwtToken accessToken = new JwtToken("access-token", "access-token-id", Duration.ofMinutes(30));
-		JwtToken refreshToken = new JwtToken("refresh-token", "refresh-token-id", Duration.ofDays(7));
-
-		when(userRepository.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY, oauthId))
-				.thenReturn(Optional.empty());
-		when(userRepository.save(any(User.class))).thenReturn(savedUser);
-		when(nexonOpenApiClient.getCharacters(1L, "plain-api-key"))
-				.thenReturn(List.of(new NexonCharacterSummary("ocid", "캐릭터", "스카니아", "비숍", 280)));
-		when(apiKeyCryptoService.encrypt("plain-api-key")).thenReturn("encrypted-api-key");
-		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.empty());
-		when(userApiKeyRepository.save(any(UserApiKey.class))).thenReturn(savedApiKey);
-		when(jwtTokenProvider.createAccessToken(1L)).thenReturn(accessToken);
-		when(jwtTokenProvider.createRefreshToken(1L)).thenReturn(refreshToken);
-
-		AuthService.LoginResult result = authService.loginWithNexonApiKey("plain-api-key");
-
-		assertThat(result.response().accessToken()).isEqualTo("access-token");
-		assertThat(result.response().user().nickname()).isEqualTo("캐릭터");
-		assertThat(result.response().user().isNewUser()).isTrue();
-		verify(userApiKeyRepository).save(any(UserApiKey.class));
-		verify(refreshTokenRedisService).save(1L, "refresh-token-id", "refresh-token", Duration.ofDays(7));
-	}
-
-	@Test
-	void loginWithNexonApiKeyReplacesExistingEncryptedKey() {
-		String oauthId = sha256Hex("plain-api-key");
-		User user = User.create(OAuthProvider.NEXON_APIKEY, oauthId, null, "기존캐릭터");
-		ReflectionTestUtils.setField(user, "id", 1L);
-		UserApiKey existingApiKey = UserApiKey.create(user, "old-encrypted-api-key", null);
-		JwtToken accessToken = new JwtToken("access-token", "access-token-id", Duration.ofMinutes(30));
-		JwtToken refreshToken = new JwtToken("refresh-token", "refresh-token-id", Duration.ofDays(7));
-
-		when(userRepository.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY, oauthId))
-				.thenReturn(Optional.of(user));
-		when(nexonOpenApiClient.getCharacters(1L, "plain-api-key")).thenReturn(List.of());
-		when(apiKeyCryptoService.encrypt("plain-api-key")).thenReturn("new-encrypted-api-key");
-		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(existingApiKey));
-		when(jwtTokenProvider.createAccessToken(1L)).thenReturn(accessToken);
-		when(jwtTokenProvider.createRefreshToken(1L)).thenReturn(refreshToken);
-
-		AuthService.LoginResult result = authService.loginWithNexonApiKey("plain-api-key");
-
-		assertThat(result.response().user().isNewUser()).isFalse();
-		assertThat(existingApiKey.getEncryptedKey()).isEqualTo("new-encrypted-api-key");
-		verify(userApiKeyRepository, never()).save(any(UserApiKey.class));
-	}
-
-	@Test
-	void loginWithNexonApiKeyPropagatesInvalidApiKey() {
-		String oauthId = sha256Hex("plain-api-key");
-		User savedUser = User.create(OAuthProvider.NEXON_APIKEY, oauthId, null, null);
-		ReflectionTestUtils.setField(savedUser, "id", 1L);
-
-		when(userRepository.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY, oauthId))
-				.thenReturn(Optional.empty());
-		when(userRepository.save(any(User.class))).thenReturn(savedUser);
-		when(nexonOpenApiClient.getCharacters(1L, "plain-api-key"))
-				.thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "API_KEY_INVALID", "유효하지 않은 Nexon API Key"));
-
-		assertThatThrownBy(() -> authService.loginWithNexonApiKey("plain-api-key"))
-				.isInstanceOf(ApiException.class)
-				.hasMessageContaining("유효하지 않은 Nexon API Key");
-		verify(userApiKeyRepository, never()).save(any(UserApiKey.class));
-	}
-
-	@Test
-	void refreshValidatesStoredRefreshTokenAndCreatesAccessToken() {
-		User user = User.create(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
-		ReflectionTestUtils.setField(user, "id", 1L);
-		JwtToken accessToken = new JwtToken("new-access-token", "access-token-id", Duration.ofMinutes(30));
-
-		when(jwtTokenProvider.parseRefreshToken("refresh-token"))
-				.thenReturn(new JwtTokenProvider.RefreshTokenClaims(1L, "refresh-token-id"));
-		when(refreshTokenRedisService.find(1L, "refresh-token-id")).thenReturn(Optional.of("refresh-token"));
-		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-		when(jwtTokenProvider.createAccessToken(1L)).thenReturn(accessToken);
-
-		AuthResponse response = authService.refresh("refresh-token");
-
-		assertThat(response.accessToken()).isEqualTo("new-access-token");
-		assertThat(response.user().id()).isEqualTo(1L);
-	}
-
-	@Test
-	void logoutDeletesStoredRefreshToken() {
-		when(jwtTokenProvider.parseRefreshToken("refresh-token"))
-				.thenReturn(new JwtTokenProvider.RefreshTokenClaims(1L, "refresh-token-id"));
-
-		authService.logout("refresh-token");
-
-		verify(refreshTokenRedisService).delete(1L, "refresh-token-id");
-	}
-
-	private String sha256Hex(String value) {
-		try {
-			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-			StringBuilder builder = new StringBuilder(hash.length * 2);
-			for (byte b : hash) {
-				builder.append(String.format("%02x", b));
-			}
-			return builder.toString();
-		} catch (NoSuchAlgorithmException exception) {
-			throw new IllegalStateException("SHA-256 algorithm not available", exception);
-		}
-	}
+    @Mock OAuthClient oauth;
+    @Mock UserRepository users;
+    @Mock JwtTokenProvider tokens;
+    @Mock RefreshTokenRedisService redis;
+    @Mock DataContextService contexts;
+    @Mock CharacterSyncService characters;
+    AuthService service;
+    User identity;
+    JwtAuthentication principal = new JwtAuthentication(2L, 1L, 20L, 30L);
+    JwtToken access = new JwtToken("access", "access-id", Duration.ofMinutes(30));
+    JwtToken refresh = new JwtToken("refresh", "refresh-id", Duration.ofDays(7));
+    @BeforeEach void setup() {
+        when(oauth.provider()).thenReturn(OAuthProvider.KAKAO);
+        service = new AuthService(List.of(oauth), users, tokens, redis, contexts, characters);
+        identity = User.create(OAuthProvider.KAKAO, "social", null, "이름");
+        ReflectionTestUtils.setField(identity, "id", 1L);
+    }
+    void issuance() {
+        when(tokens.createAccessToken(principal)).thenReturn(access);
+        when(tokens.createRefreshToken(principal)).thenReturn(refresh);
+    }
+    @Test void socialLoginCreatesIdentityAndUsesResolvedDataOwner() {
+        when(oauth.getUserInfo("code")).thenReturn(new OAuthUserInfo(OAuthProvider.KAKAO,"social",null,"이름"));
+        when(users.findByOauthProviderAndOauthId(OAuthProvider.KAKAO,"social")).thenReturn(Optional.empty());
+        when(users.save(any())).thenReturn(identity);
+        when(contexts.defaultPrincipal(identity)).thenReturn(principal);
+        issuance();
+        var result = service.login(OAuthProvider.KAKAO,"code");
+        assertThat(result.response().user().isNewUser()).isTrue();
+        assertThat(result.response().user().id()).isEqualTo(1L);
+        assertThat(result.response().expiresIn()).isEqualTo(1800);
+        verify(redis).save(1L,"refresh-id","refresh",Duration.ofDays(7));
+    }
+    @Test void socialLoginRejectsMissingOauthIdentityBeforeDatabaseMutation() {
+        when(oauth.getUserInfo("code")).thenReturn(new OAuthUserInfo(OAuthProvider.KAKAO,null,null,null));
+        assertThatThrownBy(() -> service.login(OAuthProvider.KAKAO,"code")).isInstanceOf(ApiException.class);
+        verifyNoInteractions(users, contexts, redis);
+    }
+    @Test void unsupportedProviderIsRejected() {
+        assertThatThrownBy(() -> service.login(OAuthProvider.NEXON_APIKEY,"code")).isInstanceOf(ApiException.class);
+        verifyNoInteractions(users, redis);
+    }
+    @Test void directLoginUsesVerifiedContextAndSyncsSummaryToDataOwner() {
+        when(users.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY,ApiKeyFingerprint.of("key"))).thenReturn(Optional.of(identity));
+        User owner = User.create(OAuthProvider.NEXON_APIKEY,"owner",null,null);
+        when(contexts.user(2L)).thenReturn(owner);
+        var summary = new NexonCharacterSummary("ocid","닉네임","루나","비숍",280);
+        when(contexts.connect(identity,"key")).thenReturn(new DataContextService.Connection(principal,null,new NexonAccountCharacters(Set.of("account"),List.of(summary))));
+        when(users.save(identity)).thenReturn(identity);
+        issuance();
+        var result = service.loginWithNexonApiKey("  key  ");
+        assertThat(result.response().user().nickname()).isEqualTo("닉네임");
+        assertThat(result.response().user().isNewUser()).isFalse();
+        verify(characters).syncSummaries(owner,List.of(summary));
+    }
+    @Test void invalidDirectLoginDoesNotIssueTokens() {
+        when(users.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY,ApiKeyFingerprint.of("key"))).thenReturn(Optional.of(identity));
+        when(contexts.connect(identity,"key")).thenThrow(new ApiException(HttpStatus.UNAUTHORIZED,"API_KEY_INVALID","무효 키"));
+        assertThatThrownBy(() -> service.loginWithNexonApiKey("key")).isInstanceOf(ApiException.class);
+        verifyNoInteractions(tokens,redis,characters);
+    }
+    @Test void blankDirectKeyIsRejectedBeforeIdentityCreation() {
+        assertThatThrownBy(() -> service.loginWithNexonApiKey(" ")).isInstanceOf(ApiException.class);
+        verifyNoInteractions(users,contexts,tokens);
+    }
+    @Test void refreshKeepsSessionSelectedDataContext() {
+        when(tokens.parseRefreshToken("refresh")).thenReturn(new JwtTokenProvider.RefreshTokenClaims(1L,"refresh-id",principal));
+        when(redis.find(1L,"refresh-id")).thenReturn(Optional.of("refresh"));
+        when(users.findById(1L)).thenReturn(Optional.of(identity));
+        when(contexts.resolve(principal)).thenReturn(principal);
+        when(tokens.createAccessToken(principal)).thenReturn(access);
+        assertThat(service.refresh("refresh").accessToken()).isEqualTo("access");
+        verify(tokens,never()).createRefreshToken(any(JwtAuthentication.class));
+    }
+    @Test void refreshRejectsMismatchedStoredToken() {
+        when(tokens.parseRefreshToken("refresh")).thenReturn(new JwtTokenProvider.RefreshTokenClaims(1L,"refresh-id",principal));
+        when(redis.find(1L,"refresh-id")).thenReturn(Optional.of("other"));
+        assertThatThrownBy(() -> service.refresh("refresh")).isInstanceOf(ApiException.class);
+        verify(contexts).lockBusinessRequest();
+        verify(contexts,never()).resolve(any());
+    }
+    @Test void switchingDeletesOnlyPreviousSessionsRefreshToken() {
+        when(tokens.parseRefreshToken("previous")).thenReturn(new JwtTokenProvider.RefreshTokenClaims(1L,"previous-id",principal));
+        when(users.findById(1L)).thenReturn(Optional.of(identity));
+        issuance();
+        service.switchSession(principal,"previous");
+        verify(redis).delete(1L,"previous-id");
+        verify(redis).save(1L,"refresh-id","refresh",Duration.ofDays(7));
+        verifyNoMoreInteractions(redis);
+    }
+    @Test void logoutDeletesSpecificRefreshToken() {
+        when(tokens.parseRefreshToken("refresh")).thenReturn(new JwtTokenProvider.RefreshTokenClaims(1L,"refresh-id",principal));
+        service.logout("refresh");
+        verify(redis).delete(1L,"refresh-id");
+    }
 }

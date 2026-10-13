@@ -33,6 +33,25 @@ public class NexonOpenApiClient {
 		this.properties = properties;
 	}
 
+    public NexonAccountCharacters verifyAccounts(Long userId, String apiKey) {
+        JsonNode response = nexonApiGateway.get(userId, apiKey, properties.characterListUri(),
+                NexonRequestMode.REALTIME, SyncType.CHARACTER_SYNC, false);
+        var ids = new java.util.TreeSet<String>();
+        if (response == null || !response.path("account_list").isArray() || response.path("account_list").isEmpty()) {
+            throw unidentifiedAccount();
+        }
+        for (JsonNode account : response.path("account_list")) {
+            String id = text(account, "account_id");
+            if (id == null || id.length() > 200 || !account.path("character_list").isArray()) throw unidentifiedAccount();
+            ids.add(id);
+        }
+        return new NexonAccountCharacters(java.util.Set.copyOf(ids), List.copyOf(parseCharacters(response)));
+    }
+
+    private ApiException unidentifiedAccount() {
+        return new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "NEXON_ACCOUNT_UNIDENTIFIABLE", "Nexon 계정 식별 불가");
+    }
+
 	public List<NexonCharacterSummary> getCharacters(Long userId, String apiKey) {
 		JsonNode response = nexonApiGateway.get(userId, apiKey, properties.characterListUri(), NexonRequestMode.REALTIME);
 		return parseCharacters(response);

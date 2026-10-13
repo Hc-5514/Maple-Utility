@@ -60,7 +60,7 @@ class SchedulerWeekFinalizationServiceTest {
 		ReflectionTestUtils.setField(user, "id", 1L);
 		character = MapleCharacter.create(user, "ocid", "캐릭터", "스카니아", "히어로", 280, 1);
 		ReflectionTestUtils.setField(character, "id", 10L);
-		lenient().when(users.findAll()).thenReturn(List.of(user));
+		lenient().when(users.findDataOwnersWithActiveKey()).thenReturn(List.of(user));
 		lenient().when(manager.getTransaction(any())).thenReturn(status);
 		lenient().when(lock.tryAcquire(1L)).thenReturn(true);
 		lenient().when(characters.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
