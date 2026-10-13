@@ -1,5 +1,8 @@
 package com.maple.utility.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +43,15 @@ public class ApiKeyService {
     @Transactional
     public void delete(JwtAuthentication principal) {
         contexts.lockConnections();
-        selected(principal).ifPresent(keys::delete);
+        selected(principal).ifPresent(selectedKey -> {
+            byte[] selectedValue = crypto.decrypt(selectedKey.getEncryptedKey()).getBytes(StandardCharsets.UTF_8);
+            var equivalentCredentials = keys.findByContextIdOrderByIdAsc(principal.contextId()).stream()
+                    .filter(candidate -> MessageDigest.isEqual(selectedValue,
+                            crypto.decrypt(candidate.getEncryptedKey()).getBytes(StandardCharsets.UTF_8)))
+                    .toList();
+            // Legacy aliases must lose their ciphertext too; older sessions remain pinned to the removed IDs.
+            keys.deleteAll(equivalentCredentials);
+        });
     }
     private java.util.Optional<UserApiKey> selected(JwtAuthentication principal) {
         if (principal.credentialId() == null) return java.util.Optional.empty();
