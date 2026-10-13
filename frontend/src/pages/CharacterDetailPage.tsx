@@ -50,9 +50,9 @@ export default function CharacterDetailPage() {
       <section className={`${detailCard} flex items-center gap-5 px-7 py-6`}>
         <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[rgba(196,173,255,0.21)] bg-[rgba(196,173,255,0.09)]">
           {charLoading ? (
-            <div className="size-[72px] animate-pulse rounded-xl bg-[var(--dash-track)]" />
+            <div className="size-[73px] animate-pulse rounded-xl bg-[var(--dash-track)]" />
           ) : character?.characterImage ? (
-            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={72} />
+            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={73} />
           ) : (
             <span className="text-4xl">🍁</span>
           )}
