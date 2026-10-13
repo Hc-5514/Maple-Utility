@@ -1,0 +1,1 @@
+export const MAX_CHARACTER_FAVORITES = 18
