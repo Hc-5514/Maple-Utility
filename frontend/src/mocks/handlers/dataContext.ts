@@ -4,7 +4,7 @@ import { settingsAssets } from '../../components/settings/assets'
 import { mockAuthToken } from './auth'
 
 // 같은 넥슨 계정(contextId 1)의 키 2개와 다른 넥슨 계정(contextId 2)의 키 1개
-const contexts: DataContextItem[] = [
+const contexts: Omit<DataContextItem, 'current'>[] = [
   {
     contextId: 1,
     ownerUserId: 1,

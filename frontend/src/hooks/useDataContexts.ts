@@ -2,17 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
 import { installAuthSession } from '../api/authSession'
 import { useAuthStore } from '../stores/authStore'
-import type {
-  ApiKeyStatus,
-  ApiKeyStatusResponse,
-  ApiResponse,
-  AuthLoginResponse,
-  DataContextItem,
-} from '../types'
+import type { ApiKeyStatus, ApiResponse, AuthLoginResponse, DataContextItem } from '../types'
 
 export interface DataContextCredential {
   credentialId: number
-  keySuffix: string
+  keySuffix: string | null
   status: ApiKeyStatus
   lastVerifiedAt: string | null
   current: boolean
@@ -28,13 +22,7 @@ export interface DataContextGroup {
 }
 
 // 같은 넥슨 계정 데이터셋(contextId) 단위로 키 목록을 묶고 현재 계정을 맨 앞에 배치
-// BE의 current 필드(#280) 부재 시 /api-key/status의 끝자리와 일치하는 첫 키를 현재 키로 간주
-export function groupDataContexts(
-  items: DataContextItem[],
-  statusSuffix: string | null
-): DataContextGroup[] {
-  const explicit = items.some((item) => item.current !== undefined)
-  let matched = false
+export function groupDataContexts(items: DataContextItem[]): DataContextGroup[] {
   const rowsByContext = new Map<number, DataContextItem[]>()
   for (const item of items)
     rowsByContext.set(item.contextId, [...(rowsByContext.get(item.contextId) ?? []), item])
@@ -43,20 +31,14 @@ export function groupDataContexts(
     .map(([contextId, rows], index): DataContextGroup => {
       const credentials = [...rows]
         .sort((a, b) => a.credentialId - b.credentialId)
-        .map((row) => {
-          let current = row.current === true
-          if (!explicit && !matched && statusSuffix !== null && row.keySuffix === statusSuffix) {
-            matched = true
-            current = true
-          }
-          return {
-            credentialId: row.credentialId,
-            keySuffix: row.keySuffix,
-            status: row.status,
-            lastVerifiedAt: row.lastVerifiedAt ?? null,
-            current,
-          }
-        })
+        .map((row) => ({
+          credentialId: row.credentialId,
+          keySuffix: row.keySuffix,
+          status: row.status,
+          lastVerifiedAt: row.lastVerifiedAt,
+          current: row.current,
+        }))
+      // 같은 데이터셋의 키는 대표 캐릭터 라벨이 동일
       const label = rows.find((row) => row.representativeCharacterName) ?? rows[0]
       return {
         contextId,
@@ -68,7 +50,7 @@ export function groupDataContexts(
         ]
           .filter(Boolean)
           .join(' · '),
-        image: label.characterImage ?? null,
+        image: label.characterImage,
         current: credentials.some((credential) => credential.current),
         credentials,
       }
@@ -77,13 +59,6 @@ export function groupDataContexts(
 }
 
 export function useDataContexts() {
-  const status = useQuery({
-    queryKey: ['api-key/status'],
-    queryFn: async () => {
-      const { data } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
-      return data.data
-    },
-  })
   const contexts = useQuery({
     queryKey: ['auth/data-contexts'],
     staleTime: 0,
@@ -92,9 +67,7 @@ export function useDataContexts() {
       return data.data
     },
   })
-  const groups = Array.isArray(contexts.data)
-    ? groupDataContexts(contexts.data, status.data?.keySuffix ?? null)
-    : []
+  const groups = Array.isArray(contexts.data) ? groupDataContexts(contexts.data) : []
   return { contexts, groups }
 }
 

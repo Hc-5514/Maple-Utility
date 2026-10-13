@@ -189,7 +189,7 @@ export default function DataContextSection() {
         >
           <p className="font-bold text-[var(--dash-text)]">
             {target.name}
-            {targetCredential && ` · API Key ••••${targetCredential.keySuffix}`}
+            {targetCredential?.keySuffix && ` · API Key ••••${targetCredential.keySuffix}`}
           </p>
           <p className="mt-1">현재 화면의 데이터가 선택한 넥슨 계정의 데이터로 바뀝니다.</p>
           {dirty && (

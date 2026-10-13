@@ -27,6 +27,7 @@ const contexts: DataContextItem[] = [
     characterClass: '아크메이지(썬,콜)',
     worldName: '엘리시움',
     characterLevel: 294,
+    characterImage: null,
   },
   {
     contextId: 1,
@@ -40,6 +41,7 @@ const contexts: DataContextItem[] = [
     characterClass: '아크메이지(썬,콜)',
     worldName: '엘리시움',
     characterLevel: 294,
+    characterImage: null,
   },
   {
     contextId: 2,
@@ -53,6 +55,7 @@ const contexts: DataContextItem[] = [
     characterClass: '보우마스터',
     worldName: '엘리시움',
     characterLevel: 260,
+    characterImage: null,
   },
 ]
 const character = { ...settingsFigmaCharacters[0], favorite: false, sortOrder: 1 }
@@ -232,31 +235,31 @@ describe('Settings connected Nexon accounts', () => {
 })
 
 describe('groupDataContexts', () => {
-  const rows = contexts.map((row) => {
-    const copy = { ...row }
-    delete copy.current
-    return copy
-  })
-
-  it('falls back to the API-key status suffix when the server sends no current flag', () => {
-    const groups = groupDataContexts([...rows].reverse(), '77d0')
+  it('puts the current account first and orders keys by credential id', () => {
+    const groups = groupDataContexts(
+      [...contexts].reverse().map((row) => ({ ...row, current: row.credentialId === 20 }))
+    )
     expect(groups.map((group) => [group.contextId, group.current])).toEqual([
       [2, true],
       [1, false],
     ])
+    expect(groups[1].credentials.map((credential) => credential.credentialId)).toEqual([10, 11])
     expect(groups[0].credentials.map((credential) => credential.current)).toEqual([true])
   })
 
-  it('marks only one key as current when suffixes collide and labels unnamed accounts', () => {
-    const unnamed = rows.map((row) => ({
+  it('labels accounts without a representative character by order and keeps a null key suffix', () => {
+    const unnamed = contexts.map((row) => ({
       ...row,
       representativeCharacterName: null,
-      keySuffix: 'aaaa',
+      characterClass: null,
+      worldName: null,
+      characterLevel: null,
+      characterImage: null,
+      keySuffix: row.credentialId === 20 ? null : row.keySuffix,
     }))
-    const groups = groupDataContexts(unnamed, 'aaaa')
-    expect(
-      groups.flatMap((group) => group.credentials).filter((credential) => credential.current)
-    ).toHaveLength(1)
+    const groups = groupDataContexts(unnamed)
     expect(groups.map((group) => group.name)).toEqual(['넥슨 계정 1', '넥슨 계정 2'])
+    expect(groups.map((group) => group.detail)).toEqual(['', ''])
+    expect(groups[1].credentials[0].keySuffix).toBeNull()
   })
 })
