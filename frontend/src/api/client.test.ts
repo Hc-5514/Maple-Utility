@@ -163,4 +163,60 @@ describe('authentication session request isolation', () => {
     expect(refresh).not.toHaveBeenCalled()
     expect(localStorage.getItem('accessToken')).toBe('previous-token')
   })
+
+  it.each(['DATA_CONTEXT_ACCESS_DENIED', 'API_KEY_NOT_REGISTERED', 'API_KEY_INVALID'])(
+    'keeps the token and session when switching accounts fails with %s',
+    async (code) => {
+      const generation = getSessionGeneration()
+      const refresh = vi.spyOn(axios, 'post')
+      const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+        throw unauthorized(config, code)
+      })
+      client.defaults.adapter = adapter
+
+      await expect(client.post('/auth/data-context', { credentialId: 20 })).rejects.toMatchObject({
+        response: { status: 401, data: { code } },
+      })
+
+      expect(refresh).not.toHaveBeenCalled()
+      expect(adapter).toHaveBeenCalledOnce()
+      expect(localStorage.getItem('accessToken')).toBe('previous-token')
+      expect(getSessionGeneration()).toBe(generation)
+    },
+  )
+
+  it.each([undefined, 'INVALID_TOKEN', 'INVALID_TOKEN_TYPE'])(
+    'still refreshes and retries an account switch rejected for the token itself (%s)',
+    async (code) => {
+      const generation = getSessionGeneration()
+      const refresh = vi.spyOn(axios, 'post').mockResolvedValue({ data: { accessToken: 'refreshed-token' } } as AxiosResponse)
+      const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+        if (config.headers.Authorization !== 'Bearer refreshed-token') throw unauthorized(config, code)
+        return response(config, { accessToken: 'switched-token' })
+      })
+      client.defaults.adapter = adapter
+
+      const switched = await client.post('/auth/data-context', { credentialId: 20 })
+
+      expect(switched.data.data).toEqual({ accessToken: 'switched-token' })
+      expect(refresh).toHaveBeenCalledOnce()
+      expect(adapter).toHaveBeenCalledTimes(2)
+      expect(localStorage.getItem('accessToken')).toBe('refreshed-token')
+      expect(getSessionGeneration()).toBe(generation)
+    },
+  )
+
+  it('keeps refreshing other endpoints that report a stale data context', async () => {
+    const refresh = vi.spyOn(axios, 'post').mockResolvedValue({ data: { accessToken: 'refreshed-token' } } as AxiosResponse)
+    const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+      if (config.headers.Authorization !== 'Bearer refreshed-token') throw unauthorized(config, 'DATA_CONTEXT_ACCESS_DENIED')
+      return response(config, [])
+    })
+    client.defaults.adapter = adapter
+
+    await expect(client.get('/characters')).resolves.toMatchObject({ data: { data: [] } })
+
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(adapter).toHaveBeenCalledTimes(2)
+  })
 })

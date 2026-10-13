@@ -7,6 +7,9 @@ interface RetryableAxiosRequestConfig extends AxiosRequestConfig {
   _sessionGeneration?: number
 }
 
+// 액세스 토큰 자체의 오류 코드(갱신 대상). 코드가 없는 401도 토큰 오류로 취급
+const tokenErrorCodes = ['INVALID_TOKEN', 'INVALID_TOKEN_TYPE']
+
 const isApiResponse = <T>(data: unknown): data is ApiResponse<T> => (
   typeof data === 'object' &&
   data !== null &&
@@ -84,7 +87,16 @@ client.interceptors.response.use(
     const invalidRegistrationKey = originalRequest?.method?.toLowerCase() === 'post'
       && originalRequest.url === '/api-key'
       && error.response?.data?.code === 'API_KEY_INVALID'
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !authExchange && !invalidRegistrationKey) {
+    // 계정 전환의 업무 오류 401은 토큰 문제가 아니므로 갱신 없이 실패 처리해 인증 상태를 보존
+    const switchErrorCode = error.response?.data?.code
+    const dataContextSwitchRejected = originalRequest?.method?.toLowerCase() === 'post'
+      && originalRequest.url === '/auth/data-context'
+      && typeof switchErrorCode === 'string'
+      && !tokenErrorCodes.includes(switchErrorCode)
+    if (
+      error.response?.status === 401 && originalRequest && !originalRequest._retry
+      && !authExchange && !invalidRegistrationKey && !dataContextSwitchRejected
+    ) {
       originalRequest._retry = true
 
       try {
