@@ -10,7 +10,7 @@ import java.util.concurrent.RejectedExecutionException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.event.EventListener;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -43,11 +43,12 @@ public class SyncJobService {
 	private final JdbcTemplate jdbcTemplate;
 	private final Executor executor;
 	private final Clock clock;
+    private final com.maple.utility.repository.UserApiKeyRepository keys;
 
 	public SyncJobService(SyncJobRepository jobs, UserRepository users, CharacterRepository characters,
 			CharacterSyncService characterSync, SchedulerSyncService schedulerSync,
 			SchedulerWeekFinalizationService weekFinalization, NexonOpenApiClient nexon,
-			CacheManager cacheManager, JdbcTemplate jdbcTemplate, @Qualifier("syncExecutor") Executor executor, Clock clock) {
+			CacheManager cacheManager, JdbcTemplate jdbcTemplate, @Qualifier("syncExecutor") Executor executor, Clock clock, com.maple.utility.repository.UserApiKeyRepository keys) {
 		this.jobs = jobs;
 		this.users = users;
 		this.characters = characters;
@@ -59,17 +60,20 @@ public class SyncJobService {
 		this.jdbcTemplate = jdbcTemplate;
 		this.executor = executor;
 		this.clock = clock;
+        this.keys = keys;
 	}
 
-	@EventListener(ApplicationReadyEvent.class)
+	@EventListener(ApplicationStartedEvent.class)
 	public void failInterruptedJobs() {
 		jobs.failInterrupted(LocalDateTime.now(clock));
+        jdbcTemplate.update("UPDATE data_sync_logs SET status='FAILED', error_message='서버 재시작으로 동기화 중단', completed_at=? WHERE status='STARTED'", LocalDateTime.now(clock));
 	}
 
 	public SyncJobResponse startCharacters(Long userId) {
-		var result = jobs.start(userId, "CHARACTER");
+		Long credentialId = selectedCredential(userId);
+        var result = jobs.start(userId, "CHARACTER");
 		if (result.created()) {
-			submit(result.job().id(), () -> runCharacters(userId, result.job().id()));
+			submitPinned(result.job().id(), credentialId, () -> runCharacters(userId, result.job().id()));
 		}
 		return result.job();
 	}
@@ -87,9 +91,10 @@ public class SyncJobService {
 				return recent.get();
 			}
 		}
-		var result = jobs.start(userId, "SCHEDULER");
+		Long credentialId = selectedCredential(userId);
+        var result = jobs.start(userId, "SCHEDULER");
 		if (result.created()) {
-			submit(result.job().id(), () -> runScheduler(userId, result.job().id(), batch, force));
+			submitPinned(result.job().id(), credentialId, () -> runScheduler(userId, result.job().id(), batch, force));
 		}
 		return result.job();
 	}
@@ -99,11 +104,32 @@ public class SyncJobService {
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SYNC_JOB_NOT_FOUND", "동기화 작업 없음"));
 	}
 
-	private void submit(Long id, Runnable task) {
+    private Long selectedCredential(Long ownerId) {
+        Long selected = com.maple.utility.security.CredentialScope.current();
+        if (selected != null) return selected;
+        return keys.findActiveByDataOwnerId(ownerId).map(com.maple.utility.entity.UserApiKey::getId).orElse(-1L);
+    }
+
+    private void submitPinned(Long id, Long credentialId, Runnable task) {
+        Runnable pinned = () -> {
+            try (var scope = com.maple.utility.security.CredentialScope.use(credentialId)) { task.run(); }
+        };
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override public void afterCommit() {
+                        try { submit(id, pinned); }
+                        catch (ApiException rejected) { log.warn("Committed sync job rejected: jobId={}", id); }
+                    }
+                });
+        } else submit(id, pinned);
+    }
+
+    private void submit(Long id, Runnable task) {
 		try {
 			executor.execute(task);
 		} catch (RejectedExecutionException exception) {
-			jobs.fail(id, "동기화 작업 대기열 포화", LocalDateTime.now(clock));
+			jobs.failIsolated(id, "동기화 작업 대기열 포화", LocalDateTime.now(clock));
 			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "SYNC_QUEUE_FULL", "동기화 요청 과다");
 		}
 	}

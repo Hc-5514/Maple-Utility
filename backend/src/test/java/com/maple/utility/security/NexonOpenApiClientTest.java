@@ -243,4 +243,21 @@ class NexonOpenApiClientTest {
 				.isInstanceOfSatisfying(ApiException.class,
 						exception -> assertThat(exception.getCode()).isEqualTo("NEXON_SCHEDULER_DATE_INVALID"));
 	}
+
+    @Test void verifyAccountsPreservesAllAccountIdsAndBypassesCache() throws Exception {
+        when(nexonApiGateway.get(1L,"key","https://example.test/character/list",NexonRequestMode.REALTIME,com.maple.utility.entity.SyncType.CHARACTER_SYNC,false))
+            .thenReturn(objectMapper.readTree("{\"account_list\":[{\"account_id\":\"A\",\"character_list\":[]},{\"account_id\":\"B\",\"character_list\":[]}]}"));
+        var result=nexonOpenApiClient.verifyAccounts(1L,"key");
+        assertThat(result.accountIds()).containsExactlyInAnyOrder("A","B");
+        assertThat(result.characters()).isEmpty();
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"{}", "{\"account_list\":[]}","{\"account_list\":[{\"character_list\":[]}]}","{\"account_list\":[{\"account_id\":\"A\"}]}","{\"account_list\":[{\"account_id\":\" \",\"character_list\":[]}]}","{\"account_list\":[{\"account_id\":12,\"character_list\":[]}]}","{\"account_list\":[{\"account_id\":true,\"character_list\":[]}]}","{\"account_list\":[{\"account_id\":\"A\",\"character_list\":[]},{\"character_list\":[]}]}"})
+    void verifyAccountsRejectsMissingMalformedOrPartialIdentity(String response) throws Exception {
+        when(nexonApiGateway.get(1L,"key","https://example.test/character/list",NexonRequestMode.REALTIME,com.maple.utility.entity.SyncType.CHARACTER_SYNC,false)).thenReturn(objectMapper.readTree(response));
+        assertThatThrownBy(() -> nexonOpenApiClient.verifyAccounts(1L,"key")).isInstanceOfSatisfying(ApiException.class,e -> {
+            assertThat(e.getStatus().value()).isEqualTo(422);
+            assertThat(e.getCode()).isEqualTo("NEXON_ACCOUNT_UNIDENTIFIABLE");
+        });
+    }
 }

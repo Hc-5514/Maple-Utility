@@ -120,9 +120,13 @@ public class NexonApiGateway {
 	}
 
 	public JsonNode getWithStoredKey(Long userId, String uri, NexonRequestMode mode, SyncType syncType, boolean useCache) {
-		UserApiKey apiKey = userApiKeyRepository.findByUserId(userId)
+		Long selected = CredentialScope.current();
+        UserApiKey apiKey = (selected == null ? userApiKeyRepository.findActiveByDataOwnerId(userId) : userApiKeyRepository.findById(selected))
 				.orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_NOT_REGISTERED", "Nexon API Key 미등록"));
-		String decryptedApiKey = apiKeyCryptoService.decrypt(apiKey.getEncryptedKey());
+        if (apiKey.getKeyStatus() != com.maple.utility.entity.ApiKeyStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_INVALID", "Nexon API Key 재등록 필요");
+        }
+        String decryptedApiKey = apiKeyCryptoService.decrypt(apiKey.getEncryptedKey());
 		return get(userId, decryptedApiKey, uri, mode, syncType, useCache);
 	}
 
@@ -134,8 +138,8 @@ public class NexonApiGateway {
 		return get(userId, apiKey, uri, mode, syncType, true);
 	}
 
-	private JsonNode get(Long userId, String apiKey, String uri, NexonRequestMode mode, SyncType syncType, boolean useCache) {
-		String cacheKey = cacheKey(userId, "GET", uri);
+	public JsonNode get(Long userId, String apiKey, String uri, NexonRequestMode mode, SyncType syncType, boolean useCache) {
+		String cacheKey = cacheKey(userId, "GET", uri) + ":" + sha256(apiKey);
 		String cachedResponse = useCache ? redisTemplate.opsForValue().get(cacheKey) : null;
 		if (cachedResponse != null) {
 			return readJson(cachedResponse);
@@ -154,7 +158,7 @@ public class NexonApiGateway {
 			return readJson(body);
 		} catch (RuntimeException exception) {
 			if (exception instanceof ApiException api && "API_KEY_INVALID".equals(api.getCode())) {
-				userApiKeyRepository.findByUserId(userId).ifPresent(UserApiKey::invalidate);
+				userApiKeyRepository.findByKeyFingerprint(ApiKeyFingerprint.of(apiKey)).ifPresent(UserApiKey::invalidate);
 			}
 			log.fail(callsUsed.get(), exception.getMessage(), now());
 			dataSyncLogRepository.save(log);
