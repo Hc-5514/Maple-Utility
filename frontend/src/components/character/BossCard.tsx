@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react'
 import DifficultyBadge from '../common/DifficultyBadge'
 import CatalogImage from '../common/CatalogImage'
 import { useThemeStore } from '../../stores/themeStore'
@@ -13,15 +14,25 @@ interface Props {
 export default function BossCard({ record, onClickDetail, onDelete }: Props) {
   const assets = characterAssets[useThemeStore().theme]
   const price = record.crystalPrice ?? 0
+  // 드랍 아이템은 처치한 보스에만 존재하므로 미처치 카드는 상호작용 없음
+  const detailProps = record.isCompleted
+    ? {
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': `${record.bossName} 드랍 아이템`,
+        onClick: onClickDetail,
+        onKeyDown: (e: KeyboardEvent) => { if (e.key === 'Enter') onClickDetail() },
+      }
+    : {}
   return (
     <div className="relative">
       <div
-        role="button"
-        tabIndex={0}
-        aria-label={`${record.bossName} 드랍 아이템`}
-        onClick={onClickDetail}
-        onKeyDown={(e) => { if (e.key === 'Enter') onClickDetail() }}
-        className={`flex cursor-pointer flex-col gap-[14px] rounded-[14px] px-5 py-[18px] transition-[filter] hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dash-accent)] ${
+        {...detailProps}
+        className={`flex flex-col gap-[14px] rounded-[14px] px-5 py-[18px] ${
+          record.isCompleted
+            ? 'cursor-pointer transition-[filter] hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dash-accent)]'
+            : ''
+        } ${
           record.isCompleted
             ? 'border-[1.5px] border-[color-mix(in_srgb,var(--dash-success)_55%,transparent)] bg-[color-mix(in_srgb,var(--dash-success)_7%,transparent)]'
             : 'border border-[var(--dash-subtle-border)] bg-[var(--dash-subtle)]'
