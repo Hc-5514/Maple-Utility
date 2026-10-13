@@ -454,7 +454,7 @@ html:has(.dashboard-theme main) {
 .settings-favorite:disabled {
   opacity: 0.3;
 }
-.settings-favorite-over-limit {
+.settings-guidance.settings-favorite-over-limit {
   color: var(--dash-accent);
 }
 .settings-order {
