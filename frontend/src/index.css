@@ -417,6 +417,7 @@ html:has(.dashboard-theme main) {
 }
 .settings-favorite-heading {
   text-align: center;
+  white-space: nowrap;
 }
 .settings-order-heading {
   width: 80px;
