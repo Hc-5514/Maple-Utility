@@ -10,7 +10,7 @@ import java.util.concurrent.RejectedExecutionException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.event.EventListener;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -63,7 +63,7 @@ public class SyncJobService {
         this.keys = keys;
 	}
 
-	@EventListener(ApplicationReadyEvent.class)
+	@EventListener(ApplicationStartedEvent.class)
 	public void failInterruptedJobs() {
 		jobs.failInterrupted(LocalDateTime.now(clock));
         jdbcTemplate.update("UPDATE data_sync_logs SET status='FAILED', error_message='서버 재시작으로 동기화 중단', completed_at=? WHERE status='STARTED'", LocalDateTime.now(clock));
