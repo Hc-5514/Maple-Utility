@@ -89,3 +89,53 @@ CREATE TRIGGER trg_data_contexts_updated_at BEFORE UPDATE ON data_contexts FOR E
 CREATE TRIGGER trg_data_context_accounts_updated_at BEFORE UPDATE ON data_context_accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_user_data_contexts_updated_at BEFORE UPDATE ON user_data_contexts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 CREATE TRIGGER trg_data_merge_provenance_updated_at BEFORE UPDATE ON data_merge_provenance FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Preserve old application INSERTs during the DB-first rollout. This only
+-- creates the user's own unverified data context; account IDs and fingerprints
+-- still require server-side API verification.
+CREATE FUNCTION ensure_user_data_context(p_user_id BIGINT)
+RETURNS BIGINT AS $$
+DECLARE
+    own_context_id BIGINT;
+BEGIN
+    INSERT INTO data_contexts (owner_user_id, kakao_user_id, created_at, updated_at)
+    SELECT id, CASE WHEN oauth_provider = 'KAKAO' THEN id END,
+           created_at AT TIME ZONE 'Asia/Seoul', updated_at AT TIME ZONE 'Asia/Seoul'
+    FROM users
+    WHERE id = p_user_id
+    ON CONFLICT (owner_user_id) DO NOTHING;
+
+    SELECT id INTO own_context_id FROM data_contexts WHERE owner_user_id = p_user_id;
+
+    INSERT INTO user_data_contexts (user_id, context_id, created_at, updated_at)
+    SELECT p_user_id, id, created_at, updated_at
+    FROM data_contexts
+    WHERE id = own_context_id
+    ON CONFLICT (user_id, context_id) DO NOTHING;
+
+    RETURN own_context_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION bootstrap_inserted_user_data_context()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM ensure_user_data_context(NEW.id);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION populate_legacy_api_key_context()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.context_id IS NULL THEN
+        NEW.context_id := ensure_user_data_context(NEW.user_id);
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_users_bootstrap_data_context
+    AFTER INSERT ON users FOR EACH ROW EXECUTE FUNCTION bootstrap_inserted_user_data_context();
+CREATE TRIGGER trg_user_api_keys_populate_legacy_context
+    BEFORE INSERT ON user_api_keys FOR EACH ROW EXECUTE FUNCTION populate_legacy_api_key_context();
