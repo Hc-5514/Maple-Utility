@@ -13,24 +13,11 @@ import CharacterPortrait from '../components/common/CharacterPortrait'
 import WorldSelectionModal from '../components/dashboard/WorldSelectionModal'
 import { settingsAssets } from '../components/settings/assets'
 import { MAX_CHARACTER_FAVORITES } from '../constants/character'
+import { formatVerifiedAt } from '../components/settings/formatVerifiedAt'
+import DataContextSection from '../components/settings/DataContextSection'
 import type { ApiKeyRegistrationResponse, ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
 
-export function formatVerifiedAt(value: string | null) {
-  if (!value) return '미인증'
-  const date = new Date(/(?:Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : value + '+09:00')
-  if (Number.isNaN(date.getTime())) return '미인증'
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date)
-  const get = (type: string) => parts.find((part) => part.type === type)?.value
-  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`
-}
+export { formatVerifiedAt }
 function ApiKeySection() {
   const queryClient = useQueryClient()
   const { setHasApiKey } = useAuthStore()
@@ -578,6 +565,7 @@ export default function SettingsPage() {
         </p>
       </div>
       <ApiKeySection key={`key-${sessionRevision}`} />
+      <DataContextSection key={`contexts-${sessionRevision}`} />
       <CharacterSection key={`characters-${sessionRevision}`} />
     </div>
   )

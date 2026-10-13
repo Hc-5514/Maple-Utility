@@ -611,3 +611,130 @@ html:has(.dashboard-theme main) {
   color: var(--dash-accent);
   border-color: color-mix(in srgb, var(--dash-accent) 60%, transparent);
 }
+
+/* 연결된 넥슨 계정 */
+.settings-context {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 23px;
+}
+.settings-context-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.settings-context-copy {
+  width: auto;
+}
+.settings-context-copy h2 {
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 400;
+}
+.settings-context-list,
+.settings-context-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+.settings-context-keys {
+  gap: 8px;
+}
+.settings-context-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 17px;
+  border: 1px solid var(--dash-border);
+  border-radius: 10px;
+  background: var(--dash-track);
+}
+.settings-context-group[data-current='true'] {
+  border-color: color-mix(in srgb, var(--dash-accent) 50%, transparent);
+}
+.settings-context-account {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.settings-context-key {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--dash-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dash-card) 60%, transparent);
+}
+.settings-context-key-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.settings-context-key-id img {
+  width: 16px;
+  height: 16px;
+}
+.settings-context-key-id .masked-key {
+  font:
+    400 14px/20px Inter,
+    sans-serif;
+}
+.settings-context-session {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dash-accent);
+}
+.settings-context-note,
+.settings-context-switching,
+.settings-context-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--dash-muted);
+}
+.settings-context-switching {
+  font-size: 13px;
+  color: var(--dash-accent);
+}
+.settings-context-state,
+.settings-context-failed {
+  padding: 17px;
+  border: 1px solid var(--dash-border);
+  border-radius: 10px;
+  background: var(--dash-track);
+  font-size: 14px;
+}
+.settings-context-failed {
+  justify-content: space-between;
+  color: #f87171;
+}
+.settings-context-failed span,
+.settings-context-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.settings-context-error {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, #f87171 22%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, #f87171 8%, transparent);
+  font-size: 13px;
+  color: #f87171;
+}
+@media (max-width: 640px) {
+  .settings-context {
+    padding: 16px;
+  }
+  .settings-context-account,
+  .settings-context-key,
+  .settings-context-key-id {
+    flex-wrap: wrap;
+  }
+}

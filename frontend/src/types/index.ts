@@ -50,6 +50,22 @@ export interface ApiKeyStatusResponse {
   lastVerifiedAt: string | null
 }
 
+// GET /auth/data-contexts 응답 행(키 단위). 선택 필드는 BE #280 확정 전 계약
+export interface DataContextItem {
+  contextId: number
+  ownerUserId: number
+  credentialId: number
+  keySuffix: string
+  status: ApiKeyStatus
+  current?: boolean
+  lastVerifiedAt?: string | null
+  representativeCharacterName?: string | null
+  characterClass?: string | null
+  worldName?: string | null
+  characterLevel?: number | null
+  characterImage?: string | null
+}
+
 export interface ApiKeyRegistrationResponse extends ApiKeyStatusResponse {
   auth?: AuthLoginResponse | null
 }
