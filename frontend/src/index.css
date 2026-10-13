@@ -628,6 +628,7 @@ html:has(.dashboard-theme main) {
   width: auto;
 }
 .settings-context-copy h2 {
+  font-family: inherit;
   font-size: 18px;
   line-height: 22px;
   font-weight: 400;
@@ -664,7 +665,7 @@ html:has(.dashboard-theme main) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 10px 14px;
+  padding: 9px 13px;
   border: 1px solid var(--dash-border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--dash-card) 60%, transparent);

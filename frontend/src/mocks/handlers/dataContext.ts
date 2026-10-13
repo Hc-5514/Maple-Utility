@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw'
 import type { DataContextItem } from '../../types'
+import { settingsAssets } from '../../components/settings/assets'
 import { mockAuthToken } from './auth'
 
 // 같은 넥슨 계정(contextId 1)의 키 2개와 다른 넥슨 계정(contextId 2)의 키 1개
@@ -15,6 +16,7 @@ const contexts: DataContextItem[] = [
     characterClass: '아크메이지(썬,콜)',
     worldName: '엘리시움',
     characterLevel: 294,
+    characterImage: settingsAssets.light.imgCharacterPortrait,
   },
   {
     contextId: 1,
@@ -27,6 +29,7 @@ const contexts: DataContextItem[] = [
     characterClass: '아크메이지(썬,콜)',
     worldName: '엘리시움',
     characterLevel: 294,
+    characterImage: settingsAssets.light.imgCharacterPortrait,
   },
   {
     contextId: 2,
@@ -39,6 +42,7 @@ const contexts: DataContextItem[] = [
     characterClass: '보우마스터',
     worldName: '엘리시움',
     characterLevel: 260,
+    characterImage: settingsAssets.light.imgCharacterPortrait3,
   },
 ]
 let currentCredentialId = 10
