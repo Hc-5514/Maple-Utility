@@ -2,10 +2,14 @@ package com.maple.utility.service;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -235,8 +239,70 @@ public class DataContextService {
 
     @Transactional(readOnly = true)
     public List<DataContextResponse> list(Long identityId) {
-        return jdbc.query("SELECT DISTINCT c.id,c.owner_user_id,k.id credential_id,k.encrypted_key,k.key_status FROM user_data_contexts l JOIN data_contexts c ON c.id=l.context_id JOIN user_api_keys k ON k.context_id=c.id WHERE l.user_id=? AND c.canonical_context_id IS NULL ORDER BY c.id,k.id",
-                (rs, row) -> new DataContextResponse(rs.getLong("id"), rs.getLong("owner_user_id"), rs.getLong("credential_id"), suffix(crypto.decrypt(rs.getString("encrypted_key"))), rs.getString("key_status")), identityId);
+        return list(identityId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DataContextResponse> list(JwtAuthentication principal) {
+        return list(principal.identityUserId(), principal.credentialId());
+    }
+
+    private List<DataContextResponse> list(Long identityId, Long currentCredentialId) {
+        // Read all candidates once so credentials sharing a context receive the same representative.
+        Collator korean = Collator.getInstance(Locale.KOREAN);
+        Map<Long, Representative> representatives = new HashMap<>();
+        jdbc.query("""
+                SELECT c.id AS context_id, ch.id AS character_id, ch.ocid,
+                       ch.character_name, ch.character_class, ch.world_name,
+                       ch.character_level, ch.character_image, ch.is_favorite, ch.sort_order
+                FROM user_data_contexts l
+                JOIN data_contexts c ON c.id = l.context_id
+                JOIN characters ch ON ch.user_id = c.owner_user_id
+                WHERE l.user_id = ? AND c.canonical_context_id IS NULL
+                """, rs -> {
+            Long contextId = rs.getLong("context_id");
+            Representative candidate = new Representative(rs.getLong("character_id"), rs.getString("ocid"),
+                    rs.getString("character_name"), rs.getString("character_class"), rs.getString("world_name"),
+                    (Integer) rs.getObject("character_level"), rs.getString("character_image"),
+                    rs.getBoolean("is_favorite"), rs.getInt("sort_order"));
+            representatives.merge(contextId, candidate,
+                    (previous, next) -> representativeOrder(korean, previous, next) <= 0 ? previous : next);
+        }, identityId);
+        return jdbc.query("""
+                SELECT DISTINCT c.id, c.owner_user_id, k.id AS credential_id,
+                       k.encrypted_key, k.key_status, k.last_verified_at
+                FROM user_data_contexts l
+                JOIN data_contexts c ON c.id = l.context_id
+                JOIN user_api_keys k ON k.context_id = c.id
+                WHERE l.user_id = ? AND c.canonical_context_id IS NULL
+                ORDER BY c.id, k.id
+                """, (rs, row) -> {
+            Long contextId = rs.getLong("id");
+            Long credentialId = rs.getLong("credential_id");
+            Representative representative = representatives.get(contextId);
+            return new DataContextResponse(contextId, rs.getLong("owner_user_id"), credentialId,
+                    suffix(crypto.decrypt(rs.getString("encrypted_key"))), rs.getString("key_status"),
+                    rs.getObject("last_verified_at", LocalDateTime.class), Objects.equals(credentialId, currentCredentialId),
+                    representative == null ? null : representative.name(),
+                    representative == null ? null : representative.characterClass(),
+                    representative == null ? null : representative.worldName(),
+                    representative == null ? null : representative.level(),
+                    representative == null ? null : representative.image());
+        }, identityId);
+    }
+
+    private int representativeOrder(Collator korean, Representative left, Representative right) {
+        if (left.favorite() != right.favorite()) return left.favorite() ? -1 : 1;
+        if (left.favorite()) {
+            int order = Integer.compare(left.sortOrder(), right.sortOrder());
+            if (order != 0) return order;
+            return Long.compare(left.id(), right.id());
+        }
+        int level = Comparator.nullsLast(Comparator.<Integer>reverseOrder()).compare(left.level(), right.level());
+        if (level != 0) return level;
+        int name = korean.compare(left.name(), right.name());
+        if (name != 0) return name;
+        return left.ocid().compareTo(right.ocid());
     }
 
     @Transactional
@@ -270,5 +336,10 @@ public class DataContextService {
     private ApiException denied(String code, String message) { return new ApiException(HttpStatus.UNAUTHORIZED, code, message); }
     public record Context(Long id, Long ownerUserId, Long kakaoUserId, Long canonicalId) { }
     public record Connection(JwtAuthentication principal, UserApiKey credential, NexonAccountCharacters verified) { }
-    public record DataContextResponse(Long contextId, Long ownerUserId, Long credentialId, String keySuffix, String status) { }
+    private record Representative(Long id, String ocid, String name, String characterClass, String worldName,
+                                  Integer level, String image, boolean favorite, int sortOrder) { }
+    public record DataContextResponse(Long contextId, Long ownerUserId, Long credentialId, String keySuffix,
+                                      String status, LocalDateTime lastVerifiedAt, boolean current,
+                                      String representativeCharacterName, String characterClass, String worldName,
+                                      Integer characterLevel, String characterImage) { }
 }
