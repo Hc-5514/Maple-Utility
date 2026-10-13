@@ -11,6 +11,7 @@ import ThemedConfirmDialog from '../components/common/ThemedConfirmDialog'
 import CharacterPortrait from '../components/common/CharacterPortrait'
 import WorldSelectionModal from '../components/dashboard/WorldSelectionModal'
 import { settingsAssets } from '../components/settings/assets'
+import { MAX_CHARACTER_FAVORITES } from '../constants/character'
 import type { ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
 
 export function formatVerifiedAt(value: string | null) {
@@ -242,6 +243,9 @@ function CharacterSection() {
   })
   const saved = characters.data ?? [],
     current = draft ?? saved
+  const favoriteCount = current.filter((character) => character.favorite).length
+  const favoriteLimitReached = favoriteCount >= MAX_CHARACTER_FAVORITES
+  const favoriteLimitExceeded = favoriteCount > MAX_CHARACTER_FAVORITES
   const dirty =
     current.length !== saved.length ||
     current.some(
@@ -307,6 +311,7 @@ function CharacterSection() {
     ),
     visibleIds = visible.map((character) => character.id)
   const toggleFavorite = (id: number) => {
+    if (favoriteLimitReached && !current.find((character) => character.id === id)?.favorite) return
     save.reset()
     setDraft(
       current.map((character) =>
@@ -329,6 +334,9 @@ function CharacterSection() {
           <div>
             <h2 id="character-management-heading">캐릭터 관리</h2>
             <span className="settings-count">{visible.length} 캐릭터</span>
+            <span className="settings-count" aria-live="polite" aria-atomic="true">
+              즐겨찾기 {favoriteCount}/{MAX_CHARACTER_FAVORITES}
+            </span>
           </div>
           <p>즐겨찾기와 표시 순서를 원하는 대로 설정하세요.</p>
         </div>
@@ -364,7 +372,8 @@ function CharacterSection() {
             <button
               type="button"
               className="settings-button settings-primary"
-              disabled={!dirty || save.isPending}
+              disabled={!dirty || save.isPending || favoriteLimitExceeded}
+              aria-describedby={favoriteLimitExceeded ? 'favorite-guidance' : undefined}
               onClick={() => save.mutate(current)}
             >
               {save.isPending ? '저장 중...' : '저장'}
@@ -444,7 +453,8 @@ function CharacterSection() {
               className="settings-favorite"
               aria-label={`${character.characterName} 즐겨찾기 ${character.favorite ? '해제' : '추가'}`}
               aria-pressed={character.favorite}
-              disabled={save.isPending || syncing}
+              disabled={save.isPending || syncing || (!character.favorite && favoriteLimitReached)}
+              aria-describedby={favoriteLimitReached ? 'favorite-guidance' : undefined}
               onClick={() => toggleFavorite(character.id)}
             >
               <img src={character.favorite ? assets.imgStar : assets.imgStar1} alt="" />
@@ -472,7 +482,9 @@ function CharacterSection() {
       )}
       {save.isError && (
         <p role="alert" className="settings-error">
-          변경사항을 저장하지 못했습니다. 다시 시도해 주세요.
+          {isAxiosError(save.error) && save.error.response?.data?.code === 'FAVORITE_LIMIT_EXCEEDED'
+            ? '즐겨찾기는 전체 월드 합산 최대 18명까지 선택할 수 있습니다. 최신 목록을 확인하고 다시 저장해 주세요.'
+            : '변경사항을 저장하지 못했습니다. 다시 시도해 주세요.'}
         </p>
       )}
       {(sync.isError || job.isError || job.data?.status === 'FAILED') && (
@@ -488,9 +500,19 @@ function CharacterSection() {
       {job.data?.status === 'COMPLETED' && job.data.skippedCount > 0 && (
         <p className="settings-guidance">상세 조회 제외 {job.data.skippedCount}명</p>
       )}
-      <div className="settings-guidance">
+      <div
+        id="favorite-guidance"
+        className={`settings-guidance${favoriteLimitExceeded ? ' settings-favorite-over-limit' : ''}`}
+        role={favoriteLimitExceeded ? 'alert' : undefined}
+      >
         <img src={assets.imgInfo} alt="" />
-        <p>즐겨찾기한 캐릭터는 사냥 기록과 통계의 캐릭터 필터에서 빠르게 선택할 수 있습니다.</p>
+        <p>
+          {favoriteLimitExceeded
+            ? `즐겨찾기가 ${favoriteCount}명입니다. 18명 이하로 줄인 뒤 저장해 주세요. 숨겨진 캐릭터는 월드 선택에서 확인할 수 있습니다.`
+            : favoriteLimitReached
+              ? '전체 월드 합산 18명을 선택했습니다. 즐겨찾기를 해제하면 다른 캐릭터를 추가할 수 있습니다.'
+              : '즐겨찾기는 전체 월드 합산 최대 18명까지 선택할 수 있으며, 사냥 기록과 통계의 캐릭터 필터에서 빠르게 선택할 수 있습니다.'}
+        </p>
       </div>
       {isAxiosError(save.error) && save.error.response?.status === 409 && (
         <div className="settings-guidance">
