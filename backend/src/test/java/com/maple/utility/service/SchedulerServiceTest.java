@@ -148,7 +148,7 @@ class SchedulerServiceTest {
 		assertThat(charSummary.hasRecords()).isTrue();
 		assertThat(charSummary.daily().total()).isEqualTo(1);
 		assertThat(charSummary.weekly().total()).isEqualTo(1);
-		assertThat(charSummary.weeklyBoss().total()).isEqualTo(1);
+		assertThat(charSummary.weeklyBoss().total()).isEqualTo(12);
 		assertThat(charSummary.monthlyBoss().total()).isEqualTo(1);
 	}
 
@@ -180,8 +180,27 @@ class SchedulerServiceTest {
 		var summary = schedulerService.getSummary(1L, LocalDate.of(2026, 7, 14));
 		assertThat(summary.syncedAt()).isEqualTo(syncedAt);
 		assertThat(summary.characters().getFirst().hasRecords()).isTrue();
-		assertThat(summary.characters().getFirst().weeklyBoss().total()).isEqualTo(1);
+		assertThat(summary.characters().getFirst().weeklyBoss().total()).isEqualTo(12);
 		assertThat(summary.characters().getFirst().weeklyBoss().completed()).isZero();
+	}
+
+	@Test
+	void summaryCountsClearedBossesOutOfClearLimitRegardlessOfRegisteredCount() {
+		MapleCharacter character = character(user());
+		LocalDate day = LocalDate.of(2026, 7, 14);
+		List<SchedulerBossRecord> registered = java.util.stream.LongStream.rangeClosed(1, 14).mapToObj(id -> {
+			BossMaster boss = boss(id, ResetPeriod.WEEKLY);
+			ReflectionTestUtils.setField(boss, "bossName", "보스" + id);
+			return SchedulerBossRecord.create(character, boss, LocalDate.of(2026, 7, 12), ResetPeriod.WEEKLY, id <= 12, null);
+		}).toList();
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(bossRecordRepository.findLatestByCharacterIdInAndRecordDateBetweenAndResetPeriod(
+				List.of(10L), LocalDate.of(2026, 7, 9), day, ResetPeriod.WEEKLY)).thenReturn(registered);
+
+		var boss = schedulerService.getSummary(1L, day).characters().getFirst().weeklyBoss();
+
+		assertThat(boss.completed()).isEqualTo(12);
+		assertThat(boss.total()).isEqualTo(12);
 	}
 
 	@Test
