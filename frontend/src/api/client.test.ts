@@ -1,16 +1,19 @@
 // @vitest-environment jsdom
 import axios, { AxiosError, isCancel, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient } from '@tanstack/react-query'
 import client from './client'
-import { advanceSession } from './session'
+import { advanceSession, getSessionGeneration } from './session'
+import { useAuthStore } from '../stores/authStore'
 
 const originalAdapter = client.defaults.adapter
+const originalAuth = useAuthStore.getState()
 const response = (config: InternalAxiosRequestConfig, data: unknown): AxiosResponse => ({
   data, config, status: 200, statusText: 'OK', headers: {},
 })
-const unauthorized = (config: InternalAxiosRequestConfig) => new AxiosError(
+const unauthorized = (config: InternalAxiosRequestConfig, code?: string) => new AxiosError(
   'Unauthorized', 'ERR_BAD_REQUEST', config, undefined,
-  { ...response(config, {}), status: 401 },
+  { ...response(config, code ? { code } : {}), status: 401 },
 )
 
 beforeEach(() => {
@@ -25,11 +28,60 @@ beforeEach(() => {
 
 afterEach(() => {
   client.defaults.adapter = originalAdapter
+  useAuthStore.setState(originalAuth)
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe('authentication session request isolation', () => {
+  it('preserves the token, identity and account caches on invalid new-key registration', async () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(['characters'], [{ id: 88 }])
+    queryClient.setQueryData(['hunting'], [{ id: 99, mesoEarned: 500 }])
+    useAuthStore.setState({
+      user: { id: 8, nickname: '기존 계정', email: null, oauthProvider: 'KAKAO' },
+      hasApiKey: true,
+    })
+    const previousAuth = useAuthStore.getState()
+    const generation = getSessionGeneration()
+    const refresh = vi.spyOn(axios, 'post')
+    const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+      throw unauthorized(config, 'API_KEY_INVALID')
+    })
+    client.defaults.adapter = adapter
+
+    await expect(client.post('/api-key', { apiKey: 'invalid-new-key' })).rejects.toMatchObject({
+      response: { status: 401, data: { code: 'API_KEY_INVALID' } },
+    })
+
+    expect(refresh).not.toHaveBeenCalled()
+    expect(adapter).toHaveBeenCalledOnce()
+    expect(localStorage.getItem('accessToken')).toBe('previous-token')
+    expect(getSessionGeneration()).toBe(generation)
+    expect(useAuthStore.getState()).toBe(previousAuth)
+    expect(queryClient.getQueryData(['characters'])).toEqual([{ id: 88 }])
+    expect(queryClient.getQueryData(['hunting'])).toEqual([{ id: 99, mesoEarned: 500 }])
+    queryClient.clear()
+  })
+
+  it('refreshes an invalid JWT and retries key registration in the same session', async () => {
+    const generation = getSessionGeneration()
+    const refresh = vi.spyOn(axios, 'post').mockResolvedValue({ data: { accessToken: 'refreshed-token' } } as AxiosResponse)
+    const adapter = vi.fn(async (config: InternalAxiosRequestConfig) => {
+      if (config.headers.Authorization !== 'Bearer refreshed-token') throw unauthorized(config, 'INVALID_TOKEN')
+      return response(config, { registered: true, keyStatus: 'ACTIVE' })
+    })
+    client.defaults.adapter = adapter
+
+    const registered = await client.post('/api-key', { apiKey: 'valid-new-key' })
+
+    expect(registered.data.data).toEqual({ registered: true, keyStatus: 'ACTIVE' })
+    expect(refresh).toHaveBeenCalledOnce()
+    expect(adapter).toHaveBeenCalledTimes(2)
+    expect(localStorage.getItem('accessToken')).toBe('refreshed-token')
+    expect(getSessionGeneration()).toBe(generation)
+  })
+
   it('discards an old successful response after changing the data context', async () => {
     let complete!: () => void
     const started = vi.fn()

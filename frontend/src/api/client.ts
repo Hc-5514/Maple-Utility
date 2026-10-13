@@ -81,7 +81,10 @@ client.interceptors.response.use(
 
     const authExchange = ['/auth/kakao', '/auth/nexon-apikey', '/auth/logout', '/auth/refresh']
       .includes(originalRequest?.url ?? '')
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !authExchange) {
+    const invalidRegistrationKey = originalRequest?.method?.toLowerCase() === 'post'
+      && originalRequest.url === '/api-key'
+      && error.response?.data?.code === 'API_KEY_INVALID'
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !authExchange && !invalidRegistrationKey) {
       originalRequest._retry = true
 
       try {
