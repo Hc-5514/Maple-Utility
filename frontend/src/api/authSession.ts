@@ -77,3 +77,14 @@ export function apiKeyErrorMessage(error: unknown, fallback: string) {
   }
   return fallback
 }
+
+export function dataContextSwitchErrorMessage(error: unknown) {
+  if (isAxiosError(error)) {
+    const code = error.response?.data?.code
+    if (code === 'DATA_CONTEXT_ACCESS_DENIED') return '선택할 수 없는 계정입니다. 연결된 계정 목록을 새로 불러와 주세요.'
+    if (code === 'API_KEY_NOT_REGISTERED') return '등록되지 않은 API Key입니다. 연결된 계정 목록을 새로 불러와 주세요.'
+    if (code === 'NEXON_ACCOUNT_UNIDENTIFIABLE') return '넥슨 계정을 확인할 수 없습니다. API Key 상태를 확인해 주세요.'
+    if (code === 'API_KEY_INVALID' || code === 'API_KEY_EXPIRED') return '선택한 계정의 API Key가 유효하지 않습니다. API Key를 다시 등록해 주세요.'
+  }
+  return '계정을 전환하지 못했습니다. 기존 계정과 로그인 상태가 유지됩니다. 잠시 후 다시 시도해 주세요.'
+}

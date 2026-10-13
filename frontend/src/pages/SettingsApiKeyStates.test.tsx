@@ -37,6 +37,7 @@ function setup(statusProvider: () => Promise<ApiKeyStatusResponse>) {
     if (url === '/api-key/status') return response(await statusProvider())
     if (url === '/characters') return response([])
     if (url === '/characters/world-selection') return response({ worldNames: [] })
+    if (url === '/auth/data-contexts') return response([])
     throw new Error(`Unexpected test GET: ${url}`)
   })
   const post = vi.spyOn(client, 'post').mockResolvedValue(response(null))

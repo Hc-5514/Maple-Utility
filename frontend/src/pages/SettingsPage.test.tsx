@@ -57,12 +57,14 @@ function setup(
               ? saved
               : url === '/characters/world-selection'
                 ? { worldNames: selected }
-                : (options.status ?? {
-                    registered: true,
-                    keySuffix: '9f2a',
-                    keyStatus: 'ACTIVE',
-                    lastVerifiedAt: '2026-09-17T09:42:00',
-                  }),
+                : url === '/auth/data-contexts'
+                  ? []
+                  : (options.status ?? {
+                      registered: true,
+                      keySuffix: '9f2a',
+                      keyStatus: 'ACTIVE',
+                      lastVerifiedAt: '2026-09-17T09:42:00',
+                    }),
         },
       }) as AxiosResponse
   )

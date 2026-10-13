@@ -50,6 +50,22 @@ export interface ApiKeyStatusResponse {
   lastVerifiedAt: string | null
 }
 
+// GET /auth/data-contexts 응답 행(키 단위). 대표 캐릭터는 첫 즐겨찾기, 없으면 최고 레벨 캐릭터
+export interface DataContextItem {
+  contextId: number
+  ownerUserId: number
+  credentialId: number
+  keySuffix: string | null
+  status: ApiKeyStatus
+  lastVerifiedAt: string | null
+  current: boolean
+  representativeCharacterName: string | null
+  characterClass: string | null
+  worldName: string | null
+  characterLevel: number | null
+  characterImage: string | null
+}
+
 export interface ApiKeyRegistrationResponse extends ApiKeyStatusResponse {
   auth?: AuthLoginResponse | null
 }
@@ -177,10 +193,10 @@ export interface HuntingRecord {
   recordDate: string
   mesoEarned: number
   solErdaEarned: number
-	playDurationMin: number | null
-	huntingGroundId: number | null
-	regionName: string | null
-	huntingGround: string | null
+  playDurationMin: number | null
+  huntingGroundId: number | null
+  regionName: string | null
+  huntingGround: string | null
   memo: string | null
   createdAt: string
   updatedAt: string
