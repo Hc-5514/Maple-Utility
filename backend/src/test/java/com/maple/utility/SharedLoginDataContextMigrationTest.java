@@ -65,20 +65,22 @@ class SharedLoginDataContextMigrationTest {
 		flyway(null).migrate();
 		try (Connection connection = connection(); Statement statement = connection.createStatement()) {
 			statement.execute("INSERT INTO users (id, oauth_provider, oauth_id) VALUES (101, 'KAKAO', 'social'), (102, 'NEXON_APIKEY', 'direct')");
-			statement.execute("INSERT INTO data_contexts (id, owner_user_id, kakao_user_id) VALUES (401, 101, 101), (402, 102, 101)");
-			statement.execute("INSERT INTO user_data_contexts (user_id, context_id) VALUES (101, 401), (101, 402), (102, 401)");
-			statement.execute("INSERT INTO user_api_keys (user_id, context_id, encrypted_key, key_fingerprint) VALUES (101, 401, 'encrypted-a', repeat('a',64)), (101, 401, 'encrypted-b', repeat('b',64)), (101, 402, 'legacy-a', NULL), (101, 402, 'legacy-b', NULL)");
+			long firstContext = number(statement, "SELECT id FROM data_contexts WHERE owner_user_id = 101");
+			long secondContext = number(statement, "SELECT id FROM data_contexts WHERE owner_user_id = 102");
+			statement.execute("UPDATE data_contexts SET kakao_user_id = 101 WHERE id = " + secondContext);
+			statement.execute("INSERT INTO user_data_contexts (user_id, context_id) VALUES (101, " + secondContext + "), (102, " + firstContext + ")");
+			statement.execute("INSERT INTO user_api_keys (user_id, context_id, encrypted_key, key_fingerprint) VALUES (101, " + firstContext + ", 'encrypted-a', repeat('a',64)), (101, " + firstContext + ", 'encrypted-b', repeat('b',64)), (101, " + secondContext + ", 'legacy-a', NULL), (101, " + secondContext + ", 'legacy-b', NULL)");
 			assertThat(number(statement, "SELECT count(*) FROM user_api_keys WHERE user_id = 101")).isEqualTo(4);
-			assertThatThrownBy(() -> statement.execute("INSERT INTO user_api_keys (user_id, context_id, encrypted_key, key_fingerprint) VALUES (102, 402, 'duplicate', repeat('a',64))")).isInstanceOf(SQLException.class).hasMessageContaining("uk_user_api_keys_key_fingerprint");
-			statement.execute("INSERT INTO data_context_accounts (account_id, context_id) VALUES ('verified-account', 401)");
-			assertThatThrownBy(() -> statement.execute("INSERT INTO data_context_accounts (account_id, context_id) VALUES ('verified-account', 402)")).isInstanceOf(SQLException.class);
-			assertThatThrownBy(() -> statement.execute("INSERT INTO user_data_contexts (user_id, context_id) VALUES (101, 401)")).isInstanceOf(SQLException.class);
-			assertThatThrownBy(() -> statement.execute("UPDATE data_contexts SET canonical_context_id = id WHERE id = 401")).isInstanceOf(SQLException.class);
-			statement.execute("UPDATE data_contexts SET canonical_context_id = 401 WHERE id = 402");
-			assertThat(number(statement, "SELECT owner_user_id FROM data_contexts WHERE id = (SELECT canonical_context_id FROM data_contexts WHERE id = 402)")).isEqualTo(101);
+			assertThatThrownBy(() -> statement.execute("INSERT INTO user_api_keys (user_id, context_id, encrypted_key, key_fingerprint) VALUES (102, " + secondContext + ", 'duplicate', repeat('a',64))")).isInstanceOf(SQLException.class).hasMessageContaining("uk_user_api_keys_key_fingerprint");
+			statement.execute("INSERT INTO data_context_accounts (account_id, context_id) VALUES ('verified-account', " + firstContext + ")");
+			assertThatThrownBy(() -> statement.execute("INSERT INTO data_context_accounts (account_id, context_id) VALUES ('verified-account', " + secondContext + ")")).isInstanceOf(SQLException.class);
+			assertThatThrownBy(() -> statement.execute("INSERT INTO user_data_contexts (user_id, context_id) VALUES (101, " + firstContext + ")")).isInstanceOf(SQLException.class);
+			assertThatThrownBy(() -> statement.execute("UPDATE data_contexts SET canonical_context_id = id WHERE id = " + firstContext)).isInstanceOf(SQLException.class);
+			statement.execute("UPDATE data_contexts SET canonical_context_id = " + firstContext + " WHERE id = " + secondContext);
+			assertThat(number(statement, "SELECT owner_user_id FROM data_contexts WHERE id = (SELECT canonical_context_id FROM data_contexts WHERE id = " + secondContext + ")")).isEqualTo(101);
 			statement.execute("INSERT INTO data_merge_provenance (table_name, record_id, source_user_id) VALUES ('characters', 301, 102), ('hunting_records', 301, 102)");
 			assertThat(number(statement, "SELECT count(*) FROM data_merge_provenance WHERE record_id = 301")).isEqualTo(2);
-			assertThatThrownBy(() -> statement.execute("DELETE FROM data_contexts WHERE id = 401")).isInstanceOf(SQLException.class);
+			assertThatThrownBy(() -> statement.execute("DELETE FROM data_contexts WHERE id = " + firstContext)).isInstanceOf(SQLException.class);
 			assertThatThrownBy(() -> statement.execute("DELETE FROM users WHERE id = 102")).isInstanceOf(SQLException.class);
 		}
 	}
@@ -88,15 +90,56 @@ class SharedLoginDataContextMigrationTest {
 		flyway(null).migrate();
 		try (Connection connection = connection(); Statement statement = connection.createStatement()) {
 			statement.execute("INSERT INTO users (id, oauth_provider, oauth_id) VALUES (101, 'KAKAO', 'social')");
-			statement.execute("INSERT INTO data_contexts (id, owner_user_id) VALUES (401, 101)");
-			statement.execute("INSERT INTO data_context_accounts (account_id, context_id) VALUES ('account', 401)");
-			statement.execute("INSERT INTO user_data_contexts (user_id, context_id) VALUES (101, 401)");
+			statement.execute("INSERT INTO data_context_accounts (account_id, context_id) SELECT 'account', id FROM data_contexts WHERE owner_user_id = 101");
 			statement.execute("INSERT INTO data_merge_provenance (table_name, record_id, source_user_id) VALUES ('characters', 301, 101)");
 			for (String table : new String[] {"data_contexts", "data_context_accounts", "user_data_contexts", "data_merge_provenance"}) {
 				assertThat(number(statement, "SELECT count(*) FROM " + table + " WHERE created_at IS NOT NULL AND updated_at IS NOT NULL")).isEqualTo(1);
 				statement.execute("UPDATE " + table + " SET updated_at = TIMESTAMPTZ '2000-01-01 00:00:00+09'");
 				assertThat(number(statement, "SELECT count(*) FROM " + table + " WHERE updated_at > TIMESTAMPTZ '2000-01-02 00:00:00+09'")).isEqualTo(1);
 			}
+		}
+	}
+
+	@Test
+	void legacyApplicationCanInsertUsersAndKeysWithoutContextFieldsAfterMigration() throws Exception {
+		flyway(null).migrate();
+		try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+			statement.execute("""
+					INSERT INTO users (id, oauth_provider, oauth_id, created_at, updated_at) VALUES
+					(101, 'KAKAO', 'new-social', '2026-01-01 09:00:00', '2026-02-01 10:00:00'),
+					(102, 'NEXON_APIKEY', 'new-direct', '2026-01-02 09:00:00', '2026-02-02 10:00:00')
+					""");
+			statement.execute("INSERT INTO user_api_keys (user_id, encrypted_key) VALUES (101, 'new-social-ciphertext'), (102, 'new-direct-ciphertext')");
+			assertThat(number(statement, "SELECT count(*) FROM data_contexts")).isEqualTo(2);
+			assertThat(number(statement, "SELECT count(*) FROM user_data_contexts l JOIN data_contexts c ON c.id = l.context_id WHERE l.user_id = c.owner_user_id")).isEqualTo(2);
+			assertThat(number(statement, "SELECT count(*) FROM user_api_keys k JOIN data_contexts c ON c.id = k.context_id WHERE k.user_id = c.owner_user_id AND k.key_fingerprint IS NULL")).isEqualTo(2);
+			assertThat(number(statement, "SELECT count(*) FROM user_api_keys WHERE encrypted_key IN ('new-social-ciphertext', 'new-direct-ciphertext')")).isEqualTo(2);
+			assertThat(number(statement, "SELECT count(*) FROM data_contexts WHERE owner_user_id = 101 AND kakao_user_id = 101 AND created_at = TIMESTAMPTZ '2026-01-01 09:00:00+09' AND updated_at = TIMESTAMPTZ '2026-02-01 10:00:00+09'")).isEqualTo(1);
+			assertThat(number(statement, "SELECT count(*) FROM data_contexts WHERE owner_user_id = 102 AND kakao_user_id IS NULL")).isEqualTo(1);
+			statement.execute("SELECT ensure_user_data_context(101)");
+			statement.execute("SELECT ensure_user_data_context(101)");
+			assertThat(number(statement, "SELECT count(*) FROM data_contexts")).isEqualTo(2);
+			assertThat(number(statement, "SELECT count(*) FROM user_data_contexts")).isEqualTo(2);
+			long directContext = number(statement, "SELECT id FROM data_contexts WHERE owner_user_id = 102");
+			statement.execute("INSERT INTO user_api_keys (user_id, context_id, encrypted_key) VALUES (101, " + directContext + ", 'explicit-context-ciphertext')");
+			assertThat(number(statement, "SELECT context_id FROM user_api_keys WHERE encrypted_key = 'explicit-context-ciphertext'")).isEqualTo(directContext);
+			assertThat(number(statement, "SELECT count(*) FROM data_context_accounts")).isZero();
+		}
+	}
+
+	@Test
+	void automaticContextBootstrapRollsBackWithUserInsertion() throws Exception {
+		flyway(null).migrate();
+		try (Connection connection = connection(); Statement statement = connection.createStatement()) {
+			connection.setAutoCommit(false);
+			statement.execute("INSERT INTO users (id, oauth_provider, oauth_id) VALUES (101, 'KAKAO', 'rolled-back-user')");
+			statement.execute("INSERT INTO user_api_keys (user_id, encrypted_key) VALUES (101, 'rolled-back-ciphertext')");
+			assertThat(number(statement, "SELECT count(*) FROM data_contexts")).isEqualTo(1);
+			connection.rollback();
+			assertThat(number(statement, "SELECT count(*) FROM users")).isZero();
+			assertThat(number(statement, "SELECT count(*) FROM data_contexts")).isZero();
+			assertThat(number(statement, "SELECT count(*) FROM user_data_contexts")).isZero();
+			assertThat(number(statement, "SELECT count(*) FROM user_api_keys")).isZero();
 		}
 	}
 
