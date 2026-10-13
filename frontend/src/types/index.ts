@@ -50,6 +50,10 @@ export interface ApiKeyStatusResponse {
   lastVerifiedAt: string | null
 }
 
+export interface ApiKeyRegistrationResponse extends ApiKeyStatusResponse {
+  auth?: AuthLoginResponse | null
+}
+
 // ─── 캐릭터 ──────────────────────────────────────────────────────
 export interface Character {
   id: number

@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useCharacterStore } from '../stores/characterStore'
 import { useThemeStore } from '../stores/themeStore'
 import type { ApiKeyStatusResponse, ApiResponse } from '../types'
+import { getSessionGeneration } from '../api/session'
 import SettingsPage, { formatVerifiedAt } from './SettingsPage'
 
 const activeStatus: ApiKeyStatusResponse = {
@@ -49,10 +50,16 @@ function setup(statusProvider: () => Promise<ApiKeyStatusResponse>) {
       <SettingsPage />
     </QueryClientProvider>
   )
-  return { get, post, remove, card: within(screen.getByTestId('api-key-card')) }
+  return { get, post, remove, queryClient, card: within(screen.getByTestId('api-key-card')) }
 }
 
 beforeEach(() => {
+  const items = new Map<string, string>()
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => items.get(key) ?? null,
+    setItem: (key: string, value: string) => items.set(key, value),
+    removeItem: (key: string) => items.delete(key),
+  })
   useAuthStore.setState({ hasApiKey: false, isInitializing: false })
   useCharacterStore.setState({ characters: [] })
   useThemeStore.setState({ theme: 'light' })
@@ -62,12 +69,34 @@ afterEach(() => {
   cleanup()
   queryClients.splice(0).forEach((queryClient) => queryClient.clear())
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
   useAuthStore.setState(initialAuth)
   useCharacterStore.setState(initialCharacters)
   useThemeStore.setState(initialTheme)
 })
 
 describe('Settings API Key states', () => {
+  it.each([
+    ['DATA_CONTEXT_CONFLICT', '이 넥슨 계정은 다른 카카오 계정에 연결되어 있습니다.'],
+    ['NEXON_ACCOUNT_UNIDENTIFIABLE', '넥슨 계정을 확인할 수 없습니다. API Key와 계정의 캐릭터 정보를 확인해 주세요.'],
+  ])('preserves the current session and caches when registration fails with %s', async (code, message) => {
+    const { card, post, queryClient } = setup(async () => unregisteredStatus)
+    queryClient.setQueryData(['stats/hunting'], { totalMeso: 500 })
+    const oldUser = useAuthStore.getState().user
+    const generation = getSessionGeneration()
+    localStorage.setItem('accessToken', 'previous-token')
+    post.mockRejectedValueOnce({ isAxiosError: true, response: { data: { code } } })
+    fireEvent.change(await card.findByLabelText('Nexon API Key'), { target: { value: 'failed-key-abcd' } })
+
+    fireEvent.click(card.getByRole('button', { name: '등록' }))
+
+    expect(await card.findByText(message)).toBeTruthy()
+    expect(getSessionGeneration()).toBe(generation)
+    expect(localStorage.getItem('accessToken')).toBe('previous-token')
+    expect(useAuthStore.getState().user).toBe(oldUser)
+    expect(queryClient.getQueryData(['stats/hunting'])).toEqual({ totalMeso: 500 })
+  })
+
   it('registers an unregistered key and replaces the form with its masked status', async () => {
     let status = unregisteredStatus
     const { card, post } = setup(async () => status)
@@ -83,10 +112,10 @@ describe('Settings API Key states', () => {
 
     fireEvent.click(submit)
 
-    await card.findByText('● ACTIVE')
+    await screen.findByText('● ACTIVE')
     expect(post).toHaveBeenCalledExactlyOnceWith('/api-key', { apiKey: 'secret-key-abcd' })
-    expect(card.queryByLabelText('Nexon API Key', { selector: 'input' })).toBeNull()
-    expect(card.getByText('•••••••• – •••••••• – •••••••• – ••••abcd')).toBeTruthy()
+    expect(screen.queryByLabelText('Nexon API Key', { selector: 'input' })).toBeNull()
+    expect(screen.getByText('•••••••• – •••••••• – •••••••• – ••••abcd')).toBeTruthy()
     expect(screen.queryByText('secret-key-abcd')).toBeNull()
     expect(useAuthStore.getState().hasApiKey).toBe(true)
   })
@@ -156,9 +185,9 @@ describe('Settings API Key states', () => {
     status = activeStatus
     fireEvent.click(card.getByRole('button', { name: '등록' }))
 
-    await card.findByText('● ACTIVE')
+    await screen.findByText('● ACTIVE')
     expect(post).toHaveBeenCalledTimes(2)
-    expect(card.queryByRole('alert')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('retains API access after deletion fails and clears it only after a successful retry', async () => {
