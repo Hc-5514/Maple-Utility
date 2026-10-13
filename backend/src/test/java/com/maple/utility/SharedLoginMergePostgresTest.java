@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -33,6 +36,7 @@ class SharedLoginMergePostgresTest {
 	private JdbcTemplate jdbc;
 	private TransactionTemplate transactions;
 	private DataContextMergeService merger;
+	private String sessionTimeZone = "UTC";
 
 	@BeforeEach
 	void migrateIsolatedSchema() {
@@ -41,10 +45,22 @@ class SharedLoginMergePostgresTest {
 				.locations("filesystem:" + Path.of("src/main/resources/db/migration").toAbsolutePath())
 				.load().migrate();
 		DriverManagerDataSource dataSource = new DriverManagerDataSource(System.getenv("FLYWAY_TEST_URL"),
-				System.getenv("FLYWAY_TEST_USER"), System.getenv("FLYWAY_TEST_PASSWORD"));
+				System.getenv("FLYWAY_TEST_USER"), System.getenv("FLYWAY_TEST_PASSWORD")) {
+			@Override
+			public Connection getConnection() throws SQLException {
+				Connection connection = super.getConnection();
+				try (var statement = connection.createStatement()) {
+					// PgJDBC sends the JVM timezone at connection startup, overriding server options.
+					statement.execute("SET TIME ZONE '" + sessionTimeZone + "'");
+				} catch (SQLException exception) {
+					connection.close();
+					throw exception;
+				}
+				return connection;
+			}
+		};
 		Properties properties = new Properties();
 		properties.setProperty("currentSchema", schema);
-		properties.setProperty("options", "-c timezone=Asia/Seoul");
 		dataSource.setConnectionProperties(properties);
 		jdbc = new JdbcTemplate(dataSource);
 		transactions = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
@@ -128,8 +144,10 @@ class SharedLoginMergePostgresTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(booleans = {false, true})
-	void acquisitionsFollowSurvivingPeriodForeignKeyAndKeepDistinctEvents(boolean sourcePreferred) {
+	@CsvSource({"false,UTC", "true,UTC", "false,Asia/Seoul", "true,Asia/Seoul"})
+	void acquisitionsFollowSurvivingPeriodForeignKeyAndKeepDistinctEvents(boolean sourcePreferred, String databaseTimeZone) {
+		sessionTimeZone = databaseTimeZone;
+		assertThat(jdbc.queryForObject("SHOW TIME ZONE", String.class)).isEqualTo(databaseTimeZone);
 		user(101, sourcePreferred ? "NEXON_APIKEY" : "KAKAO", "2025-01-01");
 		user(102, sourcePreferred ? "KAKAO" : "NEXON_APIKEY", "2026-01-01");
 		character(301, 101, "same", "원본", false);
@@ -141,6 +159,11 @@ class SharedLoginMergePostgresTest {
 		acquisition(602, 302, 502, "복사 이벤트", 1, "2026-10-12 23:59:59+09");
 		acquisition(603, 301, 501, "별도 이벤트", 2, "2026-10-13 00:00:00+09");
 		acquisition(604, 302, 502, "별도 이벤트", 2, "2026-10-13 00:00:01+09");
+		// Legacy columns represent Seoul wall time, independent of the database/JVM timezone.
+		assertThat(number("SELECT count(*) FROM boss_item_acquisitions WHERE acquired_date='2026-10-13'"))
+				.isEqualTo(2);
+		assertThat(jdbc.queryForObject("SELECT created_at FROM boss_item_acquisitions WHERE id=603", java.time.LocalDateTime.class))
+				.isEqualTo(java.time.LocalDateTime.of(2026, 10, 13, 0, 0));
 
 		merge(102, 101);
 
@@ -233,7 +256,7 @@ class SharedLoginMergePostgresTest {
 	}
 
 	private void user(long id, String provider, String createdAt) {
-		jdbc.update("INSERT INTO users(id,oauth_provider,oauth_id,created_at) VALUES (?,?,?,?::timestamptz)",
+		jdbc.update("INSERT INTO users(id,oauth_provider,oauth_id,created_at) VALUES (?,?,?,?::timestamptz AT TIME ZONE 'Asia/Seoul')",
 				id, provider, "merge-" + id, createdAt + " 00:00:00+09");
 	}
 
@@ -248,7 +271,7 @@ class SharedLoginMergePostgresTest {
 	}
 
 	private void acquisition(long id, long character, long period, String memo, int quantity, String createdAt) {
-		jdbc.update("INSERT INTO boss_item_acquisitions(id,character_id,boss_drop_item_id,boss_period_entry_id,acquired_date,memo,quantity,created_at) VALUES (?,?,9001,?,?::timestamptz::date,?,?,?::timestamptz)",
+		jdbc.update("INSERT INTO boss_item_acquisitions(id,character_id,boss_drop_item_id,boss_period_entry_id,acquired_date,memo,quantity,created_at) VALUES (?,?,9001,?,(?::timestamptz AT TIME ZONE 'Asia/Seoul')::date,?,?,?::timestamptz AT TIME ZONE 'Asia/Seoul')",
 				id, character, period, createdAt, memo, quantity, createdAt);
 	}
 
