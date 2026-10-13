@@ -1,6 +1,6 @@
 // Nexon look images are 300x300 transparent canvases; the character fills only the middle third,
 // centered near (150, 165). Zoom into that area so the character fills the avatar box.
-const ZOOM_PERCENT = 250
+const ZOOM_PERCENT = 300
 const CENTER_Y_PERCENT = 55
 
 interface Props {

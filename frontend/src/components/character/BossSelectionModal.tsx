@@ -5,13 +5,14 @@ import ThemedConfirmDialog from '../common/ThemedConfirmDialog'
 import { DIFFICULTY_COLOR } from '../common/DifficultyBadge'
 import { useBossCandidates } from '../../hooks/useCharacterDetail'
 import { countPill } from './styles'
+import { monthLabel } from '../../utils/date'
 import type { BossCandidate, ResetPeriod, SchedulerBossRecord } from '../../types'
 
 export const BOSS_LIMITS: Record<ResetPeriod, number> = { WEEKLY: 12, MONTHLY: 1 }
 
 const LOCKED_NOTICE: Record<ResetPeriod, string> = {
   WEEKLY: '최근 3주는 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
-  MONTHLY: '이번 달은 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
+  MONTHLY: '최근 3주가 포함된 달은 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
 }
 
 /** n/limit counts cleared bosses (the game caps clears at the limit), not bosses listed in the scheduler. */
@@ -19,19 +20,33 @@ export function clearedCount(clearedFlags: boolean[]) {
   return clearedFlags.filter(Boolean).length
 }
 
+export function countLabel(cleared: number, limit: number, month?: string) {
+  return `${month ? `${monthLabel(month)} ` : ''}${cleared} / ${limit}`
+}
+
+/** 선택 주가 걸친 한 달의 월간 보스 */
+export interface MonthlyBlock {
+  start: string
+  records: SchedulerBossRecord[]
+  customizable: boolean
+}
+
 export interface BossSelectionChange {
-  add: Record<ResetPeriod, number[]>
+  add: { WEEKLY: number[]; MONTHLY: Record<string, number[]> }
   remove: SchedulerBossRecord[]
 }
 
 interface Props {
   characterId: number
   weeklyRecords: SchedulerBossRecord[]
-  monthlyRecords: SchedulerBossRecord[]
-  customizable: Record<ResetPeriod, boolean>
+  weeklyCustomizable: boolean
+  months: MonthlyBlock[]
   onClose: () => void
   onSave: (change: BossSelectionChange) => Promise<void>
 }
+
+// 선택 상태 키: 주간은 'WEEKLY', 월간은 해당 월 시작일
+type SelectionKey = string
 
 function selectedIds(records: SchedulerBossRecord[]) {
   return records.flatMap((record) => (record.bossId ? [record.bossId] : []))
@@ -56,51 +71,53 @@ function BossOption({ boss, checked, disabled, onToggle }: {
   )
 }
 
-export default function BossSelectionModal({ characterId, weeklyRecords, monthlyRecords, customizable, onClose, onSave }: Props) {
+export default function BossSelectionModal({ characterId, weeklyRecords, weeklyCustomizable, months, onClose, onSave }: Props) {
   const weekly = useBossCandidates(characterId, 'WEEKLY')
   const monthly = useBossCandidates(characterId, 'MONTHLY')
-  const [selected, setSelected] = useState<Record<ResetPeriod, number[]>>({
-    WEEKLY: selectedIds(weeklyRecords),
-    MONTHLY: selectedIds(monthlyRecords),
-  })
+  const sources: Record<SelectionKey, { period: ResetPeriod; records: SchedulerBossRecord[]; customizable: boolean }> = {
+    WEEKLY: { period: 'WEEKLY', records: weeklyRecords, customizable: weeklyCustomizable },
+    ...Object.fromEntries(months.map((month) => [month.start, { period: 'MONTHLY' as const, records: month.records, customizable: month.customizable }])),
+  }
+  const [selected, setSelected] = useState<Record<SelectionKey, number[]>>(() =>
+    Object.fromEntries(Object.entries(sources).map(([key, source]) => [key, selectedIds(source.records)])))
+  const [monthTab, setMonthTab] = useState(months[0]?.start ?? '')
   const [confirming, setConfirming] = useState<SchedulerBossRecord[] | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
 
   // Newly selected custom bosses are recorded as cleared.
-  const recordFor = (period: ResetPeriod, bossId: number) =>
-    (period === 'WEEKLY' ? weeklyRecords : monthlyRecords).find((record) => record.bossId === bossId)
+  const recordFor = (key: SelectionKey, bossId: number) => sources[key].records.find((record) => record.bossId === bossId)
 
   const candidatesFor = (period: ResetPeriod) => (period === 'WEEKLY' ? weekly.data : monthly.data) ?? []
 
-  const toggle = (period: ResetPeriod, bossId: number) => {
+  const toggle = (key: SelectionKey, bossId: number) => {
     setSelected((previous) => ({
       ...previous,
-      [period]: previous[period].includes(bossId)
-        ? previous[period].filter((id) => id !== bossId)
-        : [...previous[period], bossId],
+      [key]: previous[key].includes(bossId)
+        ? previous[key].filter((id) => id !== bossId)
+        : [...previous[key], bossId],
     }))
   }
 
-  const isDisabled = (period: ResetPeriod, boss: BossCandidate) => {
-    if (!customizable[period]) return true
-    const ids = selected[period]
+  const isDisabled = (key: SelectionKey, boss: BossCandidate) => {
+    const { period, customizable } = sources[key]
+    if (!customizable) return true
+    const ids = selected[key]
     if (ids.includes(boss.id)) return false
     if (ids.length >= BOSS_LIMITS[period]) return true
     return candidatesFor(period).some((other) => ids.includes(other.id) && other.bossName === boss.bossName)
   }
 
-  const change = (): BossSelectionChange => {
-    const original = { WEEKLY: weeklyRecords, MONTHLY: monthlyRecords }
-    return {
-      add: {
-        WEEKLY: selected.WEEKLY.filter((id) => !selectedIds(weeklyRecords).includes(id)),
-        MONTHLY: selected.MONTHLY.filter((id) => !selectedIds(monthlyRecords).includes(id)),
-      },
-      remove: (['WEEKLY', 'MONTHLY'] as const).flatMap((period) =>
-        original[period].filter((record) => record.bossId && !selected[period].includes(record.bossId))),
-    }
-  }
+  const added = (key: SelectionKey) => selected[key].filter((id) => !selectedIds(sources[key].records).includes(id))
+
+  const change = (): BossSelectionChange => ({
+    add: {
+      WEEKLY: added('WEEKLY'),
+      MONTHLY: Object.fromEntries(months.map((month) => [month.start, added(month.start)])),
+    },
+    remove: Object.entries(sources).flatMap(([key, source]) =>
+      source.records.filter((record) => record.bossId && !selected[key].includes(record.bossId))),
+  })
 
   const save = async (confirmed = false) => {
     const next = change()
@@ -121,27 +138,53 @@ export default function BossSelectionModal({ characterId, weeklyRecords, monthly
     }
   }
 
-  const sectionHeader = (period: ResetPeriod, title: string) => (
+  const count = (key: SelectionKey) => {
+    const { period } = sources[key]
+    const cleared = clearedCount(selected[key].map((id) => recordFor(key, id)?.isCompleted ?? true))
+    return countLabel(cleared, BOSS_LIMITS[period], period === 'MONTHLY' ? key : undefined)
+  }
+
+  const notice = (key: SelectionKey) => {
+    const { period, customizable } = sources[key]
+    if (!customizable) return <span className="ml-auto text-[12px] text-[var(--dash-muted)]">{LOCKED_NOTICE[period]}</span>
+    if (period === 'WEEKLY' && selected[key].length >= BOSS_LIMITS[period])
+      return <span className="ml-auto text-[12px] text-[var(--dash-muted)]">최대 개수를 모두 선택했습니다</span>
+    return null
+  }
+
+  const sectionHeader = (key: SelectionKey, title: string) => (
     <div className="flex items-center gap-[10px]">
       <h3 className="text-[16px] font-bold">{title}</h3>
-      <span className={countPill}>{clearedCount(selected[period].map((id) => recordFor(period, id)?.isCompleted ?? true))}/{BOSS_LIMITS[period]}</span>
-      {!customizable[period] ? (
-        <span className="ml-auto text-[12px] text-[var(--dash-muted)]">{LOCKED_NOTICE[period]}</span>
-      ) : period === 'WEEKLY' && selected[period].length >= BOSS_LIMITS[period] && (
-        <span className="ml-auto text-[12px] text-[var(--dash-muted)]">최대 개수를 모두 선택했습니다</span>
+      {key !== 'WEEKLY' && months.length > 1 && (
+        <div role="tablist" aria-label="월간 보스 대상 월" className="flex gap-1 rounded-[10px] border border-[var(--dash-subtle-border)] bg-[var(--dash-subtle)] p-[3px]">
+          {months.map((month) => (
+            <button
+              key={month.start}
+              type="button"
+              role="tab"
+              aria-selected={month.start === key}
+              onClick={() => setMonthTab(month.start)}
+              className={`rounded-lg px-3 py-[5px] text-[13px] ${month.start === key ? 'bg-[var(--dash-card)] font-bold text-[var(--dash-accent)] shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-[var(--dash-muted)]'}`}
+            >
+              {monthLabel(month.start)}
+            </button>
+          ))}
+        </div>
       )}
+      <span className={countPill}>{count(key)}</span>
+      {notice(key)}
     </div>
   )
 
-  const options = (period: ResetPeriod) => (
+  const options = (key: SelectionKey) => (
     <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-3">
-      {candidatesFor(period).map((boss) => (
+      {candidatesFor(sources[key].period).map((boss) => (
         <BossOption
           key={boss.id}
           boss={boss}
-          checked={selected[period].includes(boss.id)}
-          disabled={saving || isDisabled(period, boss)}
-          onToggle={() => toggle(period, boss.id)}
+          checked={selected[key].includes(boss.id)}
+          disabled={saving || isDisabled(key, boss)}
+          onToggle={() => toggle(key, boss.id)}
         />
       ))}
     </div>
@@ -173,8 +216,8 @@ export default function BossSelectionModal({ characterId, weeklyRecords, monthly
         ) : (
           <div className="dialog-scroll max-h-[476px] overflow-y-auto pr-2">{options('WEEKLY')}</div>
         )}
-        {sectionHeader('MONTHLY', '월간 보스')}
-        {monthly.isLoading ? <div className="h-11 animate-pulse rounded-xl bg-[var(--dash-subtle)]" /> : <div className="pr-[14px]">{options('MONTHLY')}</div>}
+        {monthTab && sectionHeader(monthTab, '월간 보스')}
+        {monthTab && (monthly.isLoading ? <div className="h-11 animate-pulse rounded-xl bg-[var(--dash-subtle)]" /> : <div className="pr-[14px]">{options(monthTab)}</div>)}
         {(error || weekly.isError || monthly.isError) && (
           <p role="alert" className="text-[13px] text-[var(--dash-danger)]">
             {error ? '보스 선택을 저장하지 못했습니다.' : '보스 후보를 불러오지 못했습니다.'}

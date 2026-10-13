@@ -174,7 +174,7 @@ class CharacterSyncServiceTest {
 
 		assertThat(persisted.keySet()).containsExactlyInAnyOrder("invalid-ocid", "valid-ocid");
 		assertThat(persisted.get("invalid-ocid").getCharacterName()).isEqualTo("꼬농닉화긱");
-		assertThat(persisted.get("valid-ocid").getSortOrder()).isEqualTo(2);
+		assertThat(persisted.get("valid-ocid").getSortOrder()).isEqualTo(1);
 	}
 
 	@Test
@@ -210,6 +210,55 @@ class CharacterSyncServiceTest {
 		order.verify(characterRepository).findByUserIdAndOcid(1L, "ocid");
 		assertThat(existing.isFavorite()).isTrue();
 		assertThat(existing.getSortOrder()).isEqualTo(5);
+	}
+
+	@Test
+	void firstSyncOrdersAcrossWorldsByLevelKoreanNameAndOcidWithUnknownLevelsLast() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
+		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
+		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		service.syncSummaries(user(), List.of(
+				new NexonCharacterSummary("unknown", "가", "루나", "히어로", null),
+				new NexonCharacterSummary("low", "가", "루나", "히어로", 250),
+				new NexonCharacterSummary("z", "가", "스카니아", "히어로", 280),
+				new NexonCharacterSummary("name", "나", "엘리시움", "히어로", 280),
+				new NexonCharacterSummary("a", "가", "루나", "히어로", 280)));
+		ArgumentCaptor<MapleCharacter> captor = ArgumentCaptor.forClass(MapleCharacter.class);
+		org.mockito.Mockito.verify(characterRepository, org.mockito.Mockito.times(5)).save(captor.capture());
+		assertThat(captor.getAllValues()).extracting(MapleCharacter::getOcid)
+				.containsExactly("a", "z", "name", "low", "unknown");
+		assertThat(captor.getAllValues()).extracting(MapleCharacter::getSortOrder).containsExactly(1, 2, 3, 4, 5);
+		var order = org.mockito.Mockito.inOrder(userRepository, characterRepository);
+		order.verify(userRepository).findByIdForUpdate(1L);
+		order.verify(characterRepository).findByUserIdOrderBySortOrderAscIdAsc(1L);
+	}
+
+	@Test
+	void laterSyncAppendsSortedNewCharactersWithoutChangingSavedPreferences() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
+		MapleCharacter existing = MapleCharacter.create(user(), "existing", "기존", "루나", "히어로", 200, 7);
+		existing.toggleFavorite();
+		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(existing));
+		when(characterRepository.findByUserIdAndOcid(1L, "existing")).thenReturn(Optional.of(existing));
+		when(characterRepository.save(any(MapleCharacter.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		service.syncSummaries(user(), List.of(
+				new NexonCharacterSummary("low", "가", "루나", "히어로", 250),
+				new NexonCharacterSummary("existing", "기존", "루나", "히어로", 300),
+				new NexonCharacterSummary("high", "나", "스카니아", "히어로", 280)));
+		ArgumentCaptor<MapleCharacter> captor = ArgumentCaptor.forClass(MapleCharacter.class);
+		org.mockito.Mockito.verify(characterRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+		assertThat(captor.getAllValues()).extracting(MapleCharacter::getOcid).containsExactly("high", "low");
+		assertThat(captor.getAllValues()).extracting(MapleCharacter::getSortOrder).containsExactly(8, 9);
+		assertThat(existing.getSortOrder()).isEqualTo(7);
+		assertThat(existing.isFavorite()).isTrue();
+	}
+
+	@Test
+	void emptySyncDoesNotPersistCharacters() {
+		CharacterSyncService service = new CharacterSyncService(characterRepository, nexonOpenApiClient, userRepository);
+		when(characterRepository.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
+		service.syncSummaries(user(), List.of());
+		verify(characterRepository, never()).save(any(MapleCharacter.class));
 	}
 
 	private User user() {

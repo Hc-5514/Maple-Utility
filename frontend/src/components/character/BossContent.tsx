@@ -2,39 +2,42 @@ import { useCallback, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import BossCard from './BossCard'
 import BossDropModal from './BossDropModal'
-import PeriodMenu from './PeriodMenu'
 import ThemedConfirmDialog from '../common/ThemedConfirmDialog'
 import { useThemeStore } from '../../stores/themeStore'
 import { characterAssets } from './assets'
 import { controlButton, countPill, detailCard } from './styles'
-import BossSelectionModal, { BOSS_LIMITS, clearedCount, type BossSelectionChange } from './BossSelectionModal'
+import BossSelectionModal, { BOSS_LIMITS, clearedCount, countLabel, type BossSelectionChange, type MonthlyBlock } from './BossSelectionModal'
 import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useCharacterBoss } from '../../hooks/useCharacterDetail'
-import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
+import { monthLabel, weekMonths } from '../../utils/date'
 import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
 
 interface Props {
   characterId: number
   date: string
+  weekStart: string
 }
+
+// 월간 기록에 조회한 월 시작일을 붙여 기간 키로 사용
+type BossRecord = SchedulerBossRecord & { monthStart?: string }
 
 function BossGroup({
   title,
-  limit,
+  counts,
   records,
   onClickDetail,
   onDelete,
 }: {
   title: string
-  limit: number
-  records: SchedulerBossRecord[]
-  onClickDetail: (record: SchedulerBossRecord) => void
-  onDelete?: (record: SchedulerBossRecord) => void
+  counts: string[]
+  records: BossRecord[]
+  onClickDetail: (record: BossRecord) => void
+  onDelete: (record: BossRecord) => (() => void) | undefined
 }) {
   return (
     <>
       <div className="flex items-center gap-[10px]">
         <h3 className="text-[15px] font-bold">{title}</h3>
-        <span className={countPill}>{clearedCount(records.map((record) => record.isCompleted))}/{limit}</span>
+        {counts.map((count) => <span key={count} className={countPill}>{count}</span>)}
       </div>
       {records.length > 0 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -43,7 +46,8 @@ function BossGroup({
               key={record.id ?? `${record.characterId}-${record.bossId}-${idx}`}
               record={record}
               onClickDetail={() => onClickDetail(record)}
-              onDelete={onDelete && (() => onDelete(record))}
+              onDelete={onDelete(record)}
+              badge={record.monthStart && monthLabel(record.monthStart)}
             />
           ))}
         </div>
@@ -52,16 +56,23 @@ function BossGroup({
   )
 }
 
-export default function BossContent({ characterId, date }: Props) {
+export default function BossContent({ characterId, date, weekStart: selectedWeekStart }: Props) {
   const queryClient = useQueryClient()
-  const pageDate = new Date(`${date}T12:00:00`)
-  const [selectedWeekStart, setSelectedWeekStart] = useState(() => thursdayWeekStart(pageDate))
-  const [selectedMonthStart, setSelectedMonthStart] = useState(() => monthStart(pageDate))
-  const { data: bossRecords, isLoading, isError } = useCharacterBoss(characterId, selectedWeekStart, selectedMonthStart)
-  const [selectedRecord, setSelectedRecord] = useState<SchedulerBossRecord | null>(null)
+  const months = weekMonths(selectedWeekStart, date)
+  const first = useCharacterBoss(characterId, selectedWeekStart, months[0])
+  const second = useCharacterBoss(characterId, selectedWeekStart, months[1] ?? months[0])
+  const queries = months.length > 1 ? [first, second] : [first]
+  const isLoading = queries.some((query) => query.isLoading)
+  const isError = queries.some((query) => query.isError)
+  const [selectedRecord, setSelectedRecord] = useState<BossRecord | null>(null)
+  const [shownWeekStart, setShownWeekStart] = useState(selectedWeekStart)
+  if (shownWeekStart !== selectedWeekStart) {
+    setShownWeekStart(selectedWeekStart)
+    setSelectedRecord(null)
+  }
   const [selecting, setSelecting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<SchedulerBossRecord | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<BossRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
   const assets = characterAssets[useThemeStore().theme]
   const [drafts, setDrafts] = useState<Record<string, BossPeriodDraft>>({})
@@ -69,8 +80,8 @@ export default function BossContent({ characterId, date }: Props) {
   const [saveError, setSaveError] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  const periodStart = (record: SchedulerBossRecord) => record.resetPeriod === 'MONTHLY'
-    ? selectedMonthStart
+  const periodStart = (record: BossRecord) => record.resetPeriod === 'MONTHLY'
+    ? record.monthStart ?? months[0]
     : selectedWeekStart
   const keyFor = (bossId: number, start: string) => `${characterId}:${bossId}:${start}`
   const selectedStart = selectedRecord ? periodStart(selectedRecord) : ''
@@ -83,7 +94,7 @@ export default function BossContent({ characterId, date }: Props) {
       ...previous,
       [key]: { ...period, dirty: false },
     })
-  }, [])
+  }, [setDrafts])
 
   useEffect(() => {
     if (dirtyDrafts.length === 0) return
@@ -120,28 +131,23 @@ export default function BossContent({ characterId, date }: Props) {
     }
   }
 
-  const weeklyRecords = bossRecords?.weeklyBosses ?? []
-  const customizable = {
-    WEEKLY: bossRecords?.weeklyCustomizable === true,
-    MONTHLY: bossRecords?.monthlyCustomizable === true,
-  }
-  const monthlyRecords = bossRecords?.monthlyBosses ?? []
-  const weekOptions = Array.from({ length: 12 }, (_, index) => {
-    const current = new Date(`${thursdayWeekStart(pageDate)}T12:00:00`)
-    current.setDate(current.getDate() - index * 7)
-    const start = localDate(current)
-    const endDate = new Date(current)
-    endDate.setDate(endDate.getDate() + 6)
-    return { start, label: `${start.replace(/-/g, '.')} ~ ${localDate(endDate).replace(/-/g, '.')}` }
+  const weeklyRecords: BossRecord[] = first.data?.weeklyBosses ?? []
+  const weeklyCustomizable = first.data?.weeklyCustomizable === true
+  const monthBlocks: MonthlyBlock[] = months.map((start, index) => {
+    const data = queries[index]?.data
+    return {
+      start,
+      records: (data?.monthlyBosses ?? []).map((record) => ({ ...record, monthStart: start })),
+      customizable: data?.monthlyCustomizable === true,
+    }
   })
-  const monthOptions = Array.from({ length: 3 }, (_, index) => {
-    const current = new Date(`${monthStart(pageDate)}T12:00:00`)
-    current.setMonth(current.getMonth() - index)
-    const start = monthStart(current)
-    return { start, label: `${current.getFullYear()}년 ${current.getMonth() + 1}월` }
-  })
+  const monthlyRecords: BossRecord[] = monthBlocks.flatMap((block) => block.records)
+  const canCustomize = (record: BossRecord) => record.resetPeriod === 'MONTHLY'
+    ? monthBlocks.some((block) => block.start === record.monthStart && block.customizable)
+    : weeklyCustomizable
+  const anyCustomizable = weeklyCustomizable || monthBlocks.some((block) => block.customizable)
 
-  const clearPeriodDraft = (record: SchedulerBossRecord) => {
+  const clearPeriodDraft = (record: BossRecord) => {
     if (!record.bossId) return
     const draftKey = keyFor(record.bossId, periodStart(record))
     setDrafts((previous) => {
@@ -152,7 +158,7 @@ export default function BossContent({ characterId, date }: Props) {
   }
 
   const refreshBossQueries = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart, selectedMonthStart] })
+    await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart] })
     await queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
     await queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('stats/') })
   }
@@ -164,20 +170,19 @@ export default function BossContent({ characterId, date }: Props) {
         await hideBossFromPeriod(characterId, record.bossId, periodStart(record), record.resetPeriod)
         clearPeriodDraft(record)
       }
-      for (const resetPeriod of ['WEEKLY', 'MONTHLY'] as const) {
-        if (add[resetPeriod].length === 0) continue
-        await addBossesToPeriod(characterId, {
-          periodStart: resetPeriod === 'MONTHLY' ? selectedMonthStart : selectedWeekStart,
-          resetPeriod,
-          bossIds: add[resetPeriod],
-        })
+      const additions = [
+        { periodStart: selectedWeekStart, resetPeriod: 'WEEKLY' as const, bossIds: add.WEEKLY },
+        ...Object.entries(add.MONTHLY).map(([start, bossIds]) => ({ periodStart: start, resetPeriod: 'MONTHLY' as const, bossIds })),
+      ]
+      for (const addition of additions) {
+        if (addition.bossIds.length > 0) await addBossesToPeriod(characterId, addition)
       }
     } finally {
       await refreshBossQueries()
     }
   }
 
-  const deleteBoss = async (record: SchedulerBossRecord) => {
+  const deleteBoss = async (record: BossRecord) => {
     if (!record.bossId) return
     setDeleteError(null)
     setDeleting(true)
@@ -200,28 +205,9 @@ export default function BossContent({ characterId, date }: Props) {
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-[18px] font-bold">보스 컨텐츠</h2>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <PeriodMenu
-            label="보스 주차"
-            icon={assets.imgCal}
-            value={selectedWeekStart}
-            options={weekOptions.map((option) => ({ value: option.start, label: option.label }))}
-            onChange={(value) => {
-              setSelectedWeekStart(value)
-              setSelectedRecord(null)
-            }}
-          />
-          <PeriodMenu
-            label="보스 월"
-            value={selectedMonthStart}
-            options={monthOptions.map((option) => ({ value: option.start, label: option.label }))}
-            onChange={(value) => {
-              setSelectedMonthStart(value)
-              setSelectedRecord(null)
-            }}
-          />
           <button type="button" onClick={() => setSelecting(true)}
-            disabled={isLoading || isError || (!customizable.WEEKLY && !customizable.MONTHLY)}
-            title={!customizable.WEEKLY && !customizable.MONTHLY ? '최근 3주·이번 달은 넥슨 스케줄러 기록으로 표시됩니다' : undefined}
+            disabled={isLoading || isError || !anyCustomizable}
+            title={!anyCustomizable ? '최근 3주와 그 주가 포함된 달은 넥슨 스케줄러 기록으로 표시됩니다' : undefined}
             className={`${controlButton} disabled:cursor-not-allowed disabled:opacity-40`}>
             <img src={assets.imgManage} alt="" className="size-4" />
             보스 선택
@@ -253,17 +239,18 @@ export default function BossContent({ characterId, date }: Props) {
         <>
           <BossGroup
             title="주간 보스"
-            limit={BOSS_LIMITS.WEEKLY}
+            counts={[countLabel(clearedCount(weeklyRecords.map((record) => record.isCompleted)), BOSS_LIMITS.WEEKLY)]}
             records={weeklyRecords}
             onClickDetail={setSelectedRecord}
-            onDelete={customizable.WEEKLY ? setPendingDelete : undefined}
+            onDelete={(record) => canCustomize(record) ? () => setPendingDelete(record) : undefined}
           />
           <BossGroup
             title="월간 보스"
-            limit={BOSS_LIMITS.MONTHLY}
+            counts={monthBlocks.map((block) =>
+              countLabel(clearedCount(block.records.map((record) => record.isCompleted)), BOSS_LIMITS.MONTHLY, block.start))}
             records={monthlyRecords}
             onClickDetail={setSelectedRecord}
-            onDelete={customizable.MONTHLY ? setPendingDelete : undefined}
+            onDelete={(record) => canCustomize(record) ? () => setPendingDelete(record) : undefined}
           />
         </>
       )}
@@ -272,8 +259,8 @@ export default function BossContent({ characterId, date }: Props) {
         <BossSelectionModal
           characterId={characterId}
           weeklyRecords={weeklyRecords}
-          monthlyRecords={monthlyRecords}
-          customizable={customizable}
+          weeklyCustomizable={weeklyCustomizable}
+          months={monthBlocks}
           onClose={() => setSelecting(false)}
           onSave={saveSelection}
         />
