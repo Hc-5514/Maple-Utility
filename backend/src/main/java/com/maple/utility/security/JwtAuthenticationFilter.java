@@ -60,6 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 try (var scope = CredentialScope.use(principal.credentialId() == null ? -1L : principal.credentialId())) {
                     filterChain.doFilter(request, response);
+                    if (response.getStatus() >= 400) status.setRollbackOnly();
                 } catch (ServletException | IOException exception) {
                     throw new FilterFailure(exception);
                 }

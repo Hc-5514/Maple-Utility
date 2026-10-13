@@ -97,10 +97,15 @@ public class DataContextService {
 
     @Transactional
     public Connection connect(User identity, String rawKey) {
+        return connectInternal(identity, rawKey, true);
+    }
+
+    private Connection connectInternal(User identity, String rawKey, boolean reconcileLegacy) {
         String key = normalize(rawKey);
         // Always bypass response caches before linking, merging, or changing any credentials.
         NexonAccountCharacters verified = nexon.verifyAccounts(identity.getId(), key);
         lockConnections();
+        if (reconcileLegacy) reconcileOwnLegacyKeys(identity, key);
         String fingerprint = ApiKeyFingerprint.of(key);
         Context own = own(identity);
         List<UserApiKey> matches = new ArrayList<>();
@@ -157,6 +162,29 @@ public class DataContextService {
             if (!duplicate.getId().equals(credential.getId())) duplicate.assignContext(target.id(), null);
         }
         return new Connection(new JwtAuthentication(target.ownerUserId(), identity.getId(), target.id(), credential.getId()), credential, verified);
+    }
+
+    private void reconcileOwnLegacyKeys(User identity, String incomingKey) {
+        Context context = own(identity);
+        Long known = jdbc.queryForObject("SELECT COUNT(*) FROM data_context_accounts WHERE context_id=?", Long.class, context.id());
+        if (known != null && known > 0) return;
+        for (UserApiKey legacy : keys.findByContextIdOrderByIdAsc(context.id())) {
+            String legacyKey = crypto.decrypt(legacy.getEncryptedKey());
+            if (legacyKey.equals(incomingKey)) continue;
+            try {
+                connectInternal(identity, legacyKey, false);
+            } catch (ApiException exception) {
+                // No unverified credential can authorize a merge. Keep its historical dataset intact.
+                if (exception.getStatus() == HttpStatus.CONFLICT) throw exception;
+            }
+        }
+    }
+
+    /** Operator maintenance reconciliation of one existing credential with live account verification. */
+    @Transactional
+    public void reconcileCredential(Long credentialId) {
+        UserApiKey credential = keys.findById(credentialId).orElse(null);
+        if (credential != null) connectInternal(user(credential.getUser().getId()), crypto.decrypt(credential.getEncryptedKey()), false);
     }
 
     private void mergeContext(Context target, Context source) {
