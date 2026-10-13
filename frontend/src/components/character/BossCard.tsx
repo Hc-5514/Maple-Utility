@@ -30,28 +30,30 @@ export default function BossCard({ record, onClickDetail, onDelete, badge }: Pro
             : 'border border-[var(--dash-subtle-border)] bg-[var(--dash-subtle)]'
         }`}
       >
-        <div className="flex items-center gap-[14px] pr-[44px]">
+        <div className="flex items-center gap-[14px]">
           <CatalogImage src={record.bossImage} alt={record.bossName ?? '보스'} kind="boss" />
           <div className="flex min-w-0 flex-col items-start gap-[6px]">
             <p className="truncate text-[15px] font-bold">{record.bossName}</p>
             {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
           </div>
-          {badge && <span className={`${countPill} ml-auto self-start`}>{badge}</span>}
+          <div className="ml-auto flex shrink-0 items-center gap-[6px] self-start">
+            {badge && <span className={countPill}>{badge}</span>}
+            {record.isCompleted ? (
+              <span className="flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--dash-success)_14%,transparent)] px-[10px] py-1 text-[12px] font-bold text-[var(--dash-success)]">
+                <img src={assets.imgCheck} alt="" className="size-3" />
+                처치
+              </span>
+            ) : (
+              <span className="rounded-full bg-[color-mix(in_srgb,var(--dash-muted)_12%,transparent)] px-[10px] py-1 text-[12px] font-bold text-[var(--dash-muted)]">
+                미처치
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className={`flex min-h-[30px] items-center ${onDelete ? 'pr-[44px]' : ''}`}>
           <span className="text-[13px] text-[var(--dash-muted)]">
             {price > 0 ? `${price.toLocaleString()} 메소` : '가격 미확인'}
           </span>
-          {record.isCompleted ? (
-            <span className="ml-auto flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--dash-success)_14%,transparent)] px-[10px] py-1 text-[12px] font-bold text-[var(--dash-success)]">
-              <img src={assets.imgCheck} alt="" className="size-3" />
-              처치
-            </span>
-          ) : (
-            <span className="ml-auto rounded-full bg-[color-mix(in_srgb,var(--dash-muted)_12%,transparent)] px-[10px] py-1 text-[12px] font-bold text-[var(--dash-muted)]">
-              미처치
-            </span>
-          )}
         </div>
       </div>
       {onDelete && (
@@ -60,7 +62,7 @@ export default function BossCard({ record, onClickDetail, onDelete, badge }: Pro
           onClick={onDelete}
           aria-label={`${record.bossName} 삭제`}
           title={`${record.bossName} 삭제`}
-          className="absolute top-[27px] right-5 flex size-[30px] items-center justify-center rounded-lg hover:bg-[color-mix(in_srgb,var(--dash-danger)_14%,transparent)]"
+          className="absolute right-5 bottom-[18px] flex size-[30px] items-center justify-center rounded-lg hover:bg-[color-mix(in_srgb,var(--dash-danger)_14%,transparent)]"
         >
           <img src={assets.imgTrash} alt="" className="size-4" />
         </button>
