@@ -337,12 +337,12 @@ public class SchedulerService {
 		}
 	}
 
-	/** Recent weeks and the current month mirror the Nexon scheduler and are not customizable. */
+	/** Recent weeks and every month overlapping them mirror the Nexon scheduler and are not customizable. */
 	private boolean isCustomizable(LocalDate periodStart, ResetPeriod resetPeriod) {
-		LocalDate today = LocalDate.now(clock);
+		LocalDate lockedFrom = weekStartDate(LocalDate.now(clock)).minusWeeks(LOCKED_RECENT_WEEKS);
 		return resetPeriod == ResetPeriod.WEEKLY
-				? periodStart.isBefore(weekStartDate(today).minusWeeks(LOCKED_RECENT_WEEKS))
-				: periodStart.isBefore(today.withDayOfMonth(1));
+				? periodStart.isBefore(lockedFrom)
+				: periodStart.plusMonths(1).minusDays(1).isBefore(lockedFrom);
 	}
 
 	private void assertCustomizable(LocalDate periodStart, ResetPeriod resetPeriod) {
