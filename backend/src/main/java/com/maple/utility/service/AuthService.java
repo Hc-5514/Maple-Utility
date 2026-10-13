@@ -1,10 +1,5 @@
 package com.maple.utility.service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.time.Clock;
-import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -18,15 +13,11 @@ import com.maple.utility.dto.response.AuthUserResponse;
 import com.maple.utility.dto.response.MeResponse;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
-import com.maple.utility.entity.UserApiKey;
 import com.maple.utility.exception.ApiException;
-import com.maple.utility.repository.UserApiKeyRepository;
 import com.maple.utility.repository.UserRepository;
-import com.maple.utility.security.ApiKeyCryptoService;
 import com.maple.utility.security.JwtToken;
 import com.maple.utility.security.JwtTokenProvider;
 import com.maple.utility.security.NexonCharacterSummary;
-import com.maple.utility.security.NexonOpenApiClient;
 import com.maple.utility.security.OAuthClient;
 import com.maple.utility.security.OAuthUserInfo;
 import com.maple.utility.security.RefreshTokenRedisService;
@@ -36,33 +27,22 @@ public class AuthService {
 
 	private final Map<OAuthProvider, OAuthClient> oauthClients;
 	private final UserRepository userRepository;
-	private final UserApiKeyRepository userApiKeyRepository;
-	private final JwtTokenProvider jwtTokenProvider;
-	private final RefreshTokenRedisService refreshTokenRedisService;
-	private final NexonOpenApiClient nexonOpenApiClient;
-	private final ApiKeyCryptoService apiKeyCryptoService;
-	private final Clock clock;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenRedisService refreshTokenRedisService;
+    private final DataContextService contexts;
+    private final CharacterSyncService characterSync;
 
-	public AuthService(
-			List<OAuthClient> oauthClients,
-			UserRepository userRepository,
-			JwtTokenProvider jwtTokenProvider,
-			RefreshTokenRedisService refreshTokenRedisService,
-			UserApiKeyRepository userApiKeyRepository,
-			NexonOpenApiClient nexonOpenApiClient,
-			ApiKeyCryptoService apiKeyCryptoService,
-			Clock clock
-	) {
-		this.oauthClients = new EnumMap<>(OAuthProvider.class);
-		oauthClients.forEach(oauthClient -> this.oauthClients.put(oauthClient.provider(), oauthClient));
-		this.userRepository = userRepository;
-		this.jwtTokenProvider = jwtTokenProvider;
-		this.refreshTokenRedisService = refreshTokenRedisService;
-		this.userApiKeyRepository = userApiKeyRepository;
-		this.nexonOpenApiClient = nexonOpenApiClient;
-		this.apiKeyCryptoService = apiKeyCryptoService;
-		this.clock = clock;
-	}
+    public AuthService(List<OAuthClient> oauthClients, UserRepository userRepository,
+            JwtTokenProvider jwtTokenProvider, RefreshTokenRedisService refreshTokenRedisService,
+            DataContextService contexts, CharacterSyncService characterSync) {
+        this.oauthClients = new EnumMap<>(OAuthProvider.class);
+        oauthClients.forEach(client -> this.oauthClients.put(client.provider(), client));
+        this.userRepository = userRepository;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenRedisService = refreshTokenRedisService;
+        this.contexts = contexts;
+        this.characterSync = characterSync;
+    }
 
 	@Transactional
 	public LoginResult login(OAuthProvider provider, String code) {
@@ -76,7 +56,8 @@ public class AuthService {
 			throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_OAUTH_USER", "OAuth 사용자 정보 조회 실패");
 		}
 
-		User user = userRepository.findByOauthProviderAndOauthId(provider, userInfo.oauthId())
+		contexts.lockConnections();
+        User user = userRepository.findByOauthProviderAndOauthId(provider, userInfo.oauthId())
 				.map(existingUser -> {
 					existingUser.updateProfile(userInfo.email(), userInfo.nickname());
 					return existingUser;
@@ -92,44 +73,29 @@ public class AuthService {
 			));
 		}
 
-		return createLoginResult(user, isNewUser);
+		return createLoginResult(user, isNewUser, contexts.defaultPrincipal(user));
 	}
 
-	@Transactional
-	public LoginResult loginWithNexonApiKey(String apiKey) {
-		String oauthId = sha256Hex(apiKey);
-		User user = userRepository.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY, oauthId)
-				.orElse(null);
-		boolean isNewUser = user == null;
-		if (isNewUser) {
-			user = userRepository.save(User.create(
-					OAuthProvider.NEXON_APIKEY,
-					oauthId,
-					null,
-					null
-			));
-		}
-
-		List<NexonCharacterSummary> characters = nexonOpenApiClient.getCharacters(user.getId(), apiKey);
-		String nickname = firstCharacterName(characters);
-		if (nickname != null) {
-			user.updateProfile(null, nickname);
-		}
-
-		String encryptedKey = apiKeyCryptoService.encrypt(apiKey);
-		LocalDateTime verifiedAt = LocalDateTime.now(clock);
-		UserApiKey userApiKey = userApiKeyRepository.findByUserId(user.getId()).orElse(null);
-		if (userApiKey == null) {
-			userApiKeyRepository.save(UserApiKey.create(user, encryptedKey, verifiedAt));
-		} else {
-			userApiKey.replaceKey(encryptedKey, verifiedAt);
-		}
-
-		return createLoginResult(user, isNewUser);
-	}
+    @Transactional
+    public LoginResult loginWithNexonApiKey(String apiKey) {
+        String key = DataContextService.normalize(apiKey);
+        String fingerprint = com.maple.utility.security.ApiKeyFingerprint.of(key);
+        contexts.lockConnections();
+        User identity = userRepository.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY, fingerprint).orElse(null);
+        boolean isNewUser = identity == null;
+        if (identity == null) identity = userRepository.save(User.create(OAuthProvider.NEXON_APIKEY, fingerprint, null, null));
+        var connection = contexts.connect(identity, key);
+        String nickname = connection.verified().characters().stream().map(NexonCharacterSummary::characterName).findFirst().orElse(null);
+        if (nickname != null) { identity.updateProfile(null, nickname); identity = userRepository.save(identity); }
+        characterSync.syncSummaries(contexts.user(connection.principal().userId()), connection.verified().characters());
+        return createLoginResult(identity, isNewUser, connection.principal());
+    }
 
 	@Transactional(readOnly = true)
-	public AuthResponse refresh(String refreshTokenValue) {
+	public AuthResponse refresh(String refreshTokenValue) { return refreshSession(refreshTokenValue).response(); }
+
+    @Transactional
+    public RefreshResult refreshSession(String refreshTokenValue) {
 		JwtTokenProvider.RefreshTokenClaims claims = jwtTokenProvider.parseRefreshToken(refreshTokenValue);
 		String storedRefreshToken = refreshTokenRedisService.find(claims.userId(), claims.tokenId())
 				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "REFRESH_TOKEN_NOT_FOUND", "Refresh Token 없음"));
@@ -138,13 +104,17 @@ public class AuthService {
 		}
 
 		User user = findUser(claims.userId());
-		JwtToken accessToken = jwtTokenProvider.createAccessToken(user.getId());
+		var principal = contexts.resolve(claims.principal());
+        JwtToken accessToken = jwtTokenProvider.createAccessToken(principal);
 
-		return AuthResponse.bearer(
-				accessToken.value(),
-				accessToken.ttl().toSeconds(),
-				AuthUserResponse.from(user, false)
-		);
+        AuthResponse response = AuthResponse.bearer(accessToken.value(), accessToken.ttl().toSeconds(), AuthUserResponse.from(user, false));
+        JwtToken upgraded = null;
+        if (claims.principal().contextId() == null) {
+            upgraded = jwtTokenProvider.createRefreshToken(principal);
+            refreshTokenRedisService.save(user.getId(), upgraded.tokenId(), upgraded.value(), upgraded.ttl());
+            refreshTokenRedisService.delete(claims.userId(), claims.tokenId());
+        }
+        return new RefreshResult(response, upgraded);
 	}
 
 	public void logout(String refreshTokenValue) {
@@ -162,44 +132,35 @@ public class AuthService {
 				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "사용자 없음"));
 	}
 
-	private LoginResult createLoginResult(User user, boolean isNewUser) {
-		JwtToken accessToken = jwtTokenProvider.createAccessToken(user.getId());
-		JwtToken refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
-		refreshTokenRedisService.save(user.getId(), refreshToken.tokenId(), refreshToken.value(), refreshToken.ttl());
+    public LoginResult createLoginResult(User identity, boolean isNewUser, com.maple.utility.security.JwtAuthentication principal) {
+        JwtToken accessToken = jwtTokenProvider.createAccessToken(principal);
+        JwtToken refreshToken = jwtTokenProvider.createRefreshToken(principal);
+        refreshTokenRedisService.save(identity.getId(), refreshToken.tokenId(), refreshToken.value(), refreshToken.ttl());
+        return new LoginResult(AuthResponse.bearer(accessToken.value(), accessToken.ttl().toSeconds(),
+                AuthUserResponse.from(identity, isNewUser)), refreshToken);
+    }
 
-		AuthResponse response = AuthResponse.bearer(
-				accessToken.value(),
-				accessToken.ttl().toSeconds(),
-				AuthUserResponse.from(user, isNewUser)
-		);
-		return new LoginResult(response, refreshToken);
-	}
+    @Transactional
+    public LoginResult selectContext(Long identityId, Long credentialId, String previousRefreshToken) {
+        var principal = contexts.select(identityId, credentialId);
+        return switchSession(principal, previousRefreshToken);
+    }
 
-	private String firstCharacterName(List<NexonCharacterSummary> characters) {
-		return characters.stream()
-				.map(NexonCharacterSummary::characterName)
-				.filter(characterName -> characterName != null && !characterName.isBlank())
-				.findFirst()
-				.orElse(null);
-	}
+    public LoginResult switchSession(com.maple.utility.security.JwtAuthentication principal, String previousRefreshToken) {
+        JwtTokenProvider.RefreshTokenClaims previous = null;
+        if (previousRefreshToken != null) {
+            try { previous = jwtTokenProvider.parseRefreshToken(previousRefreshToken); }
+            catch (ApiException staleCookie) { /* A valid access-token session can replace an expired cookie. */ }
+            if (previous != null && !previous.userId().equals(principal.identityUserId())) {
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "REFRESH_TOKEN_MISMATCH", "Refresh Token 사용자 불일치");
+            }
+        }
+        LoginResult result = createLoginResult(findUser(principal.identityUserId()), false, principal);
+        if (previous != null) refreshTokenRedisService.delete(previous.userId(), previous.tokenId());
+        return result;
+    }
 
-	private String sha256Hex(String value) {
-		try {
-			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			byte[] hash = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-			StringBuilder builder = new StringBuilder(hash.length * 2);
-			for (byte b : hash) {
-				builder.append(String.format("%02x", b));
-			}
-			return builder.toString();
-		} catch (NoSuchAlgorithmException exception) {
-			throw new IllegalStateException("SHA-256 algorithm not available", exception);
-		}
-	}
+    public record RefreshResult(AuthResponse response, JwtToken upgradedRefreshToken) { }
 
-	public record LoginResult(
-			AuthResponse response,
-			JwtToken refreshToken
-	) {
-	}
+    public record LoginResult(AuthResponse response, JwtToken refreshToken) { }
 }

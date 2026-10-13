@@ -43,11 +43,12 @@ public class SyncJobService {
 	private final JdbcTemplate jdbcTemplate;
 	private final Executor executor;
 	private final Clock clock;
+    private final com.maple.utility.repository.UserApiKeyRepository keys;
 
 	public SyncJobService(SyncJobRepository jobs, UserRepository users, CharacterRepository characters,
 			CharacterSyncService characterSync, SchedulerSyncService schedulerSync,
 			SchedulerWeekFinalizationService weekFinalization, NexonOpenApiClient nexon,
-			CacheManager cacheManager, JdbcTemplate jdbcTemplate, @Qualifier("syncExecutor") Executor executor, Clock clock) {
+			CacheManager cacheManager, JdbcTemplate jdbcTemplate, @Qualifier("syncExecutor") Executor executor, Clock clock, com.maple.utility.repository.UserApiKeyRepository keys) {
 		this.jobs = jobs;
 		this.users = users;
 		this.characters = characters;
@@ -59,6 +60,7 @@ public class SyncJobService {
 		this.jdbcTemplate = jdbcTemplate;
 		this.executor = executor;
 		this.clock = clock;
+        this.keys = keys;
 	}
 
 	@EventListener(ApplicationReadyEvent.class)
@@ -67,9 +69,10 @@ public class SyncJobService {
 	}
 
 	public SyncJobResponse startCharacters(Long userId) {
-		var result = jobs.start(userId, "CHARACTER");
+		Long credentialId = selectedCredential(userId);
+        var result = jobs.start(userId, "CHARACTER");
 		if (result.created()) {
-			submit(result.job().id(), () -> runCharacters(userId, result.job().id()));
+			submitPinned(result.job().id(), credentialId, () -> runCharacters(userId, result.job().id()));
 		}
 		return result.job();
 	}
@@ -87,9 +90,10 @@ public class SyncJobService {
 				return recent.get();
 			}
 		}
-		var result = jobs.start(userId, "SCHEDULER");
+		Long credentialId = selectedCredential(userId);
+        var result = jobs.start(userId, "SCHEDULER");
 		if (result.created()) {
-			submit(result.job().id(), () -> runScheduler(userId, result.job().id(), batch, force));
+			submitPinned(result.job().id(), credentialId, () -> runScheduler(userId, result.job().id(), batch, force));
 		}
 		return result.job();
 	}
@@ -99,7 +103,25 @@ public class SyncJobService {
 				.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "SYNC_JOB_NOT_FOUND", "동기화 작업 없음"));
 	}
 
-	private void submit(Long id, Runnable task) {
+    private Long selectedCredential(Long ownerId) {
+        Long selected = com.maple.utility.security.CredentialScope.current();
+        if (selected != null) return selected;
+        return keys.findActiveByDataOwnerId(ownerId).map(com.maple.utility.entity.UserApiKey::getId).orElse(-1L);
+    }
+
+    private void submitPinned(Long id, Long credentialId, Runnable task) {
+        Runnable pinned = () -> {
+            try (var scope = com.maple.utility.security.CredentialScope.use(credentialId)) { task.run(); }
+        };
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override public void afterCommit() { submit(id, pinned); }
+                });
+        } else submit(id, pinned);
+    }
+
+    private void submit(Long id, Runnable task) {
 		try {
 			executor.execute(task);
 		} catch (RejectedExecutionException exception) {

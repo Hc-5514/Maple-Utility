@@ -11,7 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -27,9 +27,15 @@ public class UserApiKey extends BaseTimeEntity {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@OneToOne(fetch = FetchType.LAZY)
+	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "user_id", nullable = false)
 	private User user;
+
+	@Column(name = "context_id", nullable = false)
+	private Long contextId;
+
+	@Column(name = "key_fingerprint", length = 64)
+	private String keyFingerprint;
 
 	@Column(name = "encrypted_key", nullable = false)
 	private String encryptedKey;
@@ -54,6 +60,11 @@ public class UserApiKey extends BaseTimeEntity {
 		this.encryptedKey = encryptedKey;
 		this.keyStatus = ApiKeyStatus.ACTIVE;
 		this.lastVerifiedAt = verifiedAt;
+	}
+
+	public void assignContext(Long contextId, String fingerprint) {
+		this.contextId = contextId;
+		this.keyFingerprint = fingerprint;
 	}
 
 	public void invalidate() {

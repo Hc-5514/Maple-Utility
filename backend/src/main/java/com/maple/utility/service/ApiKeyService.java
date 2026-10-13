@@ -1,111 +1,59 @@
 package com.maple.utility.service;
 
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.dto.response.ApiKeyStatusResponse;
-import com.maple.utility.entity.User;
+import com.maple.utility.dto.response.ApiKeyRegistrationResponse;
 import com.maple.utility.entity.UserApiKey;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.UserApiKeyRepository;
-import com.maple.utility.repository.UserRepository;
 import com.maple.utility.security.ApiKeyCryptoService;
-import com.maple.utility.security.NexonCharacterSummary;
-import com.maple.utility.security.NexonOpenApiClient;
+import com.maple.utility.security.JwtAuthentication;
+import com.maple.utility.security.JwtToken;
 
 @Service
 public class ApiKeyService {
-
-	private final UserRepository userRepository;
-	private final UserApiKeyRepository userApiKeyRepository;
-	private final NexonOpenApiClient nexonOpenApiClient;
-	private final ApiKeyCryptoService apiKeyCryptoService;
-	private final CharacterSyncService characterSyncService;
-	private final Clock clock;
-
-	public ApiKeyService(
-			UserRepository userRepository,
-			UserApiKeyRepository userApiKeyRepository,
-			NexonOpenApiClient nexonOpenApiClient,
-			ApiKeyCryptoService apiKeyCryptoService,
-			CharacterSyncService characterSyncService,
-			Clock clock
-	) {
-		this.userRepository = userRepository;
-		this.userApiKeyRepository = userApiKeyRepository;
-		this.nexonOpenApiClient = nexonOpenApiClient;
-		this.apiKeyCryptoService = apiKeyCryptoService;
-		this.characterSyncService = characterSyncService;
-		this.clock = clock;
-	}
-
-	@Transactional
-	public ApiKeyStatusResponse register(Long userId, String apiKey) {
-		String normalizedApiKey = normalizeApiKey(apiKey);
-		User user = findUser(userId);
-		List<NexonCharacterSummary> characters;
-		try {
-			characters = nexonOpenApiClient.getCharacters(userId, normalizedApiKey);
-		} catch (ApiException exception) {
-			if ("API_KEY_INVALID".equals(exception.getCode())) {
-				markInvalid(userId);
-			}
-			throw exception;
-		}
-		String encryptedKey = apiKeyCryptoService.encrypt(normalizedApiKey);
-		LocalDateTime verifiedAt = LocalDateTime.now(clock);
-
-		UserApiKey userApiKey = userApiKeyRepository.findByUserId(userId)
-				.orElse(null);
-		if (userApiKey == null) {
-			userApiKey = userApiKeyRepository.save(UserApiKey.create(user, encryptedKey, verifiedAt));
-		} else {
-			userApiKey.replaceKey(encryptedKey, verifiedAt);
-		}
-		characterSyncService.syncSummaries(user, characters);
-
-		return registeredStatus(userApiKey);
-	}
-
-	@Transactional(readOnly = true)
-	public ApiKeyStatusResponse status(Long userId) {
-		return userApiKeyRepository.findByUserId(userId)
-				.map(this::registeredStatus)
-				.orElseGet(ApiKeyStatusResponse::unregistered);
-	}
-
-	@Transactional
-	public void delete(Long userId) {
-		userApiKeyRepository.deleteByUserId(userId);
-	}
-
-	private ApiKeyStatusResponse registeredStatus(UserApiKey userApiKey) {
-		String apiKey = apiKeyCryptoService.decrypt(userApiKey.getEncryptedKey());
-		// Never return a complete key, including unexpectedly short legacy values.
-		String keySuffix = apiKey.length() > 4 ? apiKey.substring(apiKey.length() - 4) : null;
-		return ApiKeyStatusResponse.registered(userApiKey, keySuffix);
-	}
-
-	private void markInvalid(Long userId) {
-		userApiKeyRepository.findByUserId(userId)
-				.ifPresent(UserApiKey::invalidate);
-	}
-
-	private User findUser(Long userId) {
-		return userRepository.findById(userId)
-				.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "사용자 없음"));
-	}
-
-	private String normalizeApiKey(String apiKey) {
-		String normalizedApiKey = apiKey == null ? "" : apiKey.strip();
-		if (normalizedApiKey.isBlank()) {
-			throw new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_REQUIRED", "Nexon API Key 입력 필요");
-		}
-		return normalizedApiKey;
-	}
+    private final UserApiKeyRepository keys;
+    private final ApiKeyCryptoService crypto;
+    private final DataContextService contexts;
+    private final CharacterSyncService characters;
+    private final AuthService auth;
+    public ApiKeyService(UserApiKeyRepository keys, ApiKeyCryptoService crypto, DataContextService contexts,
+            CharacterSyncService characters, AuthService auth) {
+        this.keys = keys; this.crypto = crypto; this.contexts = contexts; this.characters = characters; this.auth = auth;
+    }
+    @Transactional
+    public RegistrationResult register(JwtAuthentication principal, String apiKey, String refreshToken) {
+        var connection = contexts.connect(contexts.user(principal.identityUserId()), apiKey);
+        characters.syncSummaries(contexts.user(connection.principal().userId()), connection.verified().characters());
+        var login = auth.switchSession(connection.principal(), refreshToken);
+        var status = registeredStatus(connection.credential());
+        return new RegistrationResult(new ApiKeyRegistrationResponse(status.registered(), status.keyStatus(),
+                status.lastVerifiedAt(), status.keySuffix(), login.response()), login.refreshToken());
+    }
+    @Transactional(readOnly = true)
+    public ApiKeyStatusResponse status(JwtAuthentication principal) {
+        return selected(principal).map(this::registeredStatus).orElseGet(ApiKeyStatusResponse::unregistered);
+    }
+    @Transactional
+    public void delete(JwtAuthentication principal) {
+        contexts.lockConnections();
+        selected(principal).ifPresent(keys::delete);
+    }
+    private java.util.Optional<UserApiKey> selected(JwtAuthentication principal) {
+        if (principal.credentialId() == null) return java.util.Optional.empty();
+        var credential = keys.findById(principal.credentialId());
+        credential.ifPresent(key -> {
+            if (!contexts.canonical(key.getContextId()).id().equals(principal.contextId())) {
+                throw new ApiException(HttpStatus.FORBIDDEN, "DATA_CONTEXT_ACCESS_DENIED", "데이터셋 접근 권한 없음");
+            }
+        });
+        return credential;
+    }
+    private ApiKeyStatusResponse registeredStatus(UserApiKey key) {
+        return ApiKeyStatusResponse.registered(key, DataContextService.suffix(crypto.decrypt(key.getEncryptedKey())));
+    }
+    public record RegistrationResult(ApiKeyRegistrationResponse response, JwtToken refreshToken) { }
 }

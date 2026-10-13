@@ -71,7 +71,7 @@ public class SchedulerWeekFinalizationService {
 		LocalDate today = LocalDate.now(clock);
 		records.expire(today, LocalDateTime.now(clock));
 		boolean changed = false;
-		for (var user : users.findAll()) {
+		for (var user : users.findDataOwnersWithActiveKey()) {
 			try {
 				if (seedNewWeeks) {
 					seedRecentWeeks(user.getId(), today);
