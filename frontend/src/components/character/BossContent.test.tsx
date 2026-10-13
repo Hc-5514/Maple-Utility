@@ -31,23 +31,55 @@ afterEach(() => {
 })
 
 describe('BossContent', () => {
-  it('keeps weekly and monthly period selections independent', async () => {
-    const get = vi.spyOn(client, 'get').mockResolvedValue({
-      data: { success: true, data: { weeklyBosses: [], monthlyBosses: [] } },
+  it('shows monthly bosses for every month the selected week spans', async () => {
+    const get = vi.spyOn(client, 'get').mockImplementation(async (url) => {
+      if (url.includes('/candidates')) {
+        return { data: { success: true, data: url.includes('MONTHLY') ? [
+          { id: 30, bossName: '검은 마법사', difficulty: 'EXTREME', bossImage: null, crystalPrice: 1, resetPeriod: 'MONTHLY' },
+        ] : [] } } as AxiosResponse
+      }
+      const july = url.includes('monthlyDate=2026-07-01')
+      return { data: { success: true, data: {
+        weeklyBosses: [],
+        monthlyBosses: july ? [{
+          characterId: 1, bossId: 30, bossName: '검은 마법사', difficulty: 'EXTREME',
+          resetPeriod: 'MONTHLY', isCompleted: true, syncedAt: null,
+        }] : [],
+        weeklyCustomizable: true, monthlyCustomizable: true,
+      } } } as AxiosResponse
+    })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-13" weekStart="2026-07-30" /></QueryClientProvider>)
+
+    await waitFor(() => {
+      expect(get).toHaveBeenCalledWith('/scheduler/1/boss?weeklyDate=2026-07-30&monthlyDate=2026-07-01')
+      expect(get).toHaveBeenCalledWith('/scheduler/1/boss?weeklyDate=2026-07-30&monthlyDate=2026-08-01')
+    })
+    expect(await screen.findByText('7월 1 / 1')).toBeTruthy()
+    expect(screen.getByText('8월 0 / 1')).toBeTruthy()
+    expect(screen.getByText('7월')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^보스 월/ })).toBeNull()
+
+    await openSelection()
+    const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('tab', { name: '7월' }).getAttribute('aria-selected')).toBe('true')
+    expect((await within(dialog).findByRole('checkbox', { name: '검은 마법사 EXTREME' }) as HTMLInputElement).checked).toBe(true)
+    fireEvent.click(within(dialog).getByRole('tab', { name: '8월' }))
+    expect(within(dialog).getByText('8월 0 / 1')).toBeTruthy()
+    expect((within(dialog).getByRole('checkbox', { name: '검은 마법사 EXTREME' }) as HTMLInputElement).checked).toBe(false)
+  })
+
+  it('labels a single-month week with its month', async () => {
+    vi.spyOn(client, 'get').mockResolvedValue({
+      data: { success: true, data: { weeklyBosses: [], monthlyBosses: [], weeklyCustomizable: true, monthlyCustomizable: true } },
     } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-13" weekStart="2026-07-23" /></QueryClientProvider>)
 
-    await waitFor(() => expect(get).toHaveBeenCalledWith(
-      '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-10-01',
-    ))
-    fireEvent.click(screen.getByRole('button', { name: /^보스 월/ }))
-    fireEvent.click(screen.getByRole('option', { name: '2026년 9월' }))
-
-    await waitFor(() => expect(get).toHaveBeenLastCalledWith(
-      '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-09-01',
-    ))
+    expect(await screen.findByText('7월 0 / 1')).toBeTruthy()
+    expect(screen.getByText('0 / 12')).toBeTruthy()
   })
 
   it('follows the week chosen in the page header', async () => {
@@ -191,8 +223,8 @@ describe('BossContent', () => {
 
     render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
-    expect(await screen.findByText('12/12')).toBeTruthy()
-    expect(screen.getByText('0/1')).toBeTruthy()
+    expect(await screen.findByText('12 / 12')).toBeTruthy()
+    expect(screen.getByText('10월 0 / 1')).toBeTruthy()
     expect(screen.getAllByText(/^보스\d+$/)).toHaveLength(15)
   })
 

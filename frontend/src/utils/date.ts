@@ -38,3 +38,16 @@ export function recentWeeks(today = new Date(seoulDate() + 'T00:00:00')) {
     }
   })
 }
+
+// 선택 주(목~수)가 걸친 월의 시작일 목록. 이번 달 이후의 월은 제외
+export function weekMonths(weekStart: string, today = seoulDate()): string[] {
+  const start = new Date(`${weekStart}T12:00:00`)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  const current = `${today.slice(0, 7)}-01`
+  return [...new Set([monthStart(start), monthStart(end)])].filter((month) => month <= current)
+}
+
+export function monthLabel(month: string): string {
+  return `${Number(month.slice(5, 7))}월`
+}

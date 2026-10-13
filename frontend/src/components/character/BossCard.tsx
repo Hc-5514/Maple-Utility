@@ -2,15 +2,18 @@ import DifficultyBadge from '../common/DifficultyBadge'
 import CatalogImage from '../common/CatalogImage'
 import { useThemeStore } from '../../stores/themeStore'
 import { characterAssets } from './assets'
+import { countPill } from './styles'
 import type { SchedulerBossRecord } from '../../types'
 
 interface Props {
   record: SchedulerBossRecord
   onClickDetail: () => void
   onDelete?: () => void
+  /** 월간 보스의 대상 월 표기 (예: 10월) */
+  badge?: string
 }
 
-export default function BossCard({ record, onClickDetail, onDelete }: Props) {
+export default function BossCard({ record, onClickDetail, onDelete, badge }: Props) {
   const assets = characterAssets[useThemeStore().theme]
   const price = record.crystalPrice ?? 0
   return (
@@ -33,6 +36,7 @@ export default function BossCard({ record, onClickDetail, onDelete }: Props) {
             <p className="truncate text-[15px] font-bold">{record.bossName}</p>
             {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
           </div>
+          {badge && <span className={`${countPill} ml-auto self-start`}>{badge}</span>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[13px] text-[var(--dash-muted)]">
