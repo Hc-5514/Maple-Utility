@@ -7,8 +7,8 @@ import {
   Route,
   RouterProvider,
 } from 'react-router-dom'
-import client from './api/client'
-import type { ApiResponse, ApiKeyStatusResponse, User } from './types'
+import { clearAuthSession, loadSessionIdentity } from './api/authSession'
+import { getSessionGeneration, isCurrentSession } from './api/session'
 import { useAuthStore } from './stores/authStore'
 import PrivateRoute from './router/PrivateRoute'
 import Layout from './components/layout/Layout'
@@ -33,35 +33,33 @@ const queryClient = new QueryClient({
 })
 
 function AppRoutes() {
-  const { setUser, setHasApiKey, setInitializing } = useAuthStore()
+  const { setInitializing } = useAuthStore()
 
   useEffect(() => {
     const init = async () => {
+      const generation = getSessionGeneration()
       const token = localStorage.getItem('accessToken')
       if (!token) {
         setInitializing(false)
         return
       }
       try {
-        const { data: userRes } = await client.get<ApiResponse<User>>('/auth/me')
-        setUser(userRes.data)
-        try {
-          const { data: keyRes } =
-            await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
-          if (keyRes.data.registered && keyRes.data.keyStatus === 'ACTIVE') setHasApiKey(true)
-        } catch {
-          // API key 미등록 — 정상 케이스
-        }
+        await loadSessionIdentity(queryClient)
       } catch {
-        localStorage.removeItem('accessToken')
+        if (isCurrentSession(generation)) await clearAuthSession(queryClient)
       } finally {
-        setInitializing(false)
+        if (isCurrentSession(generation)) setInitializing(false)
       }
     }
     void init()
-  }, [setUser, setHasApiKey, setInitializing])
+  }, [setInitializing])
 
   return <Outlet />
+}
+
+function SessionLayout() {
+  const sessionRevision = useAuthStore((state) => state.sessionRevision)
+  return <Layout key={sessionRevision} />
 }
 
 const routes = (
@@ -72,7 +70,7 @@ const routes = (
 
     {/* 로그인 필요 */}
     <Route element={<PrivateRoute />}>
-      <Route element={<Layout />}>
+      <Route element={<SessionLayout />}>
         <Route path="/hunting" element={<HuntingPage />} />
         <Route path="/hunting/new" element={<HuntingNewPage />} />
         <Route path="/hunting/:id/edit" element={<HuntingEditPage />} />
@@ -83,7 +81,7 @@ const routes = (
 
     {/* 로그인 + API키 필요 */}
     <Route element={<PrivateRoute requireApiKey />}>
-      <Route element={<Layout />}>
+      <Route element={<SessionLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/dashboard/:characterId" element={<CharacterDetailPage />} />
       </Route>

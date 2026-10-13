@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
+import { apiKeyErrorMessage, installAuthSession } from '../api/authSession'
 import { isAxiosError } from 'axios'
 import { useAuthStore } from '../stores/authStore'
 import { useCharacterStore } from '../stores/characterStore'
@@ -12,7 +13,7 @@ import CharacterPortrait from '../components/common/CharacterPortrait'
 import WorldSelectionModal from '../components/dashboard/WorldSelectionModal'
 import { settingsAssets } from '../components/settings/assets'
 import { MAX_CHARACTER_FAVORITES } from '../constants/character'
-import type { ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
+import type { ApiKeyRegistrationResponse, ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
 
 export function formatVerifiedAt(value: string | null) {
   if (!value) return '미인증'
@@ -47,15 +48,13 @@ function ApiKeySection() {
   })
   const register = useMutation({
     mutationFn: async (apiKey: string) => {
-      await client.post('/api-key', { apiKey })
+      const { data } = await client.post<ApiResponse<ApiKeyRegistrationResponse>>('/api-key', { apiKey })
+      return data.data
     },
-    onSuccess: () => {
-      setHasApiKey(true)
+    onSuccess: async (registration) => {
       setInputKey('')
-      void queryClient.invalidateQueries({ queryKey: ['api-key/status'] })
-      void queryClient.invalidateQueries({ queryKey: ['characters'] })
-      void queryClient.invalidateQueries({ queryKey: ['characters/favorites'] })
-      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
+      await installAuthSession(queryClient, registration?.auth, undefined, true)
+      await queryClient.refetchQueries({ type: 'active' })
     },
   })
   const remove = useMutation({
@@ -175,7 +174,7 @@ function ApiKeySection() {
               </div>
               {register.isError && (
                 <p role="alert" className="text-sm text-red-400">
-                  등록 중 오류가 발생했습니다. 키를 확인하고 다시 시도해 주세요.
+                  {apiKeyErrorMessage(register.error, '등록 중 오류가 발생했습니다. 키를 확인하고 다시 시도해 주세요.')}
                 </p>
               )}
             </form>
@@ -568,6 +567,7 @@ function CharacterSection() {
   )
 }
 export default function SettingsPage() {
+  const sessionRevision = useAuthStore((state) => state.sessionRevision)
   return (
     <div className="settings-page">
       <div data-testid="settings-heading" className="settings-heading">
@@ -577,8 +577,8 @@ export default function SettingsPage() {
           API 연결과 내 캐릭터를 관리하세요. 나에게 맞는 메이플의 시작.
         </p>
       </div>
-      <ApiKeySection />
-      <CharacterSection />
+      <ApiKeySection key={`key-${sessionRevision}`} />
+      <CharacterSection key={`characters-${sessionRevision}`} />
     </div>
   )
 }

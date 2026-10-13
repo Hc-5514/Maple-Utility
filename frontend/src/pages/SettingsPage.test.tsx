@@ -256,7 +256,7 @@ describe('Settings preferences', () => {
     await waitFor(() => expect(rows()).toEqual(['1', '2', '3', '4', '5', '6']))
     expect(screen.queryByText('저장하지 않은 변경사항이 있어요')).toBeNull()
   })
-  it('refreshes characters after key registration while retaining the current draft', async () => {
+  it('refreshes characters after key registration and discards the previous context draft', async () => {
     const { get } = setup({
       status: { registered: false, keyStatus: null, keySuffix: null, lastVerifiedAt: null },
     })
@@ -274,8 +274,8 @@ describe('Settings preferences', () => {
       expect(get.mock.calls.filter(([url]) => url === '/characters').length).toBeGreaterThan(before)
     )
     expect(post).toHaveBeenCalledWith('/api-key', { apiKey: 'test-key-abcd' })
-    expect(rows()).toEqual(['1', '2', '3', '4', '6', '5'])
-    expect(screen.getByText('저장하지 않은 변경사항이 있어요')).toBeTruthy()
+    expect(rows()).toEqual(['1', '2', '3', '4', '5', '6'])
+    expect(screen.queryByText('저장하지 않은 변경사항이 있어요')).toBeNull()
   })
   it('keeps the refresh button available and confirms draft disposal before synchronizing', async () => {
     setup()

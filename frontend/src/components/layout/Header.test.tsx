@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { UnsavedChangesProvider } from '../../router/UnsavedChangesGuard'
 import { useAuthStore } from '../../stores/authStore'
 import Header from './Header'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 afterEach(() => {
   cleanup()
@@ -25,7 +26,7 @@ describe('Header', () => {
         </UnsavedChangesProvider>
       ),
     }])
-    render(<RouterProvider router={router} />)
+    render(<QueryClientProvider client={new QueryClient()}><RouterProvider router={router} /></QueryClientProvider>)
 
     const logout = screen.getByRole('button', { name: '로그아웃' })
     const settings = screen.getByRole('link', { name: '설정' })
