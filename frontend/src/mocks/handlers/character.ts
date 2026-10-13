@@ -1,19 +1,30 @@
 import { http, HttpResponse } from 'msw'
 import { previewCharacters } from '../fixtures/nexonPreview'
 import {
-  settingsFigmaCharacters,
+  settingsPreviewCharacters,
   settingsFigmaScenario,
-  settingsFigmaWorlds,
+  settingsPreviewWorlds,
 } from '../fixtures/settingsFigma'
 import { worldNames } from '../../components/dashboard/worlds'
+import { MAX_CHARACTER_FAVORITES } from '../../constants/character'
 
-const mockCharacters = (settingsFigmaScenario ? settingsFigmaCharacters : previewCharacters).map(
+const favoriteLimitError = () =>
+  HttpResponse.json(
+    {
+      success: false,
+      code: 'FAVORITE_LIMIT_EXCEEDED',
+      message: '즐겨찾기는 전체 월드 합산 최대 18명까지 선택 가능',
+    },
+    { status: 400 }
+  )
+
+const mockCharacters = (settingsFigmaScenario ? settingsPreviewCharacters : previewCharacters).map(
   (character) => ({
     ...character,
     sortOrder: settingsFigmaScenario ? character.sortOrder : character.sortOrder + 1,
   })
 )
-let selectedWorldNames: string[] = settingsFigmaScenario ? [...settingsFigmaWorlds] : []
+let selectedWorldNames: string[] = settingsFigmaScenario ? [...settingsPreviewWorlds] : []
 
 export const characterHandlers = [
   http.put('*/api/v1/characters/preferences', async ({ request }) => {
@@ -52,6 +63,9 @@ export const characterHandlers = [
         },
         { status: 409 }
       )
+    }
+    if (list.filter((preference) => preference.favorite).length > MAX_CHARACTER_FAVORITES) {
+      return favoriteLimitError()
     }
     const ordered = list.map((preference, index) => ({
       ...mockCharacters.find((c) => c.id === preference.characterId)!,
@@ -97,6 +111,12 @@ export const characterHandlers = [
         { success: false, message: '캐릭터를 찾을 수 없음' },
         { status: 404 }
       )
+    }
+    if (
+      !character.favorite &&
+      mockCharacters.filter((item) => item.favorite).length >= MAX_CHARACTER_FAVORITES
+    ) {
+      return favoriteLimitError()
     }
     character.favorite = !character.favorite
     character.updatedAt = new Date().toISOString()

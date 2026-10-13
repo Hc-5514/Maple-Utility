@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.time.Clock;
 
 import org.springframework.cache.CacheManager;
+import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -176,6 +177,42 @@ class CharacterServiceTest {
 
 		assertThat(response.favorite()).isTrue();
 		assertThat(response.sortOrder()).isEqualTo(1);
+	}
+
+	@Test
+	void toggleFavoriteAllowsEighteenthFavoriteAfterUserLock() {
+		MapleCharacter added = character(user(), 11L, "added", 5);
+		when(characterRepository.findByIdAndUserId(11L, 1L)).thenReturn(Optional.of(added));
+		when(characterRepository.countByUserIdAndFavoriteTrue(1L)).thenReturn(17L);
+		assertThat(characterService.toggleFavorite(1L, 11L).favorite()).isTrue();
+		var order = org.mockito.Mockito.inOrder(userRepository, characterRepository);
+		order.verify(userRepository).findByIdForUpdate(1L);
+		order.verify(characterRepository).findByIdAndUserId(11L, 1L);
+		order.verify(characterRepository).countByUserIdAndFavoriteTrue(1L);
+	}
+
+	@Test
+	void toggleFavoriteRejectsNineteenthFavoriteWithoutChangingState() {
+		MapleCharacter added = character(user(), 11L, "added", 5);
+		when(characterRepository.findByIdAndUserId(11L, 1L)).thenReturn(Optional.of(added));
+		when(characterRepository.countByUserIdAndFavoriteTrue(1L)).thenReturn(18L);
+		assertThatThrownBy(() -> characterService.toggleFavorite(1L, 11L))
+				.isInstanceOfSatisfying(ApiException.class, error -> {
+					assertThat(error.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+					assertThat(error.getCode()).isEqualTo("FAVORITE_LIMIT_EXCEEDED");
+				});
+		assertThat(added.isFavorite()).isFalse();
+		assertThat(added.getSortOrder()).isEqualTo(5);
+		org.mockito.Mockito.verifyNoInteractions(cacheManager);
+	}
+
+	@Test
+	void toggleFavoriteAllowsRemovalWhenExistingCountExceedsLimit() {
+		MapleCharacter selected = character(user(), 11L, "selected", 5);
+		selected.toggleFavorite();
+		when(characterRepository.findByIdAndUserId(11L, 1L)).thenReturn(Optional.of(selected));
+		assertThat(characterService.toggleFavorite(1L, 11L).favorite()).isFalse();
+		verify(characterRepository, org.mockito.Mockito.never()).countByUserIdAndFavoriteTrue(1L);
 	}
 
 	@Test

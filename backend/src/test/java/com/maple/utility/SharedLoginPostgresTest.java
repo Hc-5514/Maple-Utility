@@ -287,4 +287,217 @@ class SharedLoginPostgresTest {
         assertThat(characters(second)).contains("캐릭터A");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM user_api_keys",Long.class)).isEqualTo(1);
     }
+
+    JsonNode dataContexts(Session session) throws Exception {
+        return json.readTree(mvc.perform(get("/api/v1/auth/data-contexts")
+                .header("Authorization", "Bearer " + session.access()))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    void clearCharacters(Session session) {
+        jdbc.update("DELETE FROM characters WHERE user_id=?", principal(session).userId());
+    }
+
+    long contextCharacter(Session session, String ocid, String name, String world,
+                          Integer level, boolean favorite, int sortOrder) {
+        return jdbc.queryForObject("""
+                INSERT INTO characters(user_id,ocid,character_name,world_name,character_class,
+                                       character_level,character_image,is_favorite,sort_order)
+                VALUES (?,?,?,?,'비숍',?,?,?,?) RETURNING id
+                """, Long.class, principal(session).userId(), ocid, name, world, level,
+                "https://images.example/" + ocid, favorite, sortOrder);
+    }
+
+    @Test void accountLabelUsesFirstFavoriteByDisplayOrderAcrossWorlds() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        contextCharacter(session, "high", "최고레벨", "루나", 300, false, 0);
+        contextCharacter(session, "later", "늦은즐겨찾기", "베라", 290, true, 8);
+        contextCharacter(session, "first", "첫즐겨찾기", "스카니아", 210, true, 3);
+
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("representativeCharacterName").asText()).isEqualTo("첫즐겨찾기");
+        assertThat(row.path("worldName").asText()).isEqualTo("스카니아");
+        assertThat(row.path("characterClass").asText()).isEqualTo("비숍");
+        assertThat(row.path("characterLevel").asInt()).isEqualTo(210);
+        assertThat(row.path("characterImage").asText()).isEqualTo("https://images.example/first");
+    }
+
+    @Test void favoriteDisplayOrderTieUsesLowerCharacterId() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        long firstId = contextCharacter(session, "z-first", "하늘", "베라", 200, true, 5);
+        long laterId = contextCharacter(session, "a-later", "가람", "루나", 300, true, 5);
+        assertThat(firstId).isLessThan(laterId);
+
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("representativeCharacterName").asText()).isEqualTo("하늘");
+    }
+
+    @Test void noFavoriteLabelUsesHighestLevelAcrossAllWorldsRegardlessOfSavedOrder() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        contextCharacter(session, "luna", "루나캐릭터", "루나", 290, false, 0);
+        contextCharacter(session, "bera", "베라캐릭터", "베라", 300, false, 90);
+        selectWorld(session, "루나");
+
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("representativeCharacterName").asText()).isEqualTo("베라캐릭터");
+        assertThat(row.path("worldName").asText()).isEqualTo("베라");
+    }
+
+    @Test void highestLevelTieUsesKoreanNicknameOrder() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        contextCharacter(session, "z", "나무", "루나", 300, false, 0);
+        contextCharacter(session, "a", "가람", "베라", 300, false, 9);
+
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("representativeCharacterName").asText()).isEqualTo("가람");
+    }
+
+    @Test void sameLevelAndNicknameTieUsesOcidOrder() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        contextCharacter(session, "z-ocid", "동명이인", "루나", 300, false, 0);
+        contextCharacter(session, "a-ocid", "동명이인", "베라", 300, false, 9);
+
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("worldName").asText()).isEqualTo("베라");
+        assertThat(row.path("characterImage").asText()).isEqualTo("https://images.example/a-ocid");
+    }
+
+    @Test void unknownLevelFollowsKnownLevelEvenWhenNicknameComesFirst() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        contextCharacter(session, "unknown", "가람", "베라", null, false, 0);
+        contextCharacter(session, "known", "하늘", "루나", 1, false, 9);
+
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("representativeCharacterName").asText()).isEqualTo("하늘");
+        assertThat(row.path("characterLevel").asInt()).isEqualTo(1);
+    }
+
+    @Test void allUnknownLevelsStillSelectByNicknameAndReturnNullLevel() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        contextCharacter(session, "z", "하늘", "루나", null, false, 0);
+        contextCharacter(session, "a", "가람", "베라", null, false, 9);
+
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("representativeCharacterName").asText()).isEqualTo("가람");
+        assertThat(row.get("characterLevel").isNull()).isTrue();
+    }
+
+    @Test void datasetWithoutCharactersReturnsExplicitNullRepresentativeFields() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+
+        JsonNode row = dataContexts(session).get(0);
+
+        for (String field : List.of("representativeCharacterName", "characterClass", "worldName", "characterLevel", "characterImage")) {
+            assertThat(row.has(field)).as(field + " present").isTrue();
+            assertThat(row.get(field).isNull()).as(field + " null").isTrue();
+        }
+        assertThat(row.path("credentialId").asLong()).isEqualTo(principal(session).credentialId());
+    }
+
+    @Test void credentialsSharingDatasetExposeSameRepresentativeAndOnlySelectedCredentialIsCurrent() throws Exception {
+        Session first = direct("account-a-1");
+        Session second = direct("account-a-2");
+        clearCharacters(first);
+        contextCharacter(first, "shared", "공유대표", "베라", 300, true, 0);
+
+        JsonNode rows = dataContexts(second);
+
+        assertThat(rows.size()).isEqualTo(2);
+        for (JsonNode row : rows) {
+            assertThat(row.path("contextId").asLong()).isEqualTo(principal(first).contextId());
+            assertThat(row.path("ownerUserId").asLong()).isEqualTo(principal(first).userId());
+            assertThat(row.path("representativeCharacterName").asText()).isEqualTo("공유대표");
+            assertThat(row.path("current").asBoolean()).isEqualTo(row.path("credentialId").asLong() == principal(second).credentialId());
+        }
+    }
+
+    @Test void explicitDatasetSwitchMovesCurrentCredentialAndRetainsEachAccountLabel() throws Exception {
+        Session first = register(social("social-1"), "account-a-1");
+        Session second = register(first, "account-b-1");
+        JsonNode before = dataContexts(second);
+        assertThat(before.size()).isEqualTo(2);
+        for (JsonNode row : before) {
+            assertThat(row.path("current").asBoolean()).isEqualTo(row.path("credentialId").asLong() == principal(second).credentialId());
+        }
+
+        Session switched = session(mvc.perform(post("/api/v1/auth/data-context")
+                .header("Authorization", "Bearer " + second.access())
+                .cookie(new Cookie("refreshToken", second.refresh()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"credentialId\":" + principal(first).credentialId() + "}"))
+            .andExpect(status().isOk()).andReturn(), false);
+        JsonNode after = dataContexts(switched);
+
+        assertThat(after.size()).isEqualTo(2);
+        for (JsonNode row : after) {
+            boolean firstCredential = row.path("credentialId").asLong() == principal(first).credentialId();
+            assertThat(row.path("current").asBoolean()).isEqualTo(firstCredential);
+            assertThat(row.path("representativeCharacterName").asText()).isEqualTo(firstCredential ? "캐릭터A" : "캐릭터B");
+        }
+    }
+
+    @Test void verifiedAtIsCredentialSpecificAcrossSeoulMidnightAndAllowsNull() throws Exception {
+        Session first = direct("account-a-1");
+        Session second = direct("account-a-2");
+        jdbc.update("UPDATE user_api_keys SET last_verified_at=TIMESTAMP '2026-10-13 23:59:59' WHERE id=?", principal(first).credentialId());
+        jdbc.update("UPDATE user_api_keys SET last_verified_at=TIMESTAMP '2026-10-14 00:00:00' WHERE id=?", principal(second).credentialId());
+
+        JsonNode rows = dataContexts(second);
+
+        assertThat(rows.get(0).path("lastVerifiedAt").asText()).isEqualTo("2026-10-13T23:59:59");
+        assertThat(rows.get(1).path("lastVerifiedAt").asText()).isEqualTo("2026-10-14T00:00:00");
+        jdbc.update("UPDATE user_api_keys SET last_verified_at=NULL WHERE id=?", principal(first).credentialId());
+        assertThat(dataContexts(second).get(0).get("lastVerifiedAt").isNull()).isTrue();
+    }
+
+    @Test void contextListHidesUnlinkedDatasetAndNeverExposesRawEncryptedOrFingerprintKeys() throws Exception {
+        Session first = direct("account-a-1");
+        Session unrelated = direct("account-b-1");
+        String storedCipher = jdbc.queryForObject("SELECT encrypted_key FROM user_api_keys WHERE id=?", String.class, principal(first).credentialId());
+
+        JsonNode rows = dataContexts(first);
+
+        assertThat(rows.size()).isEqualTo(1);
+        JsonNode row = rows.get(0);
+        assertThat(row.path("contextId").asLong()).isEqualTo(principal(first).contextId()).isNotEqualTo(principal(unrelated).contextId());
+        assertThat(row.path("keySuffix").asText()).isEqualTo("-a-1");
+        assertThat(row.path("status").asText()).isEqualTo("ACTIVE");
+        assertThat(rows.toString()).doesNotContain("account-a-1", "account-b-1", storedCipher, ApiKeyFingerprint.of("account-a-1"));
+        assertThat(row.properties()).extracting(Map.Entry::getKey).containsExactlyInAnyOrder(
+                "contextId", "ownerUserId", "credentialId", "keySuffix", "status", "lastVerifiedAt", "current",
+                "representativeCharacterName", "characterClass", "worldName", "characterLevel", "characterImage");
+    }
+
+    @Test void representativeIsRecomputedWhenFavoritesOrLevelsChangeWithoutReorderingCharacters() throws Exception {
+        Session session = direct("account-a-1");
+        clearCharacters(session);
+        contextCharacter(session, "first", "첫번째", "루나", 290, false, 0);
+        contextCharacter(session, "second", "두번째", "베라", 300, false, 1);
+        assertThat(dataContexts(session).get(0).path("representativeCharacterName").asText()).isEqualTo("두번째");
+
+        jdbc.update("UPDATE characters SET is_favorite=true WHERE ocid='first'");
+        assertThat(dataContexts(session).get(0).path("representativeCharacterName").asText()).isEqualTo("첫번째");
+        jdbc.update("UPDATE characters SET is_favorite=false, character_level=310 WHERE ocid='first'");
+        JsonNode row = dataContexts(session).get(0);
+
+        assertThat(row.path("representativeCharacterName").asText()).isEqualTo("첫번째");
+        assertThat(row.path("characterLevel").asInt()).isEqualTo(310);
+        assertThat(jdbc.queryForList("SELECT ocid FROM characters WHERE user_id=? ORDER BY sort_order,id", String.class, principal(session).userId()))
+                .containsExactly("first", "second");
+    }
 }

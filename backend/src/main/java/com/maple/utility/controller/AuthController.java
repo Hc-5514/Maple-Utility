@@ -78,7 +78,7 @@ public class AuthController {
 
     @GetMapping("/data-contexts")
     public java.util.List<com.maple.utility.service.DataContextService.DataContextResponse> dataContexts(Authentication authentication) {
-        return contexts.list(currentUserId(authentication));
+        return contexts.list((JwtAuthentication) authentication.getPrincipal());
     }
 
     @PostMapping("/data-context")
