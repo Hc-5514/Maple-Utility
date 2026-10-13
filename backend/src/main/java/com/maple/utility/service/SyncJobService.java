@@ -66,6 +66,7 @@ public class SyncJobService {
 	@EventListener(ApplicationReadyEvent.class)
 	public void failInterruptedJobs() {
 		jobs.failInterrupted(LocalDateTime.now(clock));
+        jdbcTemplate.update("UPDATE data_sync_logs SET status='FAILED', error_message='서버 재시작으로 동기화 중단', completed_at=? WHERE status='STARTED'", LocalDateTime.now(clock));
 	}
 
 	public SyncJobResponse startCharacters(Long userId) {
