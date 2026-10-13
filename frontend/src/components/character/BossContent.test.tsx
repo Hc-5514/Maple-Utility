@@ -37,7 +37,7 @@ describe('BossContent', () => {
     } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
     await waitFor(() => expect(get).toHaveBeenCalledWith(
       '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-10-01',
@@ -47,6 +47,21 @@ describe('BossContent', () => {
 
     await waitFor(() => expect(get).toHaveBeenLastCalledWith(
       '/scheduler/1/boss?weeklyDate=2026-10-08&monthlyDate=2026-09-01',
+    ))
+  })
+
+  it('follows the week chosen in the page header', async () => {
+    const get = vi.spyOn(client, 'get').mockResolvedValue({
+      data: { success: true, data: { weeklyBosses: [], monthlyBosses: [] } },
+    } as AxiosResponse)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const view = (weekStart: string) => <QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart={weekStart} /></QueryClientProvider>
+    const { rerender } = render(view('2026-10-08'))
+    expect(screen.queryByRole('button', { name: /^보스 주차/ })).toBeNull()
+
+    rerender(view('2026-10-01'))
+    await waitFor(() => expect(get).toHaveBeenLastCalledWith(
+      '/scheduler/1/boss?weeklyDate=2026-10-01&monthlyDate=2026-10-01',
     ))
   })
 
@@ -64,7 +79,7 @@ describe('BossContent', () => {
     } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
     fireEvent.click((await screen.findAllByRole('button', { name: /스우/ }))[0])
     fireEvent.click(await screen.findByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }))
@@ -90,7 +105,7 @@ describe('BossContent', () => {
     } as AxiosResponse))
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
     fireEvent.click((await screen.findAllByRole('button', { name: /스우/ }))[0])
     const checkbox = await screen.findByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' })
@@ -116,7 +131,7 @@ describe('BossContent', () => {
     } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
     await openSelection()
     fireEvent.click(await screen.findByRole('checkbox', { name: '스우 HARD' }))
@@ -143,7 +158,7 @@ describe('BossContent', () => {
     const remove = vi.spyOn(client, 'delete').mockResolvedValue({ data: { success: true } } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
     await openSelection()
     const hard = await screen.findByRole('checkbox', { name: '스우 HARD' }) as HTMLInputElement
@@ -174,7 +189,7 @@ describe('BossContent', () => {
     } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
     expect(await screen.findByText('12/12')).toBeTruthy()
     expect(screen.getByText('0/1')).toBeTruthy()
@@ -190,7 +205,7 @@ describe('BossContent', () => {
     } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
 
     expect(await screen.findByText('스우')).toBeTruthy()
     expect((screen.getByRole('button', { name: '보스 선택' }) as HTMLButtonElement).disabled).toBe(true)
@@ -207,7 +222,7 @@ describe('BossContent', () => {
     const remove = vi.spyOn(client, 'delete').mockResolvedValue({ data: { success: true } } as AxiosResponse)
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" /></QueryClientProvider>)
+    render(<QueryClientProvider client={queryClient}><BossContent characterId={1} date="2026-10-08" weekStart="2026-10-08" /></QueryClientProvider>)
     fireEvent.click(await screen.findByRole('button', { name: '스우 삭제' }))
     fireEvent.click(await screen.findByRole('button', { name: '삭제' }))
 

@@ -23,3 +23,18 @@ export function thursdayWeekStart(date: Date): string {
 export function monthStart(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
 }
+
+export function recentWeeks(today = new Date(seoulDate() + 'T00:00:00')) {
+  const start = new Date(thursdayWeekStart(today) + 'T00:00:00')
+  return Array.from({ length: 12 }, (_, index) => {
+    const first = new Date(start)
+    first.setDate(first.getDate() - index * 7)
+    const last = new Date(first)
+    last.setDate(last.getDate() + 6)
+    return {
+      start: localDate(first),
+      end: localDate(last),
+      date: index === 0 ? localDate(today) : localDate(last),
+    }
+  })
+}

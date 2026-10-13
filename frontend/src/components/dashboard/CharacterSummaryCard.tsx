@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { CharacterSchedulerSummary } from '../../types'
 import CharacterPortrait from '../common/CharacterPortrait'
 import { useThemeStore } from '../../stores/themeStore'
+import { useSelectedWeek } from '../../hooks/useSelectedWeek'
 import { dashboardAssets } from './assets'
 import { worlds } from './worlds'
 const progressItems = [
@@ -26,6 +27,7 @@ export default function CharacterSummaryCard({
   index?: number
 }) {
   const { theme } = useThemeStore()
+  const { search } = useSelectedWeek()
   const assets = dashboardAssets[theme]
   const world = worlds.find(([name]) => name === character.worldName)
   const nonTarget = progressItems.some(({ key }) => character[key].total === 0)
@@ -105,7 +107,7 @@ export default function CharacterSummaryCard({
         </div>
       )}
       <Link
-        to={`/dashboard/${character.characterId}`}
+        to={`/dashboard/${character.characterId}${search}`}
         className="absolute right-[23px] bottom-[9px] flex min-h-11 min-w-[104px] items-center justify-end gap-[6px] rounded-lg text-[12px] leading-[14px] text-[var(--dash-accent)] focus-visible:outline-2 focus-visible:outline-[var(--dash-accent)]"
       >
         상세 보기
