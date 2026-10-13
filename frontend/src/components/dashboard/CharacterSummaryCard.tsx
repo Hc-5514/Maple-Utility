@@ -33,7 +33,7 @@ export default function CharacterSummaryCard({
     <article
       className={`relative flex h-full flex-col gap-[23px] rounded-2xl border border-[var(--dash-border)] bg-[var(--dash-card)] p-[23px] shadow-[var(--dash-card-shadow)] backdrop-blur-[12px] ${nonTarget ? 'min-h-[339px]' : 'min-h-[322px]'}`}
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-start gap-4">
         <div
           className={`flex size-[110px] shrink-0 items-center justify-center overflow-hidden rounded-xl border ${avatarColors[index % avatarColors.length]}`}
         >
