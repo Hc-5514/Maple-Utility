@@ -35,10 +35,10 @@ export default function CharacterSummaryCard({
     >
       <div className="flex items-center gap-4">
         <div
-          className={`flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${avatarColors[index % avatarColors.length]}`}
+          className={`flex size-[110px] shrink-0 items-center justify-center overflow-hidden rounded-xl border ${avatarColors[index % avatarColors.length]}`}
         >
           {character.characterImage ? (
-            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={56} />
+            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={100} />
           ) : (
             <span className="text-3xl">🍁</span>
           )}

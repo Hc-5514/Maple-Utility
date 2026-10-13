@@ -13,7 +13,7 @@ describe('CharacterPortrait', () => {
     expect(frame.style.width).toBe('72px')
     expect(frame.style.height).toBe('72px')
     expect(frame.className).toContain('overflow-hidden')
-    expect(image.style.width).toBe('250%')
+    expect(image.style.width).toBe('300%')
     expect(image.style.transform).toBe('translate(-50%, -55%)')
   })
 })
