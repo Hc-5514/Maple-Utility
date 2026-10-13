@@ -359,7 +359,7 @@ class SchedulerServiceTest {
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 
 		assertThatThrownBy(() -> schedulerService.saveManualBossRecords(1L, 10L,
-				new ManualBossRecordSaveRequest(LocalDate.parse("2026-05-14"), ResetPeriod.MONTHLY, List.of(1L, 2L))))
+				new ManualBossRecordSaveRequest(LocalDate.parse("2026-06-14"), ResetPeriod.MONTHLY, List.of(1L, 2L))))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("월간 보스 선택 한도");
 	}
@@ -389,7 +389,7 @@ class SchedulerServiceTest {
 		BossMaster current = boss(30L, ResetPeriod.MONTHLY);
 		BossMaster other = boss(31L, ResetPeriod.MONTHLY);
 		ReflectionTestUtils.setField(other, "bossName", "검은 마법사");
-		LocalDate start = LocalDate.parse("2026-05-01");
+		LocalDate start = LocalDate.parse("2026-06-01");
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		when(bossMasterRepository.findByResetPeriodAndActiveTrueOrderBySortOrderAsc(ResetPeriod.MONTHLY)).thenReturn(List.of(current, other));
 		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, start, start.plusMonths(1).minusDays(1), ResetPeriod.MONTHLY))
@@ -438,7 +438,7 @@ class SchedulerServiceTest {
 	}
 
 	@Test
-	void customSelectionIsLockedForRecentThreeWeeksAndOverlappingMonths() {
+	void customSelectionIsLockedForRecentThreeWeeksAndCurrentMonth() {
 		MapleCharacter character = character(user());
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 
@@ -450,8 +450,6 @@ class SchedulerServiceTest {
 		}
 		assertThatThrownBy(() -> schedulerService.hideBossFromPeriod(1L, 10L, 30L, LocalDate.parse("2026-07-03"), ResetPeriod.MONTHLY))
 				.isInstanceOf(ApiException.class);
-		assertThatThrownBy(() -> schedulerService.hideBossFromPeriod(1L, 10L, 30L, LocalDate.parse("2026-06-01"), ResetPeriod.MONTHLY))
-				.isInstanceOf(ApiException.class);
 	}
 
 	@Test
@@ -462,14 +460,11 @@ class SchedulerServiceTest {
 		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(any(), any(), any())).thenReturn(List.of());
 
 		var recent = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-06-25"), LocalDate.parse("2026-07-01"), null);
-		var overlapping = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-06-24"), LocalDate.parse("2026-06-30"), null);
-		var older = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-06-24"), LocalDate.parse("2026-05-31"), null);
+		var older = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-06-24"), LocalDate.parse("2026-06-30"), null);
 
 		assertThat(recent.weeklyCustomizable()).isFalse();
 		assertThat(recent.monthlyCustomizable()).isFalse();
-		assertThat(overlapping.weeklyCustomizable()).isTrue();
-		// June overlaps the locked weeks starting 2026-06-25, so it mirrors Nexon and stays locked
-		assertThat(overlapping.monthlyCustomizable()).isFalse();
+		assertThat(older.weeklyCustomizable()).isTrue();
 		assertThat(older.monthlyCustomizable()).isTrue();
 	}
 
