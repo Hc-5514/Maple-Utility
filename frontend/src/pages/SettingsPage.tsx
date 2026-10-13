@@ -374,10 +374,8 @@ function CharacterSection() {
       </div>
       <div data-testid="character-columns" className="settings-columns">
         <p>캐릭터 정보</p>
-        <div>
-          <p>즐겨찾기</p>
-          <p>표시 순서</p>
-        </div>
+        <p className="settings-favorite-heading">즐겨찾기</p>
+        <p className="settings-order-heading">표시 순서</p>
       </div>
       {characters.isLoading || worlds.isLoading ? (
         <p role="status" className="settings-guidance">
