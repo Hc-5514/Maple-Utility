@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import client from '../../api/client'
+import CharacterPortrait from '../common/CharacterPortrait'
 import ThemedDialog, { dialogCancel, dialogConfirm } from '../common/ThemedDialog'
 import { worlds } from '../dashboard/worlds'
 import { useThemeStore } from '../../stores/themeStore'
@@ -77,7 +78,7 @@ export default function CharacterChangeModal({ currentId, onClose, onChange }: P
                 >
                   <span className={`flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${selected ? avatarColors[0] : avatarColors[index % avatarColors.length]}`}>
                     {character.characterImage ? (
-                      <img src={character.characterImage} alt="" className="size-14 object-cover" />
+                      <CharacterPortrait src={character.characterImage} alt="" size={56} />
                     ) : (
                       <span className="text-3xl">🍁</span>
                     )}

@@ -8,6 +8,7 @@ import { useThemeStore } from '../stores/themeStore'
 import { useSaveWorldSelection, useWorldSelection } from '../hooks/useWorldSelection'
 import { useUnsavedChanges } from '../router/UnsavedChangesGuard'
 import ThemedConfirmDialog from '../components/common/ThemedConfirmDialog'
+import CharacterPortrait from '../components/common/CharacterPortrait'
 import WorldSelectionModal from '../components/dashboard/WorldSelectionModal'
 import { settingsAssets } from '../components/settings/assets'
 import type { ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
@@ -419,10 +420,10 @@ function CharacterSection() {
               }
             >
               {character.characterImage ? (
-                <img
-                  className="portrait"
+                <CharacterPortrait
                   src={character.characterImage}
                   alt={character.characterName}
+                  size={40}
                 />
               ) : (
                 <span aria-hidden="true">🍁</span>

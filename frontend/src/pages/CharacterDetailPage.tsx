@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import DailyContent from '../components/character/DailyContent'
 import WeeklyContent from '../components/character/WeeklyContent'
 import BossContent from '../components/character/BossContent'
+import CharacterPortrait from '../components/common/CharacterPortrait'
 import CharacterChangeModal from '../components/character/CharacterChangeModal'
 import { characterAssets } from '../components/character/assets'
 import { detailCard } from '../components/character/styles'
@@ -51,7 +52,7 @@ export default function CharacterDetailPage() {
           {charLoading ? (
             <div className="size-[72px] animate-pulse rounded-xl bg-[var(--dash-track)]" />
           ) : character?.characterImage ? (
-            <img src={character.characterImage} alt={character.characterName} className="size-[72px] object-cover" />
+            <CharacterPortrait src={character.characterImage} alt={character.characterName} size={72} />
           ) : (
             <span className="text-4xl">🍁</span>
           )}
