@@ -78,7 +78,7 @@ export default function CharacterChangeModal({ currentId, onClose, onChange }: P
                 >
                   <span className={`flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${selected ? avatarColors[0] : avatarColors[index % avatarColors.length]}`}>
                     {character.characterImage ? (
-                      <CharacterPortrait src={character.characterImage} alt="" size={56} />
+                      <CharacterPortrait src={character.characterImage} alt="" size={58} />
                     ) : (
                       <span className="text-3xl">🍁</span>
                     )}
