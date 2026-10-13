@@ -16,9 +16,11 @@ interface Props {
   onChange: (value: string) => void
   icon?: string
   compact?: boolean
+  // 펼친 목록을 버튼과 같은 너비로 고정
+  fitWidth?: boolean
 }
 
-export default function PeriodMenu({ label, value, options, onChange, icon, compact = false }: Props) {
+export default function PeriodMenu({ label, value, options, onChange, icon, compact = false, fitWidth = false }: Props) {
   const { theme } = useThemeStore()
   const [open, setOpen] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -49,7 +51,7 @@ export default function PeriodMenu({ label, value, options, onChange, icon, comp
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen(!open)}
-        className={compact ? `${controlButton} h-9 pr-3 pl-[14px]` : controlButton}
+        className={compact ? `${controlButton} h-9 pr-3 pl-[14px]` : fitWidth ? `${controlButton} h-11` : controlButton}
       >
         {icon && <img src={icon} alt="" className="size-4" />}
         {selected?.label}
@@ -60,7 +62,7 @@ export default function PeriodMenu({ label, value, options, onChange, icon, comp
           id={menuId}
           role="listbox"
           aria-label={label}
-          className={`absolute right-0 z-30 min-w-full overflow-hidden rounded-xl border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[7px] shadow-[var(--dash-menu-shadow)] backdrop-blur-[16px] ${compact ? 'top-[44px]' : 'top-[48px]'}`}
+          className={`absolute right-0 z-30 ${fitWidth ? 'w-full' : 'min-w-full'} overflow-hidden rounded-xl border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[7px] shadow-[var(--dash-menu-shadow)] backdrop-blur-[16px] ${compact ? 'top-[44px]' : fitWidth ? 'top-[52px]' : 'top-[48px]'}`}
         >
           <div className="period-menu-scroll flex max-h-[196px] flex-col gap-1 overflow-y-auto">
             {options.map((option) => (
@@ -73,7 +75,7 @@ export default function PeriodMenu({ label, value, options, onChange, icon, comp
                   onChange(option.value)
                   setOpen(false)
                 }}
-                className={`flex min-h-[40px] items-center justify-between gap-3 rounded-lg px-[14px] text-[14px] whitespace-nowrap ${option.value === value ? 'bg-[var(--dash-selected)] font-semibold text-[var(--dash-accent)]' : 'hover:bg-[var(--dash-track)]'}`}
+                className={`flex min-h-[40px] items-center justify-between rounded-lg text-[14px] whitespace-nowrap ${fitWidth ? 'gap-2 px-3' : 'gap-3 px-[14px]'} ${option.value === value ? 'bg-[var(--dash-selected)] font-semibold text-[var(--dash-accent)]' : 'hover:bg-[var(--dash-track)]'}`}
               >
                 {option.label}
                 {option.value === value && <img src={dashboardAssets[theme].imgCheck} alt="" className="shrink-0" />}

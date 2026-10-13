@@ -28,6 +28,21 @@ describe('BossCard', () => {
     expect(screen.getByText('미처치')).toBeTruthy()
   })
 
+  it('opens drop items only for a defeated boss', () => {
+    const onClickDetail = vi.fn()
+    render(<BossCard record={record} onClickDetail={onClickDetail} />)
+    screen.getByRole('button', { name: '데미안 드랍 아이템' }).click()
+    expect(onClickDetail).toHaveBeenCalledOnce()
+  })
+
+  it('ignores clicks on an undefeated boss', () => {
+    const onClickDetail = vi.fn()
+    render(<BossCard record={{ ...record, isCompleted: false }} onClickDetail={onClickDetail} />)
+    expect(screen.queryByRole('button', { name: '데미안 드랍 아이템' })).toBeNull()
+    screen.getByText('데미안').click()
+    expect(onClickDetail).not.toHaveBeenCalled()
+  })
+
   it('shows the Figma difficulty label and a separate delete action', () => {
     const onDelete = vi.fn()
     const onClickDetail = vi.fn()

@@ -1,21 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { localDate, seoulDate, thursdayWeekStart } from '../../utils/date'
+import { recentWeeks } from '../../utils/date'
 import { dashboardAssets } from './assets'
 import { useThemeStore } from '../../stores/themeStore'
-export function recentWeeks(today = new Date(seoulDate() + 'T00:00:00')) {
-  const start = new Date(thursdayWeekStart(today) + 'T00:00:00')
-  return Array.from({ length: 12 }, (_, index) => {
-    const first = new Date(start)
-    first.setDate(first.getDate() - index * 7)
-    const last = new Date(first)
-    last.setDate(last.getDate() + 6)
-    return {
-      start: localDate(first),
-      end: localDate(last),
-      date: index === 0 ? localDate(today) : localDate(last),
-    }
-  })
-}
+export { recentWeeks }
 export default function WeeklyPeriodSelect({
   value,
   onChange,
