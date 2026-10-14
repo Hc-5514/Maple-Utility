@@ -365,4 +365,15 @@ class BossDropServiceTest {
 			throw new IllegalStateException(exception);
 		}
 	}
+
+	@Test
+	void savePeriodEvictsSchedulerCache() throws NoSuchMethodException {
+		org.springframework.cache.annotation.CacheEvict evict = BossDropService.class
+				.getMethod("savePeriod", Long.class, Long.class, BossPeriodSaveRequest.class)
+				.getAnnotation(org.springframework.cache.annotation.CacheEvict.class);
+
+		assertThat(evict).isNotNull();
+		assertThat(evict.cacheNames()).containsExactly(com.maple.utility.config.RedisCacheNames.SCHEDULER);
+		assertThat(evict.allEntries()).isTrue();
+	}
 }

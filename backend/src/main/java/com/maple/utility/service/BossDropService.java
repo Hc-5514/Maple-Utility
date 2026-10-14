@@ -9,10 +9,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.maple.utility.config.RedisCacheNames;
 import com.maple.utility.dto.request.BossItemAcquisitionCreateRequest;
 import com.maple.utility.dto.request.BossPeriodSaveRequest;
 import com.maple.utility.dto.response.BossDropItemAcquisitionStatusResponse;
@@ -104,6 +106,7 @@ public class BossDropService {
 		return periodResponse(boss, characterId, periodStart, entry);
 	}
 
+	@CacheEvict(cacheNames = RedisCacheNames.SCHEDULER, allEntries = true)
 	@Transactional
 	public BossPeriodResponse savePeriod(Long userId, Long bossId, BossPeriodSaveRequest request) {
 		MapleCharacter character = findCharacter(userId, request.characterId());
