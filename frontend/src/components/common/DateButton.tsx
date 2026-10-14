@@ -24,8 +24,11 @@ export default function DateButton({
         type="button"
         aria-label={`${label} ${value}`}
         onClick={() => {
-          if (typeof input.current?.showPicker === 'function') input.current.showPicker()
-          else input.current?.focus()
+          const element = input.current
+          if (!element) return
+          // 팝업의 포커스 소유자를 먼저 확립해야 바깥 클릭·선택 후 blur로 닫힘
+          element.focus({ preventScroll: true })
+          if (typeof element.showPicker === 'function') element.showPicker()
         }}
         className="flex h-11 items-center gap-2 rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] px-[18px] text-[14px] font-bold whitespace-nowrap"
       >
