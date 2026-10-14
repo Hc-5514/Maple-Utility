@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { settingsFigmaScenario } from '../fixtures/settingsFigma'
 import type { ApiKeyStatusResponse } from '../../types'
+import { mockAuthToken } from './auth'
 
 const mockApiKeyStatus: ApiKeyStatusResponse = {
   registered: true,
@@ -22,7 +23,13 @@ export const apiKeyHandlers = [
       keySuffix: apiKey.slice(-4),
       lastVerifiedAt: new Date().toISOString(),
     })
-    return HttpResponse.json({ success: true, data: mockApiKeyStatus }, { status: 201 })
+    return HttpResponse.json({ success: true, data: {
+      ...mockApiKeyStatus,
+      auth: {
+        ...mockAuthToken,
+        user: { id: 1, nickname: '미리보기', email: 'mock@example.com', isNewUser: false },
+      },
+    } }, { status: 201 })
   }),
 
   http.delete('*/api/v1/api-key', () => {

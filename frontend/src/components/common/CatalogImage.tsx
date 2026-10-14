@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Package, Swords } from 'lucide-react'
+import { useThemeStore } from '../../stores/themeStore'
+import { characterAssets } from '../character/assets'
 
 // Add public/assets paths here together with their files. Unknown local URLs are never requested.
 const LOCAL_ASSET_PATHS = new Set<string>([])
@@ -20,18 +21,26 @@ interface Props {
   alt: string
   kind: 'boss' | 'item'
   className?: string
+  large?: boolean
 }
 
-export default function CatalogImage({ src, alt, kind, className = 'h-12 w-12' }: Props) {
+const KIND_CLASSES = {
+  boss: 'size-12 rounded-xl border border-[color-mix(in_srgb,var(--dash-accent)_20%,transparent)] bg-[color-mix(in_srgb,var(--dash-accent)_10%,transparent)]',
+  item: 'size-9 rounded-[10px] border border-[var(--dash-subtle-border)] bg-[var(--dash-subtle)]',
+}
+
+export default function CatalogImage({ src, alt, kind, className, large = false }: Props) {
+  const { theme } = useThemeStore()
   const [failedSrc, setFailedSrc] = useState<string | null>(null)
   const imageSrc = catalogImageSrc(src)
-  const classes = `${className} shrink-0 rounded bg-[#343448]`
+  const classes = `${className ?? KIND_CLASSES[kind]} ${large ? 'size-[52px]' : ''} shrink-0`
 
   if (!imageSrc || failedSrc === imageSrc) {
-    const Icon = kind === 'boss' ? Swords : Package
+    const assets = characterAssets[theme]
+    const icon = kind === 'item' ? assets.imgPkg : large ? assets.imgSwordsLarge : assets.imgSwords
     return (
-      <div className={`${classes} flex items-center justify-center text-white/50`} role="img" aria-label={alt}>
-        <Icon size={20} aria-hidden="true" />
+      <div className={`${classes} flex items-center justify-center`} role="img" aria-label={alt}>
+        <img src={icon} alt="" className={kind === 'item' ? 'size-[18px]' : large ? 'size-6' : 'size-[22px]'} />
       </div>
     )
   }

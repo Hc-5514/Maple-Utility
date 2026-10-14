@@ -154,6 +154,9 @@ class ApiFlowIntegrationTest {
 	private AuthService authService;
 
 	@MockitoBean
+	private com.maple.utility.service.DataContextService dataContexts;
+
+	@MockitoBean
 	private CharacterService characterService;
 
 	@MockitoBean
@@ -164,6 +167,8 @@ class ApiFlowIntegrationTest {
 
 	@BeforeEach
 	void setUp() {
+		Mockito.when(transactionManager.getTransaction(Mockito.any())).thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+		Mockito.when(dataContexts.resolve(Mockito.any())).thenAnswer(i -> i.getArgument(0));
 		mockMvc = MockMvcBuilders.webAppContextSetup(context)
 				.apply(springSecurity())
 				.build();
@@ -171,13 +176,14 @@ class ApiFlowIntegrationTest {
 
 	@Test
 	void API_Key_상태_암호화된_기존키_끝_네자리만_응답() throws Exception {
-		String token = jwtTokenProvider.createAccessToken(7L).value();
+		String token = jwtTokenProvider.createAccessToken(new com.maple.utility.security.JwtAuthentication(7L, 7L, 70L, 10L)).value();
 		String plainKey = "sensitive-api-key-AB12";
 		String encrypted = apiKeyCryptoService.encrypt(plainKey);
 		var user = com.maple.utility.entity.User.create(com.maple.utility.entity.OAuthProvider.KAKAO,
 				"key-owner", null, "사용자");
 		var key = com.maple.utility.entity.UserApiKey.create(user, encrypted, java.time.LocalDateTime.of(2026, 10, 12, 12, 0));
-		Mockito.when(userApiKeyRepository.findByUserId(7L)).thenReturn(java.util.Optional.of(key));
+		Mockito.when(userApiKeyRepository.findById(10L)).thenReturn(java.util.Optional.of(key));
+		Mockito.when(dataContexts.canonical(null)).thenReturn(new com.maple.utility.service.DataContextService.Context(70L, 7L, 7L, null));
 		String body = mockMvc.perform(get("/api/v1/api-key/status").header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.keySuffix").value("AB12"))
 				.andExpect(jsonPath("$.registered").value(true))
@@ -188,8 +194,8 @@ class ApiFlowIntegrationTest {
 
 	@Test
 	void API_Key_미등록_끝자리_null_응답() throws Exception {
-		String token = jwtTokenProvider.createAccessToken(7L).value();
-		Mockito.when(userApiKeyRepository.findByUserId(7L)).thenReturn(java.util.Optional.empty());
+		String token = jwtTokenProvider.createAccessToken(new com.maple.utility.security.JwtAuthentication(7L, 7L, 70L, 10L)).value();
+		Mockito.when(userApiKeyRepository.findById(10L)).thenReturn(java.util.Optional.empty());
 		mockMvc.perform(get("/api/v1/api-key/status").header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.registered").value(false))
 				.andExpect(jsonPath("$.keySuffix").value(org.hamcrest.Matchers.nullValue()));
@@ -197,7 +203,7 @@ class ApiFlowIntegrationTest {
 
 	@Test
 	void 캐릭터_설정_일괄_저장_JWT_사용자_전달() throws Exception {
-		String token = jwtTokenProvider.createAccessToken(7L).value();
+		String token = jwtTokenProvider.createAccessToken(new com.maple.utility.security.JwtAuthentication(7L, 7L, 70L, 10L)).value();
 		var items = List.of(new com.maple.utility.dto.request.CharacterPreferencesRequest.Preference(10L, true));
 		Mockito.when(characterService.updatePreferences(7L, items)).thenReturn(List.of());
 		mockMvc.perform(put("/api/v1/characters/preferences").header("Authorization", "Bearer " + token)
@@ -215,7 +221,7 @@ class ApiFlowIntegrationTest {
 
 	@Test
 	void 월드_선택_JWT_사용자별_조회_저장() throws Exception {
-		String token = jwtTokenProvider.createAccessToken(7L).value();
+		String token = jwtTokenProvider.createAccessToken(new com.maple.utility.security.JwtAuthentication(7L, 7L, 70L, 10L)).value();
 		Mockito.when(worldSelectionService.getSelection(7L)).thenReturn(new WorldSelectionResponse(List.of("루나")));
 		Mockito.when(worldSelectionService.saveSelection(7L, List.of("베라")))
 				.thenReturn(new WorldSelectionResponse(List.of("베라")));

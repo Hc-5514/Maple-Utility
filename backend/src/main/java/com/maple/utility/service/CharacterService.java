@@ -25,6 +25,8 @@ import com.maple.utility.security.NexonOpenApiClient;
 @Service
 public class CharacterService {
 
+	private static final int MAX_FAVORITES = 18;
+
 	private final CharacterRepository characterRepository;
 	private final UserRepository userRepository;
 	private final NexonOpenApiClient nexonOpenApiClient;
@@ -66,6 +68,9 @@ public class CharacterService {
 	public CharacterResponse toggleFavorite(Long userId, Long characterId) {
 		lockUser(userId);
 		MapleCharacter character = findCharacter(userId, characterId);
+		if (!character.isFavorite() && characterRepository.countByUserIdAndFavoriteTrue(userId) >= MAX_FAVORITES) {
+			throw favoriteLimitExceeded();
+		}
 		character.toggleFavorite();
 		evictSchedulerAfterCommit();
 		return CharacterResponse.from(character);
@@ -123,6 +128,9 @@ public class CharacterService {
 		if (preferences.size() != characters.size()) {
 			throw new ApiException(HttpStatus.CONFLICT, "CHARACTER_LIST_CHANGED", "캐릭터 목록 변경, 새로고침 후 저장 필요");
 		}
+		if (preferences.stream().filter(Preference::favorite).count() > MAX_FAVORITES) {
+			throw favoriteLimitExceeded();
+		}
 		for (int index = 0; index < preferences.size(); index++) {
 			Preference preference = preferences.get(index);
 			byId.get(preference.characterId()).updatePreferences(preference.favorite(), index + 1);
@@ -133,6 +141,10 @@ public class CharacterService {
 
 	private ApiException invalidPreferences() {
 		return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CHARACTER_PREFERENCES", "캐릭터 설정 목록 오류");
+	}
+
+	private ApiException favoriteLimitExceeded() {
+		return new ApiException(HttpStatus.BAD_REQUEST, "FAVORITE_LIMIT_EXCEEDED", "즐겨찾기는 전체 월드 합산 최대 18명까지 선택 가능");
 	}
 
 	private void lockUser(Long userId) {

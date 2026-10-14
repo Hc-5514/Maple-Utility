@@ -2,6 +2,7 @@ package com.maple.utility.controller;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.util.List;
@@ -12,11 +13,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.maple.utility.dto.request.CharacterPreferencesRequest.Preference;
 import com.maple.utility.exception.GlobalExceptionHandler;
+import com.maple.utility.exception.ApiException;
 import com.maple.utility.security.JwtAuthentication;
 import com.maple.utility.service.CharacterService;
 import com.maple.utility.service.SyncJobService;
@@ -65,5 +68,25 @@ class CharacterPreferencesControllerTest {
 				.contentType("application/json").content("{\"characters\":oops}"))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
 		verifyNoInteractions(service);
+	}
+
+	@Test
+	void overLimitPreferencesReturnStructuredBadRequest() throws Exception {
+		when(service.updatePreferences(eq(7L), anyList())).thenThrow(
+				new ApiException(HttpStatus.BAD_REQUEST, "FAVORITE_LIMIT_EXCEEDED", "즐겨찾기 한도 초과"));
+		mvc.perform(put("/api/v1/characters/preferences").principal(authentication)
+				.contentType("application/json").content("{\"characters\":[{\"characterId\":20,\"favorite\":true}]}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("FAVORITE_LIMIT_EXCEEDED"));
+	}
+
+	@Test
+	void overLimitToggleReturnsStructuredBadRequestForAuthenticatedUser() throws Exception {
+		when(service.toggleFavorite(7L, 20L)).thenThrow(
+				new ApiException(HttpStatus.BAD_REQUEST, "FAVORITE_LIMIT_EXCEEDED", "즐겨찾기 한도 초과"));
+		mvc.perform(patch("/api/v1/characters/20/favorite").principal(authentication))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("FAVORITE_LIMIT_EXCEEDED"));
+		verify(service).toggleFavorite(7L, 20L);
 	}
 }

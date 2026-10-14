@@ -2,6 +2,9 @@ package com.maple.utility.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.bind.annotation.CookieValue;
+import com.maple.utility.dto.response.ApiKeyRegistrationResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,21 +29,23 @@ public class ApiKeyController {
 	}
 
 	@PostMapping
-	public ApiKeyStatusResponse register(
+	public ResponseEntity<ApiKeyRegistrationResponse> register(
 			@Valid @RequestBody ApiKeyRegisterRequest request,
-			Authentication authentication
-	) {
-		return apiKeyService.register(currentUserId(authentication), request.apiKey());
+			Authentication authentication,
+            @CookieValue(value = "refreshToken", required = false) String refreshToken
+    ) {
+        var result = apiKeyService.register((JwtAuthentication) authentication.getPrincipal(), request.apiKey(), refreshToken);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, AuthController.expireLegacyRefreshTokenCookie().toString(), AuthController.refreshTokenCookie(result.refreshToken()).toString()).body(result.response());
 	}
 
 	@GetMapping("/status")
 	public ApiKeyStatusResponse status(Authentication authentication) {
-		return apiKeyService.status(currentUserId(authentication));
+		return apiKeyService.status((JwtAuthentication) authentication.getPrincipal());
 	}
 
 	@DeleteMapping
 	public ResponseEntity<Void> delete(Authentication authentication) {
-		apiKeyService.delete(currentUserId(authentication));
+		apiKeyService.delete((JwtAuthentication) authentication.getPrincipal());
 		return ResponseEntity.noContent().build();
 	}
 

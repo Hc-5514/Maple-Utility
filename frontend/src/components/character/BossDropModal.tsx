@@ -1,12 +1,13 @@
-import { useEffect } from 'react'
-import Modal from '../common/Modal'
+import { useEffect, useRef } from 'react'
+import ThemedDialog, { dialogCancel, dialogConfirm } from '../common/ThemedDialog'
+import ThemedCheckbox from '../common/ThemedCheckbox'
 import DifficultyBadge from '../common/DifficultyBadge'
 import CatalogImage from '../common/CatalogImage'
+import PeriodMenu from './PeriodMenu'
 import { useBossPeriod } from '../../hooks/useCharacterDetail'
 import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
 
 interface Props {
-  isOpen: boolean
   onClose: () => void
   record: SchedulerBossRecord
   characterId: number
@@ -16,16 +17,31 @@ interface Props {
   onChange: (draft: BossPeriodDraft) => void
 }
 
+const amountInput =
+  'h-[34px] rounded-lg border border-[color-mix(in_srgb,var(--dash-accent)_45%,transparent)] bg-[var(--dash-subtle)] px-3 text-right text-[13px] text-[var(--dash-text)] outline-none [font-family:Inter,sans-serif] placeholder:text-[var(--dash-muted)] focus:border-[var(--dash-accent)]'
+
+function digits(value: string) {
+  const onlyDigits = value.replace(/[^0-9]/g, '')
+  return onlyDigits === '' ? null : Number(onlyDigits)
+}
+
 export default function BossDropModal({
-  isOpen, onClose, record, characterId, periodStart, draft, onLoaded, onChange,
+  onClose, record, characterId, periodStart, draft, onLoaded, onChange,
 }: Props) {
   const { data, isLoading, isError } = useBossPeriod(characterId, record.bossId ?? 0, periodStart)
+  const snapshot = useRef(draft)
 
   useEffect(() => {
     if (data) onLoaded(data)
   }, [data, onLoaded])
 
   const period = draft ?? (data ? { ...data, dirty: false } : undefined)
+
+  const cancel = () => {
+    const original = snapshot.current ?? (data ? { ...data, dirty: false } : undefined)
+    if (original && draft && original !== draft) onChange(original)
+    onClose()
+  }
 
   const changePartySize = (partySize: number) => {
     if (!period || partySize < 1 || partySize > 6) return
@@ -49,86 +65,93 @@ export default function BossDropModal({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`${record.bossName} 드랍 아이템`}>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <CatalogImage src={record.bossImage} alt={record.bossName ?? '보스'} kind="boss" />
-          <div>
-            <p className="font-semibold text-white">{record.bossName}</p>
-            {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
-          </div>
+    <ThemedDialog
+      title={`${record.bossName} 드랍 아이템`}
+      width={560}
+      top={160}
+      gap={20}
+      onClose={cancel}
+      actions={
+        <>
+          <button type="button" onClick={cancel} className={dialogCancel}>
+            취소
+          </button>
+          <button type="button" onClick={onClose} className={dialogConfirm}>
+            저장
+          </button>
+        </>
+      }
+    >
+      <div className="flex items-center gap-[14px]">
+        <CatalogImage src={record.bossImage} alt={record.bossName ?? '보스'} kind="boss" large />
+        <div className="flex min-w-0 flex-col items-start gap-[6px]">
+          <p className="truncate text-[18px] font-bold">{record.bossName}</p>
+          {record.difficulty && <DifficultyBadge difficulty={record.difficulty} />}
         </div>
-        <label className="flex items-center gap-2 text-sm text-white/70">
-          파티 인원
-          <select
-            value={period?.partySize ?? 1}
-            onChange={(event) => changePartySize(Number(event.target.value))}
-            disabled={!period}
-            className="rounded border border-white/20 bg-[#1a1a2e] px-2 py-1 text-white"
-          >
-            {[1, 2, 3, 4, 5, 6].map((size) => <option key={size} value={size}>{size}명</option>)}
-          </select>
-        </label>
+        <span className="ml-auto text-[13px] text-[var(--dash-muted)]">파티 인원</span>
+        <PeriodMenu
+          compact
+          label="파티 인원"
+          value={String(period?.partySize ?? 1)}
+          options={[1, 2, 3, 4, 5, 6].map((size) => ({ value: String(size), label: `${size}명` }))}
+          onChange={(value) => changePartySize(Number(value))}
+        />
       </div>
 
       {isLoading ? (
-        <div className="h-40 animate-pulse rounded bg-white/10" />
+        <div className="h-40 animate-pulse rounded-xl bg-[var(--dash-subtle)]" />
       ) : isError ? (
-        <p className="text-sm text-[#f87171]">드랍 아이템을 불러오지 못했습니다.</p>
+        <p className="text-[14px] text-[var(--dash-danger)]">드랍 아이템을 불러오지 못했습니다.</p>
       ) : !period || period.items.length === 0 ? (
-        <p className="text-sm text-white/50">드랍 아이템 정보 없음</p>
+        <p className="text-[14px] text-[var(--dash-muted)]">드랍 아이템 정보 없음</p>
       ) : (
-        <ul className="max-h-[60vh] divide-y divide-white/10 overflow-y-auto border-y border-white/10">
+        // 첫 행 위 구분선은 리스트 상단 border, 마지막 행 아래는 다이얼로그 공용 구분선(음수 마진으로 행 간격과 동일하게 보정)
+        <ul className="dialog-scroll -mb-[9px] max-h-[512px] overflow-y-auto border-t border-[var(--dash-border)]">
           {period.items.map((item) => (
-            <li key={item.dropItem.id} className="flex h-14 items-center gap-3">
-              <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" className="h-8 w-8" />
-              <div className="min-w-0 flex-1">
-                <label htmlFor={`drop-item-${item.dropItem.id}`} className="block cursor-pointer text-sm text-white">{item.dropItem.itemName}</label>
+            <li key={item.dropItem.id} className="flex h-[57px] items-center gap-3 border-b border-[var(--dash-border)] last:h-14 last:border-0">
+              <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" />
+              <div className="flex min-w-0 flex-col gap-[2px]">
+                <p className="truncate text-[14px]">{item.dropItem.itemName}</p>
                 {item.dropItem.itemKind === 'CRYSTAL' && period.crystalPrice === 0 && (
-                  <span className="text-xs text-amber-300">가격 미확인</span>
+                  <span className="text-[11px] text-[var(--dash-extreme)]">가격 미확인</span>
                 )}
               </div>
               {item.dropItem.itemKind === 'FIXED' && (
-                <label className="flex items-center gap-1 text-xs text-white/60">
+                <label className="ml-auto flex items-center gap-3 text-[12px] text-[var(--dash-muted)]">
                   수량
                   <input
-                    type="number"
-                    min={1}
-                    value={item.quantity}
-                    onChange={(event) => changeItem(item.dropItem.id, { quantity: Math.max(1, Number(event.target.value) || 1) })}
-                    className="w-16 rounded border border-white/20 bg-[#1a1a2e] px-2 py-1 text-right text-white"
+                    inputMode="numeric"
+                    value={item.quantity.toLocaleString()}
+                    onChange={(event) => changeItem(item.dropItem.id, { quantity: Math.max(1, digits(event.target.value) ?? 1) })}
+                    className={`${amountInput} w-[72px]`}
                     aria-label={`${item.dropItem.itemName} 수량`}
                   />
                 </label>
               )}
               {item.dropItem.itemKind === 'CRYSTAL' && (
-                <label className="flex items-center gap-1 text-xs text-white/60">
+                <label className="ml-auto flex items-center gap-3 text-[12px] text-[var(--dash-muted)]">
                   메소
                   <input
-                    type="number"
-                    min={0}
-                    value={item.mesoAmount ?? ''}
+                    inputMode="numeric"
+                    value={item.mesoAmount?.toLocaleString() ?? ''}
                     placeholder={period.crystalPrice === 0 ? '가격 미확인' : undefined}
-                    onChange={(event) => changeItem(item.dropItem.id, {
-                      mesoAmount: event.target.value === '' ? null : Math.max(0, Math.floor(Number(event.target.value))),
-                    })}
-                    className="w-28 rounded border border-white/20 bg-[#1a1a2e] px-2 py-1 text-right text-white"
+                    onChange={(event) => changeItem(item.dropItem.id, { mesoAmount: digits(event.target.value) })}
+                    className={`${amountInput} w-[132px]`}
                     aria-label="결정 금액"
                   />
                 </label>
               )}
-              <input
-                id={`drop-item-${item.dropItem.id}`}
-                type="checkbox"
-                checked={item.acquired}
-                onChange={(event) => changeItem(item.dropItem.id, { acquired: event.target.checked })}
-                className="h-5 w-5 shrink-0 cursor-pointer accent-[#4ade80]"
-                aria-label={`${item.dropItem.itemName} 획득 여부`}
-              />
+              <span className={item.dropItem.itemKind === 'RANDOM' ? 'ml-auto' : ''}>
+                <ThemedCheckbox
+                  checked={item.acquired}
+                  onChange={(acquired) => changeItem(item.dropItem.id, { acquired })}
+                  label={`${item.dropItem.itemName} 획득 여부`}
+                />
+              </span>
             </li>
           ))}
         </ul>
       )}
-    </Modal>
+    </ThemedDialog>
   )
 }

@@ -100,7 +100,7 @@ class NexonApiGatewayTest {
 
 		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 		when(valueOperations.get(org.mockito.ArgumentMatchers.startsWith("nexon:api:cache:1:GET:"))).thenReturn(null);
-		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(userApiKey));
+		when(userApiKeyRepository.findActiveByDataOwnerId(1L)).thenReturn(Optional.of(userApiKey));
 		when(apiKeyCryptoService.decrypt("encrypted-api-key")).thenReturn("plain-api-key");
 		when(apiCallCounter.getCount("1")).thenReturn(0L);
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -172,7 +172,7 @@ class NexonApiGatewayTest {
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 		when(dataSyncLogRepository.save(org.mockito.ArgumentMatchers.any(DataSyncLog.class)))
 				.thenAnswer(invocation -> invocation.getArgument(0));
-		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(userApiKey));
+		when(userApiKeyRepository.findByKeyFingerprint(ApiKeyFingerprint.of("plain-api-key"))).thenReturn(Optional.of(userApiKey));
 
 		assertThatThrownBy(() -> gateway.get(1L, "plain-api-key", "https://example.test", NexonRequestMode.REALTIME))
 				.isInstanceOf(ApiException.class);
@@ -241,7 +241,7 @@ class NexonApiGatewayTest {
 
 		when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 		when(valueOperations.get(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
-		when(userApiKeyRepository.findByUserId(1L)).thenReturn(Optional.of(userApiKey));
+		when(userApiKeyRepository.findActiveByDataOwnerId(1L)).thenReturn(Optional.of(userApiKey));
 		when(apiKeyCryptoService.decrypt("encrypted-api-key")).thenReturn("plain-api-key");
 		when(apiCallCounter.getCount("1")).thenReturn(399L);
 		when(userRepository.findById(1L)).thenReturn(Optional.of(user));
