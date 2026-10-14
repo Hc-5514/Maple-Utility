@@ -52,4 +52,14 @@ describe('BossCard', () => {
     expect(onDelete).toHaveBeenCalledOnce()
     expect(onClickDetail).not.toHaveBeenCalled()
   })
+
+  it('shows the backend-calculated crystal meso for a defeated boss', () => {
+    render(<BossCard record={{ ...record, crystalPrice: 900_000_000, acquiredCrystalMeso: 300_000_000 }} onClickDetail={vi.fn()} />)
+    expect(screen.getByText('300,000,000 메소')).toBeTruthy()
+  })
+
+  it('shows 0 meso for an undefeated boss', () => {
+    render(<BossCard record={{ ...record, isCompleted: false, crystalPrice: 900_000_000, acquiredCrystalMeso: 0 }} onClickDetail={vi.fn()} />)
+    expect(screen.getByText('0 메소')).toBeTruthy()
+  })
 })
