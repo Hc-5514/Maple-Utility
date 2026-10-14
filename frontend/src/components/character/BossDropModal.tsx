@@ -97,7 +97,6 @@ export default function BossDropModal({
           onChange={(value) => changePartySize(Number(value))}
         />
       </div>
-      <div className="h-px bg-[var(--dash-border)]" />
 
       {isLoading ? (
         <div className="h-40 animate-pulse rounded-xl bg-[var(--dash-subtle)]" />
@@ -106,7 +105,8 @@ export default function BossDropModal({
       ) : !period || period.items.length === 0 ? (
         <p className="text-[14px] text-[var(--dash-muted)]">드랍 아이템 정보 없음</p>
       ) : (
-        <ul className="dialog-scroll max-h-[512px] overflow-y-auto">
+        // 첫 행 위 구분선은 리스트 상단 border, 마지막 행 아래는 다이얼로그 공용 구분선(음수 마진으로 행 간격과 동일하게 보정)
+        <ul className="dialog-scroll -mb-[9px] max-h-[512px] overflow-y-auto border-t border-[var(--dash-border)]">
           {period.items.map((item) => (
             <li key={item.dropItem.id} className="flex h-[57px] items-center gap-3 border-b border-[var(--dash-border)] last:h-14 last:border-0">
               <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" />

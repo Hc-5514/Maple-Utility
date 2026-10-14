@@ -246,6 +246,27 @@ class BossDropServiceTest {
 		verify(bossItemAcquisitionRepository, never()).save(any(BossItemAcquisition.class));
 	}
 
+	@Test
+	void getPeriodDefaultsCrystalToAcquiredWhenNeverSaved() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 48_900_000L);
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.empty());
+
+		var response = bossDropService.getPeriod(1L, 20L, 10L, LocalDate.parse("2026-10-08"));
+
+		assertThat(response.items()).singleElement().satisfies(item -> {
+			assertThat(item.acquired()).isTrue();
+			assertThat(item.mesoAmount()).isEqualTo(48_900_000L);
+		});
+	}
+
 	private User user() {
 		User user = User.create(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
 		ReflectionTestUtils.setField(user, "id", 1L);

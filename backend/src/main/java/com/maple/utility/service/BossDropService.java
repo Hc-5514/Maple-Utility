@@ -188,7 +188,10 @@ public class BossDropService {
 								: previous != null && previous.getMesoAmount() != null ? previous.getMesoAmount()
 								: boss.getCrystalPrice() == 0 ? null : boss.getCrystalPrice() / partySize;
 					}
-					return new BossPeriodResponse.Item(BossDropItemResponse.from(dropItem), saved != null, quantity, mesoAmount);
+					// 저장 이력이 없는 기간은 결정 아이템을 기본 획득 처리
+					boolean acquired = saved != null
+							|| (entry == null && dropItem.getItemKind() == BossItemKind.CRYSTAL);
+					return new BossPeriodResponse.Item(BossDropItemResponse.from(dropItem), acquired, quantity, mesoAmount);
 				}).toList();
 		return new BossPeriodResponse(boss.getId(), characterId, periodStart, partySize, boss.getCrystalPrice(),
 				entry == null ? null : entry.getSavedAt(), items);
