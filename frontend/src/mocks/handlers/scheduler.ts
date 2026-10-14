@@ -2,7 +2,9 @@ import { http, HttpResponse } from 'msw'
 import {
   previewBossRecords, previewCharacter, previewCharacters, previewDate, previewWeekStart,
 } from '../fixtures/nexonPreview'
+import catalog from '../fixtures/nexonPreviewCatalog.json'
 import type { BossCandidate, SchedulerBossRecord } from '../../types'
+import { localDate, thursdayWeekStart } from '../../utils/date'
 
 const syncedAt = `${previewDate}T00:00:00+09:00`
 const manualBossRecords = new Map<string, SchedulerBossRecord[]>()
@@ -13,18 +15,62 @@ function selectionKey(characterId: number, periodStart: string, resetPeriod: str
   return `${characterId}:${periodStart}:${resetPeriod}:${bossId}`
 }
 
+const difficultyOrder = ['EASY', 'NORMAL', 'HARD', 'CHAOS', 'EXTREME']
+
 function bossCandidates(resetPeriod: 'WEEKLY' | 'MONTHLY'): BossCandidate[] {
-  const seen = new Set<number>()
-  return previewBossRecords(1)
-    .filter((record) => record.resetPeriod === resetPeriod && record.bossId && !seen.has(record.bossId) && Boolean(seen.add(record.bossId)))
-    .map((record) => ({
-      id: record.bossId ?? 0,
-      bossName: record.bossName ?? '',
-      difficulty: record.difficulty ?? 'NORMAL',
-      bossImage: record.bossImage ?? null,
-      crystalPrice: record.crystalPrice ?? 0,
+  const bosses = catalog.filter((boss) => boss.resetPeriod === resetPeriod)
+  const nameOrder = [...new Set(bosses.map((boss) => boss.bossName))]
+  return [...bosses]
+    .sort((a, b) => nameOrder.indexOf(a.bossName) - nameOrder.indexOf(b.bossName)
+      || difficultyOrder.indexOf(a.difficulty) - difficultyOrder.indexOf(b.difficulty))
+    .map((boss) => ({
+      id: boss.id,
+      bossName: boss.bossName,
+      difficulty: boss.difficulty as BossCandidate['difficulty'],
+      bossImage: null,
+      crystalPrice: boss.crystalPrice,
       resetPeriod,
     }))
+}
+
+const bossLimits = { WEEKLY: 12, MONTHLY: 1 } as const
+
+// 최근 3주(넥슨 제공 구간)와 그 구간에 걸친 달은 수정 불가
+function customizable(periodStart: string, resetPeriod: 'WEEKLY' | 'MONTHLY') {
+  const today = new Date()
+  const lockedFrom = new Date(`${thursdayWeekStart(today)}T12:00:00`)
+  lockedFrom.setDate(lockedFrom.getDate() - 14)
+  if (resetPeriod === 'MONTHLY') {
+    const monthEnd = new Date(`${periodStart.slice(0, 7)}-01T12:00:00`)
+    monthEnd.setMonth(monthEnd.getMonth() + 1, 0)
+    return localDate(monthEnd) < localDate(lockedFrom)
+  }
+  return periodStart < localDate(lockedFrom)
+}
+
+function periodBossRecords(characterId: number, weeklyDate: string, monthlyDate: string) {
+  const monthlyStart = `${monthlyDate.slice(0, 7)}-01`
+  const records = [
+    ...previewBossRecords(characterId),
+    ...(manualBossRecords.get(`${characterId}:${weeklyDate}:WEEKLY`) ?? []),
+    ...(manualBossRecords.get(`${characterId}:${monthlyStart}:MONTHLY`) ?? []),
+    ...periodSelections.values(),
+  ].filter((record) => {
+    const start = record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate
+    const inPeriod = record.recordDate === start || (record.recordDate === previewDate && (
+      record.resetPeriod === 'WEEKLY' ? start === previewWeekStart : start === `${previewDate.slice(0, 7)}-01`
+    ))
+    return record.characterId === characterId && inPeriod && !hiddenBosses.has(selectionKey(characterId, start, record.resetPeriod, record.bossId ?? 0))
+  })
+  return [...new Map(records.map((record) => [selectionKey(characterId, record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate, record.resetPeriod, record.bossId ?? 0), record])).values()]
+}
+
+// Mirrors the backend: only user additions are limited; synced snapshots may exceed the limit.
+function invalidSelection(resetPeriod: 'WEEKLY' | 'MONTHLY', added: string[], existing: string[] = []) {
+  if (added.length === 0) return false
+  return existing.length + added.length > bossLimits[resetPeriod]
+    || new Set(added).size !== added.length
+    || added.some((name) => existing.includes(name))
 }
 
 function dailyRecords(characterId: number) {
@@ -87,7 +133,11 @@ export const schedulerHandlers = [
   http.post('*/api/v1/scheduler/:characterId/boss/manual', async ({ params, request }) => {
     const characterId = Number(params.characterId)
     const body = await request.json() as { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] }
-    if (body.resetPeriod === 'WEEKLY' && body.bossIds.length > 12) {
+    const names = new Map(bossCandidates(body.resetPeriod).map((boss) => [boss.id, boss.bossName]))
+    if (!customizable(body.resetPeriod === 'MONTHLY' ? `${body.periodStart.slice(0, 7)}-01` : body.periodStart, body.resetPeriod)) {
+      return HttpResponse.json({ success: false }, { status: 400 })
+    }
+    if (invalidSelection(body.resetPeriod, body.bossIds.map((id) => names.get(id) ?? String(id)))) {
       return HttpResponse.json({ success: false }, { status: 400 })
     }
     const normalizedStart = body.resetPeriod === 'MONTHLY' ? `${body.periodStart.slice(0, 7)}-01` : body.periodStart
@@ -119,7 +169,14 @@ export const schedulerHandlers = [
     const characterId = Number(params.characterId)
     const body = await request.json() as { periodStart: string; resetPeriod: 'WEEKLY' | 'MONTHLY'; bossIds: number[] }
     const start = body.resetPeriod === 'MONTHLY' ? `${body.periodStart.slice(0, 7)}-01` : body.periodStart
+    if (!customizable(start, body.resetPeriod)) return HttpResponse.json({ success: false }, { status: 400 })
     const candidates = new Map(bossCandidates(body.resetPeriod).map((boss) => [boss.id, boss]))
+    const existing = periodBossRecords(characterId, start, start).filter((record) => record.resetPeriod === body.resetPeriod)
+    const existingIds = new Set(existing.map((record) => record.bossId))
+    const added = body.bossIds.filter((id) => !existingIds.has(id)).map((id) => candidates.get(id)?.bossName ?? String(id))
+    if (invalidSelection(body.resetPeriod, added, existing.map((record) => record.bossName ?? ''))) {
+      return HttpResponse.json({ success: false }, { status: 400 })
+    }
     const records = body.bossIds.flatMap((bossId) => {
       const boss = candidates.get(bossId)
       if (!boss) return []
@@ -142,6 +199,7 @@ export const schedulerHandlers = [
     const resetPeriod = new URL(request.url).searchParams.get('resetPeriod')
     const periodStart = new URL(request.url).searchParams.get('periodStart')
     if (!resetPeriod || !periodStart) return HttpResponse.json({ success: false }, { status: 400 })
+    if (!customizable(periodStart, resetPeriod as 'WEEKLY' | 'MONTHLY')) return HttpResponse.json({ success: false }, { status: 400 })
     const key = selectionKey(characterId, periodStart, resetPeriod, Number(params.bossId))
     periodSelections.delete(key)
     hiddenBosses.add(key)
@@ -153,23 +211,12 @@ export const schedulerHandlers = [
     const searchParams = new URL(request.url).searchParams
     const weeklyDate = searchParams.get('weeklyDate') ?? searchParams.get('date') ?? previewDate
     const monthlyDate = searchParams.get('monthlyDate') ?? searchParams.get('date') ?? previewDate
-    const monthlyStart = `${monthlyDate.slice(0, 7)}-01`
-    const records = [
-      ...previewBossRecords(characterId),
-      ...(manualBossRecords.get(`${characterId}:${weeklyDate}:WEEKLY`) ?? []),
-      ...(manualBossRecords.get(`${characterId}:${monthlyStart}:MONTHLY`) ?? []),
-      ...periodSelections.values(),
-    ].filter((record) => {
-      const start = record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate
-      const inPeriod = record.recordDate === start || (record.recordDate === previewDate && (
-        record.resetPeriod === 'WEEKLY' ? start === previewWeekStart : start === `${previewDate.slice(0, 7)}-01`
-      ))
-      return record.characterId === characterId && inPeriod && !hiddenBosses.has(selectionKey(characterId, start, record.resetPeriod, record.bossId ?? 0))
-    })
-    const unique = [...new Map(records.map((record) => [selectionKey(characterId, record.resetPeriod === 'MONTHLY' ? monthlyStart : weeklyDate, record.resetPeriod, record.bossId ?? 0), record])).values()]
+    const unique = periodBossRecords(characterId, weeklyDate, monthlyDate)
     return HttpResponse.json({ success: true, data: {
       weeklyBosses: unique.filter((record) => record.resetPeriod === 'WEEKLY'),
       monthlyBosses: unique.filter((record) => record.resetPeriod === 'MONTHLY'),
+      weeklyCustomizable: customizable(weeklyDate, 'WEEKLY'),
+      monthlyCustomizable: customizable(`${monthlyDate.slice(0, 7)}-01`, 'MONTHLY'),
     } })
   }),
 
@@ -204,8 +251,9 @@ export const schedulerHandlers = [
             total: daily.reduce((sum, record) => sum + record.totalCount, 0),
           },
           weekly: { completed: weekly.filter((record) => record.isCompleted).length, total: weekly.length },
-          weeklyBoss: { completed: weeklyBosses.filter((boss) => boss.isCompleted).length, total: weeklyBosses.length },
-          monthlyBoss: { completed: monthlyBosses.filter((boss) => boss.isCompleted).length, total: monthlyBosses.length },
+          // Cleared bosses out of the in-game clear limit, independent of registered scheduler entries.
+          weeklyBoss: { completed: weeklyBosses.filter((boss) => boss.isCompleted).length, total: weeklyBosses.length > 0 ? bossLimits.WEEKLY : 0 },
+          monthlyBoss: { completed: monthlyBosses.filter((boss) => boss.isCompleted).length, total: monthlyBosses.length > 0 ? bossLimits.MONTHLY : 0 },
         }
       }),
       syncedAt,

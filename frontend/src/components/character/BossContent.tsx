@@ -1,68 +1,87 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CalendarDays, Plus, Save, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import BossCard from './BossCard'
 import BossDropModal from './BossDropModal'
-import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useBossCandidates, useCharacterBoss } from '../../hooks/useCharacterDetail'
-import { localDate, monthStart, thursdayWeekStart } from '../../utils/date'
-import type { BossPeriod, BossPeriodDraft, ResetPeriod, SchedulerBossRecord } from '../../types'
+import ThemedConfirmDialog from '../common/ThemedConfirmDialog'
+import { useThemeStore } from '../../stores/themeStore'
+import { characterAssets } from './assets'
+import { controlButton, countPill, detailCard } from './styles'
+import BossSelectionModal, { BOSS_LIMITS, clearedCount, countLabel, type BossSelectionChange, type MonthlyBlock } from './BossSelectionModal'
+import { addBossesToPeriod, hideBossFromPeriod, saveBossPeriod, useCharacterBoss } from '../../hooks/useCharacterDetail'
+import { monthLabel, weekMonths } from '../../utils/date'
+import type { BossPeriod, BossPeriodDraft, SchedulerBossRecord } from '../../types'
 
 interface Props {
   characterId: number
   date: string
+  weekStart: string
 }
+
+// 월간 기록에 조회한 월 시작일을 붙여 기간 키로 사용
+type BossRecord = SchedulerBossRecord & { monthStart?: string }
 
 function BossGroup({
   title,
+  counts,
   records,
   onClickDetail,
-  onAdd,
   onDelete,
 }: {
   title: string
-  records: SchedulerBossRecord[]
-  onClickDetail: (record: SchedulerBossRecord) => void
-  onAdd: () => void
-  onDelete: (record: SchedulerBossRecord) => void
+  counts: string[]
+  records: BossRecord[]
+  onClickDetail: (record: BossRecord) => void
+  onDelete: (record: BossRecord) => (() => void) | undefined
 }) {
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white/60">{title}</h3>
-        <button type="button" onClick={onAdd} aria-label={`${title} 추가`} title={`${title} 추가`} className="grid size-7 place-items-center rounded text-white/60 hover:bg-white/10 hover:text-white"><Plus size={16} /></button>
+    <>
+      <div className="flex items-center gap-[10px]">
+        <h3 className="text-[15px] font-bold">{title}</h3>
+        {counts.map((count) => <span key={count} className={countPill}>{count}</span>)}
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        {records.map((record, idx) => (
-          <div key={record.id ?? `${record.characterId}-${record.bossId}-${idx}`} className="relative">
-            <BossCard record={record} onClickDetail={() => onClickDetail(record)} />
-            <button type="button" onClick={() => onDelete(record)} aria-label={`${record.bossName} 삭제`} title={`${record.bossName} 삭제`} className="absolute right-2 top-2 grid size-7 place-items-center rounded bg-[#1a1a2e] text-white/50 hover:bg-[#f87171]/20 hover:text-[#f87171]"><Trash2 size={15} /></button>
-          </div>
-        ))}
-      </div>
-    </div>
+      {records.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {records.map((record, idx) => (
+            <BossCard
+              key={record.id ?? `${record.characterId}-${record.bossId}-${idx}`}
+              record={record}
+              onClickDetail={() => onClickDetail(record)}
+              onDelete={onDelete(record)}
+              badge={record.monthStart && monthLabel(record.monthStart)}
+            />
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
-export default function BossContent({ characterId, date }: Props) {
+export default function BossContent({ characterId, date, weekStart: selectedWeekStart }: Props) {
   const queryClient = useQueryClient()
-  const pageDate = new Date(`${date}T12:00:00`)
-  const [selectedWeekStart, setSelectedWeekStart] = useState(() => thursdayWeekStart(pageDate))
-  const [selectedMonthStart, setSelectedMonthStart] = useState(() => monthStart(pageDate))
-  const { data: bossRecords, isLoading, isError } = useCharacterBoss(characterId, selectedWeekStart, selectedMonthStart)
-  const [selectedRecord, setSelectedRecord] = useState<SchedulerBossRecord | null>(null)
-  const [manualPeriod, setManualPeriod] = useState<ResetPeriod | null>(null)
-  const [selectedBossIds, setSelectedBossIds] = useState<number[]>([])
-  const [manualSaving, setManualSaving] = useState(false)
-  const [manualError, setManualError] = useState<string | null>(null)
+  const months = weekMonths(selectedWeekStart, date)
+  const first = useCharacterBoss(characterId, selectedWeekStart, months[0])
+  const second = useCharacterBoss(characterId, selectedWeekStart, months[1] ?? months[0])
+  const queries = months.length > 1 ? [first, second] : [first]
+  const isLoading = queries.some((query) => query.isLoading)
+  const isError = queries.some((query) => query.isError)
+  const [selectedRecord, setSelectedRecord] = useState<BossRecord | null>(null)
+  const [shownWeekStart, setShownWeekStart] = useState(selectedWeekStart)
+  if (shownWeekStart !== selectedWeekStart) {
+    setShownWeekStart(selectedWeekStart)
+    setSelectedRecord(null)
+  }
+  const [selecting, setSelecting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<BossRecord | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const assets = characterAssets[useThemeStore().theme]
   const [drafts, setDrafts] = useState<Record<string, BossPeriodDraft>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  const { data: candidates = [], isLoading: candidatesLoading } = useBossCandidates(characterId, manualPeriod)
-  const periodStart = (record: SchedulerBossRecord) => record.resetPeriod === 'MONTHLY'
-    ? selectedMonthStart
+  const periodStart = (record: BossRecord) => record.resetPeriod === 'MONTHLY'
+    ? record.monthStart ?? months[0]
     : selectedWeekStart
   const keyFor = (bossId: number, start: string) => `${characterId}:${bossId}:${start}`
   const selectedStart = selectedRecord ? periodStart(selectedRecord) : ''
@@ -75,7 +94,7 @@ export default function BossContent({ characterId, date }: Props) {
       ...previous,
       [key]: { ...period, dirty: false },
     })
-  }, [])
+  }, [setDrafts])
 
   useEffect(() => {
     if (dirtyDrafts.length === 0) return
@@ -112,190 +131,144 @@ export default function BossContent({ characterId, date }: Props) {
     }
   }
 
-  const weeklyRecords = bossRecords?.weeklyBosses ?? []
-  const monthlyRecords = bossRecords?.monthlyBosses ?? []
-  const weekOptions = Array.from({ length: 12 }, (_, index) => {
-    const current = new Date(`${thursdayWeekStart(pageDate)}T12:00:00`)
-    current.setDate(current.getDate() - index * 7)
-    const start = localDate(current)
-    const endDate = new Date(current)
-    endDate.setDate(endDate.getDate() + 6)
-    return { start, label: `${start.replace(/-/g, '.')} ~ ${localDate(endDate).replace(/-/g, '.')}` }
+  const weeklyRecords: BossRecord[] = first.data?.weeklyBosses ?? []
+  const weeklyCustomizable = first.data?.weeklyCustomizable === true
+  const monthBlocks: MonthlyBlock[] = months.map((start, index) => {
+    const data = queries[index]?.data
+    return {
+      start,
+      records: (data?.monthlyBosses ?? []).map((record) => ({ ...record, monthStart: start })),
+      customizable: data?.monthlyCustomizable === true,
+    }
   })
-  const monthOptions = Array.from({ length: 3 }, (_, index) => {
-    const current = new Date(`${monthStart(pageDate)}T12:00:00`)
-    current.setMonth(current.getMonth() - index)
-    const start = monthStart(current)
-    return { start, label: `${current.getFullYear()}년 ${current.getMonth() + 1}월` }
-  })
+  const monthlyRecords: BossRecord[] = monthBlocks.flatMap((block) => block.records)
+  const canCustomize = (record: BossRecord) => record.resetPeriod === 'MONTHLY'
+    ? monthBlocks.some((block) => block.start === record.monthStart && block.customizable)
+    : weeklyCustomizable
+  const anyCustomizable = weeklyCustomizable || monthBlocks.some((block) => block.customizable)
 
-  const openManualEditor = (resetPeriod: ResetPeriod) => {
-    setManualPeriod(resetPeriod)
-    setSelectedBossIds([])
-    setManualError(null)
+  const clearPeriodDraft = (record: BossRecord) => {
+    if (!record.bossId) return
+    const draftKey = keyFor(record.bossId, periodStart(record))
+    setDrafts((previous) => {
+      const next = { ...previous }
+      delete next[draftKey]
+      return next
+    })
   }
 
-  const toggleCandidate = (bossId: number) => {
-    setSelectedBossIds((previous) => previous.includes(bossId)
-      ? previous.filter((id) => id !== bossId)
-      : [...previous, bossId])
+  const refreshBossQueries = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart] })
+    await queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
+    await queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('stats/') })
   }
 
-  const saveManual = async () => {
-    if (!manualPeriod || selectedBossIds.length === 0 || manualSaving) return
-    setManualSaving(true)
-    setManualError(null)
+  const saveSelection = async ({ add, remove }: BossSelectionChange) => {
     try {
-      await addBossesToPeriod(characterId, {
-        periodStart: manualPeriod === 'MONTHLY' ? selectedMonthStart : selectedWeekStart,
-        resetPeriod: manualPeriod,
-        bossIds: selectedBossIds,
-      })
-      await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart, selectedMonthStart] })
-      await queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
-      setManualPeriod(null)
-      setSelectedBossIds([])
-    } catch {
-      setManualError('보스 기록 저장 실패')
+      for (const record of remove) {
+        if (!record.bossId) continue
+        await hideBossFromPeriod(characterId, record.bossId, periodStart(record), record.resetPeriod)
+        clearPeriodDraft(record)
+      }
+      const additions = [
+        { periodStart: selectedWeekStart, resetPeriod: 'WEEKLY' as const, bossIds: add.WEEKLY },
+        ...Object.entries(add.MONTHLY).map(([start, bossIds]) => ({ periodStart: start, resetPeriod: 'MONTHLY' as const, bossIds })),
+      ]
+      for (const addition of additions) {
+        if (addition.bossIds.length > 0) await addBossesToPeriod(characterId, addition)
+      }
     } finally {
-      setManualSaving(false)
+      await refreshBossQueries()
     }
   }
 
-  const deleteBoss = async (record: SchedulerBossRecord) => {
+  const deleteBoss = async (record: BossRecord) => {
     if (!record.bossId) return
-    if (!window.confirm(`${record.bossName} 보스를 이 기간에서 삭제하시겠습니까? 해당 기간의 아이템·결정석 획득 내역도 삭제됩니다.`)) return
     setDeleteError(null)
+    setDeleting(true)
     const start = periodStart(record)
     try {
       await hideBossFromPeriod(characterId, record.bossId, start, record.resetPeriod)
-      const draftKey = keyFor(record.bossId, start)
-      setDrafts((previous) => {
-        const next = { ...previous }
-        delete next[draftKey]
-        return next
-      })
+      clearPeriodDraft(record)
       setSelectedRecord(null)
-      await queryClient.invalidateQueries({ queryKey: ['scheduler/boss', characterId, selectedWeekStart, selectedMonthStart] })
-      await queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
-      await queryClient.invalidateQueries({ predicate: (query) => String(query.queryKey[0]).startsWith('stats/') })
+      await refreshBossQueries()
     } catch {
       setDeleteError('보스 삭제에 실패했습니다.')
+    } finally {
+      setDeleting(false)
+      setPendingDelete(null)
     }
   }
 
   return (
-    <section className="rounded-xl bg-[#2d2d44] p-5">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="font-semibold text-white">보스 컨텐츠</h2>
-        <div className="flex items-center gap-2">
-          <label className="sr-only" htmlFor="boss-week">보스 주차</label>
-          <div className="relative">
-            <CalendarDays size={15} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-white/50" />
-            <select
-              id="boss-week"
-              value={selectedWeekStart}
-              onChange={(event) => {
-                setSelectedWeekStart(event.target.value)
-                setSelectedRecord(null)
-                setManualPeriod(null)
-              }}
-              className="max-w-48 appearance-none rounded bg-[#1a1a2e] py-1.5 pl-7 pr-2 text-xs text-white"
-            >
-              {weekOptions.map((option) => <option key={option.start} value={option.start}>{option.label}</option>)}
-            </select>
-          </div>
-          <label className="sr-only" htmlFor="boss-month">보스 월</label>
-          <select
-            id="boss-month"
-            value={selectedMonthStart}
-            onChange={(event) => {
-              setSelectedMonthStart(event.target.value)
-              setSelectedRecord(null)
-              setManualPeriod(null)
-            }}
-            className="rounded bg-[#1a1a2e] px-2 py-1.5 text-xs text-white"
-          >
-            {monthOptions.map((option) => <option key={option.start} value={option.start}>{option.label}</option>)}
-          </select>
+    <section className={`${detailCard} flex flex-col gap-5 p-6`}>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-[18px] font-bold">보스 컨텐츠</h2>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setSelecting(true)}
+            disabled={isLoading || isError || !anyCustomizable}
+            title={!anyCustomizable ? '최근 3주와 그 주가 포함된 달은 넥슨 스케줄러 기록으로 표시됩니다' : undefined}
+            className={`${controlButton} disabled:cursor-not-allowed disabled:opacity-40`}>
+            <img src={assets.imgManage} alt="" className="size-4" />
+            보스 선택
+          </button>
           <button
             type="button"
             onClick={() => void handleSave()}
             disabled={dirtyDrafts.length === 0 || saving}
-            className="flex items-center gap-1.5 rounded bg-[#4ade80] px-3 py-1.5 text-sm font-medium text-[#102116] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-10 shrink-0 items-center gap-2 rounded-[10px] bg-[var(--dash-accent)] px-4 text-[14px] font-bold text-[var(--dash-button-text)] disabled:cursor-not-allowed"
           >
-            <Save size={16} aria-hidden="true" />
+            <img src={assets.imgSave} alt="" className="size-4" />
             {saving ? '저장 중' : '저장'}
           </button>
         </div>
       </div>
-      {saveError && <p role="alert" className="mb-3 text-sm text-[#f87171]">저장에 실패했습니다.</p>}
-      {deleteError && <p role="alert" className="mb-3 text-sm text-[#f87171]">{deleteError}</p>}
-      {saveSuccess && !saveError && <p role="status" className="mb-3 text-sm text-[#4ade80]">저장 완료</p>}
+      {saveError && <p role="alert" className="text-[13px] text-[var(--dash-danger)]">저장에 실패했습니다.</p>}
+      {deleteError && <p role="alert" className="text-[13px] text-[var(--dash-danger)]">{deleteError}</p>}
+      {saveSuccess && !saveError && <p role="status" className="text-[13px] text-[var(--dash-success)]">저장 완료</p>}
 
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-white/10" />
+            <div key={i} className="h-[118px] animate-pulse rounded-[14px] bg-[var(--dash-subtle)]" />
           ))}
         </div>
       ) : isError ? (
-        <p className="text-sm text-[#f87171]">불러오는 중 오류가 발생했습니다.</p>
+        <p className="text-[14px] text-[var(--dash-danger)]">불러오는 중 오류가 발생했습니다.</p>
       ) : (
-        <div className="space-y-5">
+        <>
           <BossGroup
             title="주간 보스"
+            counts={[countLabel(clearedCount(weeklyRecords.map((record) => record.isCompleted)), BOSS_LIMITS.WEEKLY)]}
             records={weeklyRecords}
             onClickDetail={setSelectedRecord}
-            onAdd={() => openManualEditor('WEEKLY')}
-            onDelete={(record) => void deleteBoss(record)}
+            onDelete={(record) => canCustomize(record) ? () => setPendingDelete(record) : undefined}
           />
           <BossGroup
             title="월간 보스"
+            counts={monthBlocks.map((block) =>
+              countLabel(clearedCount(block.records.map((record) => record.isCompleted)), BOSS_LIMITS.MONTHLY, block.start))}
             records={monthlyRecords}
             onClickDetail={setSelectedRecord}
-            onAdd={() => openManualEditor('MONTHLY')}
-            onDelete={(record) => void deleteBoss(record)}
+            onDelete={(record) => canCustomize(record) ? () => setPendingDelete(record) : undefined}
           />
-          {weeklyRecords.length === 0 && monthlyRecords.length === 0 && (
-            <p className="text-sm text-white/40">보스 기록 없음</p>
-          )}
-        </div>
+        </>
       )}
 
-      {manualPeriod && (
-        <div className="mt-4 border-t border-white/10 pt-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-white">{manualPeriod === 'WEEKLY' ? '주간' : '월간'} 보스 선택</p>
-            {manualPeriod === 'WEEKLY' && <span className="text-xs text-white/50">{weeklyRecords.length + selectedBossIds.length}/12</span>}
-          </div>
-          {candidatesLoading ? <p className="text-sm text-white/50">후보 불러오는 중</p> : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {candidates.filter((boss) => !(manualPeriod === 'WEEKLY' ? weeklyRecords : monthlyRecords).some((record) => record.bossId === boss.id)).map((boss) => {
-                const checked = selectedBossIds.includes(boss.id)
-                const disable = manualPeriod === 'WEEKLY' && !checked && weeklyRecords.length + selectedBossIds.length >= 12
-                return (
-                  <label key={boss.id} className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm ${checked ? 'border-[#4ade80] bg-[#4ade80]/10 text-white' : 'border-white/10 text-white/70'} ${disable ? 'cursor-not-allowed opacity-40' : ''}`}>
-                    <input type="checkbox" checked={checked} disabled={disable} onChange={() => toggleCandidate(boss.id)} />
-                    <span className="truncate">{boss.bossName} {boss.difficulty}</span>
-                  </label>
-                )
-              })}
-            </div>
-          )}
-          {manualError && <p role="alert" className="mt-3 text-sm text-[#f87171]">{manualError}</p>}
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => setManualPeriod(null)} className="rounded px-3 py-2 text-sm text-white/60 hover:text-white">취소</button>
-            <button type="button" onClick={() => void saveManual()} disabled={selectedBossIds.length === 0 || manualSaving} className="rounded bg-[#4ade80] px-3 py-2 text-sm font-medium text-[#102116] disabled:opacity-40">
-              {manualSaving ? '저장 중' : '선택 저장'}
-            </button>
-          </div>
-        </div>
+      {selecting && (
+        <BossSelectionModal
+          characterId={characterId}
+          weeklyRecords={weeklyRecords}
+          weeklyCustomizable={weeklyCustomizable}
+          months={monthBlocks}
+          onClose={() => setSelecting(false)}
+          onSave={saveSelection}
+        />
       )}
 
       {selectedRecord && (
         <BossDropModal
-          isOpen={true}
+          key={selectedKey}
           onClose={() => setSelectedRecord(null)}
           record={selectedRecord}
           characterId={characterId}
@@ -307,6 +280,17 @@ export default function BossContent({ characterId, date }: Props) {
             setSaveSuccess(false)
           }}
         />
+      )}
+      {pendingDelete && (
+        <ThemedConfirmDialog
+          title="보스 삭제"
+          confirmLabel="삭제"
+          busy={deleting}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => void deleteBoss(pendingDelete)}
+        >
+          {pendingDelete.bossName} 보스를 이 기간에서 삭제하시겠습니까? 해당 기간의 아이템·결정석 획득 내역도 삭제됩니다.
+        </ThemedConfirmDialog>
       )}
     </section>
   )

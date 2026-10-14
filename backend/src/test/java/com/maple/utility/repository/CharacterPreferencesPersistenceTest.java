@@ -28,6 +28,7 @@ import com.maple.utility.dto.response.CharacterResponse;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
+import com.maple.utility.exception.ApiException;
 import com.maple.utility.security.NexonCharacterBasic;
 import com.maple.utility.security.NexonCharacterSummary;
 import com.maple.utility.security.NexonOpenApiClient;
@@ -132,5 +133,46 @@ class CharacterPreferencesPersistenceTest {
 		assertThat(first.favorite()).isTrue();
 		assertThat(first.sortOrder()).isEqualTo(9);
 		assertThat(first.characterName()).isEqualTo("변경");
+	}
+
+	@Test
+	void concurrentFavoriteAddsCannotExceedEighteenAcrossWorlds() throws Exception {
+		transaction.executeWithoutResult(status -> {
+			User user = entityManager.find(User.class, userId);
+			for (int index = 0; index < 17; index++) {
+				MapleCharacter favorite = MapleCharacter.create(user, "favorite-" + index, "선택" + index,
+						index % 2 == 0 ? "루나" : "베라", "히어로", 280, index + 10);
+				favorite.toggleFavorite();
+				entityManager.persist(favorite);
+			}
+		});
+		CountDownLatch locked = new CountDownLatch(1);
+		CountDownLatch secondStarted = new CountDownLatch(1);
+		CompletableFuture<Boolean> first = CompletableFuture.supplyAsync(() -> transaction.execute(status -> {
+			users.findByIdForUpdate(userId).orElseThrow();
+			locked.countDown();
+			try {
+				if (!secondStarted.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("추가 요청 대기 초과");
+			} catch (InterruptedException exception) {
+				Thread.currentThread().interrupt();
+				throw new IllegalStateException(exception);
+			}
+			return service.toggleFavorite(userId, firstId).favorite();
+		}));
+		assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+		CompletableFuture<String> second = CompletableFuture.supplyAsync(() -> {
+			secondStarted.countDown();
+			try {
+				service.toggleFavorite(userId, secondId);
+				return "ADDED";
+			} catch (ApiException exception) {
+				return exception.getCode();
+			}
+		});
+		assertThat(first.get(5, TimeUnit.SECONDS)).isTrue();
+		assertThat(second.get(5, TimeUnit.SECONDS)).isEqualTo("FAVORITE_LIMIT_EXCEEDED");
+		assertThat(service.getFavoriteCharacters(userId)).hasSize(18);
+		assertThat(service.getCharacters(userId)).filteredOn(item -> item.id().equals(secondId))
+				.extracting(CharacterResponse::favorite).containsExactly(false);
 	}
 }

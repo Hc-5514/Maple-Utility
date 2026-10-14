@@ -5,18 +5,21 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import client from '../api/client'
 import AuthCallbackPage from './AuthCallbackPage'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 const response = (data: unknown) => ({ data: { success: true, data } }) as AxiosResponse
 
 function renderCallback(path: string) {
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/dashboard" element={<p>대시보드 화면</p>} />
         <Route path="/settings" element={<p>설정 화면</p>} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
+    </QueryClientProvider>
   )
 }
 

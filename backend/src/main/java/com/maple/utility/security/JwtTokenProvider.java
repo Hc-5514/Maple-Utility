@@ -46,16 +46,24 @@ public class JwtTokenProvider {
 		return createToken(userId, UUID.randomUUID().toString(), TokenType.REFRESH, properties.refreshTokenTtl());
 	}
 
-	public JwtAuthentication parseAccessToken(String token) {
+    public JwtToken createAccessToken(JwtAuthentication principal) {
+        return createToken(principal, UUID.randomUUID().toString(), TokenType.ACCESS, properties.accessTokenTtl());
+    }
+
+    public JwtToken createRefreshToken(JwtAuthentication principal) {
+        return createToken(principal, UUID.randomUUID().toString(), TokenType.REFRESH, properties.refreshTokenTtl());
+    }
+
+    public JwtAuthentication parseAccessToken(String token) {
 		Claims claims = parseClaims(token);
 		validateTokenType(claims, TokenType.ACCESS);
-		return new JwtAuthentication(Long.valueOf(claims.getSubject()));
+		return principal(claims);
 	}
 
 	public RefreshTokenClaims parseRefreshToken(String token) {
 		Claims claims = parseClaims(token);
 		validateTokenType(claims, TokenType.REFRESH);
-		return new RefreshTokenClaims(Long.valueOf(claims.getSubject()), claims.getId());
+		return new RefreshTokenClaims(Long.valueOf(claims.getSubject()), claims.getId(), principal(claims));
 	}
 
 	public Duration accessTokenTtl() {
@@ -67,11 +75,27 @@ public class JwtTokenProvider {
 	}
 
 	private JwtToken createToken(Long userId, String tokenId, TokenType tokenType, Duration ttl) {
-		Instant now = Instant.now(clock);
+        return createToken(new JwtAuthentication(userId), tokenId, tokenType, ttl);
+    }
+
+    private JwtAuthentication principal(Claims claims) {
+        Long identity = Long.valueOf(claims.getSubject());
+        Number owner = claims.get("data_owner_id", Number.class);
+        Number context = claims.get("data_context_id", Number.class);
+        Number credential = claims.get("credential_id", Number.class);
+        return new JwtAuthentication(owner == null ? identity : owner.longValue(), identity,
+                context == null ? null : context.longValue(), credential == null ? null : credential.longValue());
+    }
+
+    private JwtToken createToken(JwtAuthentication principal, String tokenId, TokenType tokenType, Duration ttl) {
+        Instant now = Instant.now(clock);
 		Instant expiresAt = now.plus(ttl);
 		String token = Jwts.builder()
 				.id(tokenId)
-				.subject(String.valueOf(userId))
+				.subject(String.valueOf(principal.identityUserId()))
+                .claim("data_owner_id", principal.userId())
+                .claim("data_context_id", principal.contextId())
+                .claim("credential_id", principal.credentialId())
 				.claim(TOKEN_TYPE_CLAIM, tokenType.name())
 				.issuedAt(Date.from(now))
 				.expiration(Date.from(expiresAt))
@@ -112,7 +136,11 @@ public class JwtTokenProvider {
 
 	public record RefreshTokenClaims(
 			Long userId,
-			String tokenId
-	) {
-	}
+			String tokenId,
+            JwtAuthentication principal
+    ) {
+        public RefreshTokenClaims(Long userId, String tokenId) {
+            this(userId, tokenId, new JwtAuthentication(userId));
+        }
+    }
 }

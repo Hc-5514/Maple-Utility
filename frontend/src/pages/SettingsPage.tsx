@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
+import { apiKeyErrorMessage, installAuthSession } from '../api/authSession'
 import { isAxiosError } from 'axios'
 import { useAuthStore } from '../stores/authStore'
 import { useCharacterStore } from '../stores/characterStore'
@@ -8,26 +9,15 @@ import { useThemeStore } from '../stores/themeStore'
 import { useSaveWorldSelection, useWorldSelection } from '../hooks/useWorldSelection'
 import { useUnsavedChanges } from '../router/UnsavedChangesGuard'
 import ThemedConfirmDialog from '../components/common/ThemedConfirmDialog'
+import CharacterPortrait from '../components/common/CharacterPortrait'
 import WorldSelectionModal from '../components/dashboard/WorldSelectionModal'
 import { settingsAssets } from '../components/settings/assets'
-import type { ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
+import { MAX_CHARACTER_FAVORITES } from '../constants/character'
+import { formatVerifiedAt } from '../components/settings/formatVerifiedAt'
+import DataContextSection from '../components/settings/DataContextSection'
+import type { ApiKeyRegistrationResponse, ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
 
-export function formatVerifiedAt(value: string | null) {
-  if (!value) return '미인증'
-  const date = new Date(/(?:Z|[+-]\d{2}:?\d{2})$/.test(value) ? value : value + '+09:00')
-  if (Number.isNaN(date.getTime())) return '미인증'
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date)
-  const get = (type: string) => parts.find((part) => part.type === type)?.value
-  return `${get('year')}.${get('month')}.${get('day')} ${get('hour')}:${get('minute')}`
-}
+export { formatVerifiedAt }
 function ApiKeySection() {
   const queryClient = useQueryClient()
   const { setHasApiKey } = useAuthStore()
@@ -45,15 +35,13 @@ function ApiKeySection() {
   })
   const register = useMutation({
     mutationFn: async (apiKey: string) => {
-      await client.post('/api-key', { apiKey })
+      const { data } = await client.post<ApiResponse<ApiKeyRegistrationResponse>>('/api-key', { apiKey })
+      return data.data
     },
-    onSuccess: () => {
-      setHasApiKey(true)
+    onSuccess: async (registration) => {
       setInputKey('')
-      void queryClient.invalidateQueries({ queryKey: ['api-key/status'] })
-      void queryClient.invalidateQueries({ queryKey: ['characters'] })
-      void queryClient.invalidateQueries({ queryKey: ['characters/favorites'] })
-      void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
+      await installAuthSession(queryClient, registration?.auth, undefined, true)
+      await queryClient.refetchQueries({ type: 'active' })
     },
   })
   const remove = useMutation({
@@ -173,7 +161,7 @@ function ApiKeySection() {
               </div>
               {register.isError && (
                 <p role="alert" className="text-sm text-red-400">
-                  등록 중 오류가 발생했습니다. 키를 확인하고 다시 시도해 주세요.
+                  {apiKeyErrorMessage(register.error, '등록 중 오류가 발생했습니다. 키를 확인하고 다시 시도해 주세요.')}
                 </p>
               )}
             </form>
@@ -241,6 +229,9 @@ function CharacterSection() {
   })
   const saved = characters.data ?? [],
     current = draft ?? saved
+  const favoriteCount = current.filter((character) => character.favorite).length
+  const favoriteLimitReached = favoriteCount >= MAX_CHARACTER_FAVORITES
+  const favoriteLimitExceeded = favoriteCount > MAX_CHARACTER_FAVORITES
   const dirty =
     current.length !== saved.length ||
     current.some(
@@ -306,6 +297,7 @@ function CharacterSection() {
     ),
     visibleIds = visible.map((character) => character.id)
   const toggleFavorite = (id: number) => {
+    if (favoriteLimitReached && !current.find((character) => character.id === id)?.favorite) return
     save.reset()
     setDraft(
       current.map((character) =>
@@ -328,6 +320,9 @@ function CharacterSection() {
           <div>
             <h2 id="character-management-heading">캐릭터 관리</h2>
             <span className="settings-count">{visible.length} 캐릭터</span>
+            <span className="settings-count" aria-live="polite" aria-atomic="true">
+              즐겨찾기 {favoriteCount}/{MAX_CHARACTER_FAVORITES}
+            </span>
           </div>
           <p>즐겨찾기와 표시 순서를 원하는 대로 설정하세요.</p>
         </div>
@@ -363,7 +358,8 @@ function CharacterSection() {
             <button
               type="button"
               className="settings-button settings-primary"
-              disabled={!dirty || save.isPending}
+              disabled={!dirty || save.isPending || favoriteLimitExceeded}
+              aria-describedby={favoriteLimitExceeded ? 'favorite-guidance' : undefined}
               onClick={() => save.mutate(current)}
             >
               {save.isPending ? '저장 중...' : '저장'}
@@ -373,10 +369,8 @@ function CharacterSection() {
       </div>
       <div data-testid="character-columns" className="settings-columns">
         <p>캐릭터 정보</p>
-        <div>
-          <p>즐겨찾기</p>
-          <p>표시 순서</p>
-        </div>
+        <p className="settings-favorite-heading">즐겨찾기</p>
+        <p className="settings-order-heading">표시 순서</p>
       </div>
       {characters.isLoading || worlds.isLoading ? (
         <p role="status" className="settings-guidance">
@@ -419,10 +413,10 @@ function CharacterSection() {
               }
             >
               {character.characterImage ? (
-                <img
-                  className="portrait"
+                <CharacterPortrait
                   src={character.characterImage}
                   alt={character.characterName}
+                  size={44}
                 />
               ) : (
                 <span aria-hidden="true">🍁</span>
@@ -445,7 +439,8 @@ function CharacterSection() {
               className="settings-favorite"
               aria-label={`${character.characterName} 즐겨찾기 ${character.favorite ? '해제' : '추가'}`}
               aria-pressed={character.favorite}
-              disabled={save.isPending || syncing}
+              disabled={save.isPending || syncing || (!character.favorite && favoriteLimitReached)}
+              aria-describedby={favoriteLimitReached ? 'favorite-guidance' : undefined}
               onClick={() => toggleFavorite(character.id)}
             >
               <img src={character.favorite ? assets.imgStar : assets.imgStar1} alt="" />
@@ -473,7 +468,9 @@ function CharacterSection() {
       )}
       {save.isError && (
         <p role="alert" className="settings-error">
-          변경사항을 저장하지 못했습니다. 다시 시도해 주세요.
+          {isAxiosError(save.error) && save.error.response?.data?.code === 'FAVORITE_LIMIT_EXCEEDED'
+            ? '즐겨찾기는 전체 월드 합산 최대 18명까지 선택할 수 있습니다. 최신 목록을 확인하고 다시 저장해 주세요.'
+            : '변경사항을 저장하지 못했습니다. 다시 시도해 주세요.'}
         </p>
       )}
       {(sync.isError || job.isError || job.data?.status === 'FAILED') && (
@@ -489,9 +486,19 @@ function CharacterSection() {
       {job.data?.status === 'COMPLETED' && job.data.skippedCount > 0 && (
         <p className="settings-guidance">상세 조회 제외 {job.data.skippedCount}명</p>
       )}
-      <div className="settings-guidance">
+      <div
+        id="favorite-guidance"
+        className={`settings-guidance${favoriteLimitExceeded ? ' settings-favorite-over-limit' : ''}`}
+        role={favoriteLimitExceeded ? 'alert' : undefined}
+      >
         <img src={assets.imgInfo} alt="" />
-        <p>즐겨찾기한 캐릭터는 사냥 기록과 통계의 캐릭터 필터에서 빠르게 선택할 수 있습니다.</p>
+        <p>
+          {favoriteLimitExceeded
+            ? `즐겨찾기가 ${favoriteCount}명입니다. 18명 이하로 줄인 뒤 저장해 주세요. 숨겨진 캐릭터는 월드 선택에서 확인할 수 있습니다.`
+            : favoriteLimitReached
+              ? '전체 월드 합산 18명을 선택했습니다. 즐겨찾기를 해제하면 다른 캐릭터를 추가할 수 있습니다.'
+              : '즐겨찾기는 전체 월드 합산 최대 18명까지 선택할 수 있으며, 사냥 기록과 통계의 캐릭터 필터에서 빠르게 선택할 수 있습니다.'}
+        </p>
       </div>
       {isAxiosError(save.error) && save.error.response?.status === 409 && (
         <div className="settings-guidance">
@@ -547,6 +554,7 @@ function CharacterSection() {
   )
 }
 export default function SettingsPage() {
+  const sessionRevision = useAuthStore((state) => state.sessionRevision)
   return (
     <div className="settings-page">
       <div data-testid="settings-heading" className="settings-heading">
@@ -556,8 +564,9 @@ export default function SettingsPage() {
           API 연결과 내 캐릭터를 관리하세요. 나에게 맞는 메이플의 시작.
         </p>
       </div>
-      <ApiKeySection />
-      <CharacterSection />
+      <ApiKeySection key={`key-${sessionRevision}`} />
+      <DataContextSection key={`contexts-${sessionRevision}`} />
+      <CharacterSection key={`characters-${sessionRevision}`} />
     </div>
   )
 }

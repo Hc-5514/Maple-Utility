@@ -65,7 +65,12 @@ public class SyncJobRepository {
 		jdbcTemplate.update("UPDATE sync_jobs SET status = 'FAILED', error_message = ?, completed_at = ? WHERE id = ? AND status = 'STARTED'", message, time, id);
 	}
 
-	public void failInterrupted(LocalDateTime time) {
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public void failIsolated(Long id, String message, LocalDateTime time) {
+        fail(id, message, time);
+    }
+
+    public void failInterrupted(LocalDateTime time) {
 		jdbcTemplate.update("UPDATE sync_jobs SET status = 'FAILED', error_message = '서버 재시작으로 동기화 중단', completed_at = ? WHERE status = 'STARTED'", time);
 	}
 

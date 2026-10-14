@@ -7,10 +7,11 @@ import { dashboardAssets } from '../dashboard/assets'
 export default function Layout() {
   const { pathname } = useLocation()
   const dashboard = pathname === '/dashboard'
+  const characterDetail = pathname.startsWith('/dashboard/')
   const stats = pathname === '/stats'
   const settings = pathname === '/settings'
   const themed =
-    dashboard || stats || settings || pathname === '/hunting' || pathname.startsWith('/hunting/')
+    dashboard || characterDetail || stats || settings || pathname === '/hunting' || pathname.startsWith('/hunting/')
   const { theme } = useThemeStore()
   const assets = settings ? settingsAssets[theme] : dashboardAssets[theme]
   return (
@@ -34,7 +35,7 @@ export default function Layout() {
               className="absolute top-[-20px] left-[-190px]"
             />
             <img src={assets.imgAmbientCyan} alt="" className="absolute top-[330px] left-[780px]" />
-            {(dashboard || stats || settings) && (
+            {(dashboard || characterDetail || stats || settings) && (
               <img
                 src={assets.imgAmbientViolet1}
                 alt=""

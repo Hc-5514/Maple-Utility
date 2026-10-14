@@ -43,7 +43,7 @@ class SchedulerBatchJobTest {
 	void syncDailySchedulerSyncsFavoriteCharactersByUser() {
 		User firstUser = user(1L);
 		User secondUser = user(2L);
-		when(userRepository.findAll()).thenReturn(List.of(firstUser, secondUser));
+		when(userRepository.findDataOwnersWithActiveKey()).thenReturn(List.of(firstUser, secondUser));
 
 		schedulerBatchJob.syncDailyScheduler();
 
@@ -59,7 +59,7 @@ class SchedulerBatchJobTest {
 
 	@Test
 	void pendingFinalizationsGetBudgetBeforeDailyEnqueueForEveryUser() {
-		when(userRepository.findAll()).thenReturn(List.of(user(1L), user(2L)));
+		when(userRepository.findDataOwnersWithActiveKey()).thenReturn(List.of(user(1L), user(2L)));
 		schedulerBatchJob.syncDailyScheduler();
 		var ordered = inOrder(finalizationService, syncJobService);
 		ordered.verify(finalizationService).retryPendingWeeks();
@@ -69,7 +69,7 @@ class SchedulerBatchJobTest {
 
 	@Test
 	void retryStorageFailureDoesNotSuppressDailyScheduling() {
-		when(userRepository.findAll()).thenReturn(List.of(user(1L)));
+		when(userRepository.findDataOwnersWithActiveKey()).thenReturn(List.of(user(1L)));
 		doThrow(new IllegalStateException("retry storage unavailable")).when(finalizationService).retryPendingWeeks();
 		schedulerBatchJob.syncDailyScheduler();
 		verify(syncJobService).startScheduler(1L, true, true);

@@ -35,7 +35,7 @@ public class SchedulerBatchJob {
 		} catch (RuntimeException exception) {
 			log.error("Scheduler finalization retry pass failed before daily batch", exception);
 		}
-		for (User user : userRepository.findAll()) {
+		for (User user : userRepository.findDataOwnersWithActiveKey()) {
 			try {
 				syncJobService.startScheduler(user.getId(), true, true);
 			} catch (RuntimeException exception) {

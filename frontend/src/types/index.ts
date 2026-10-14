@@ -50,6 +50,26 @@ export interface ApiKeyStatusResponse {
   lastVerifiedAt: string | null
 }
 
+// GET /auth/data-contexts 응답 행(키 단위). 대표 캐릭터는 첫 즐겨찾기, 없으면 최고 레벨 캐릭터
+export interface DataContextItem {
+  contextId: number
+  ownerUserId: number
+  credentialId: number
+  keySuffix: string | null
+  status: ApiKeyStatus
+  lastVerifiedAt: string | null
+  current: boolean
+  representativeCharacterName: string | null
+  characterClass: string | null
+  worldName: string | null
+  characterLevel: number | null
+  characterImage: string | null
+}
+
+export interface ApiKeyRegistrationResponse extends ApiKeyStatusResponse {
+  auth?: AuthLoginResponse | null
+}
+
 // ─── 캐릭터 ──────────────────────────────────────────────────────
 export interface Character {
   id: number
@@ -173,10 +193,10 @@ export interface HuntingRecord {
   recordDate: string
   mesoEarned: number
   solErdaEarned: number
-	playDurationMin: number | null
-	huntingGroundId: number | null
-	regionName: string | null
-	huntingGround: string | null
+  playDurationMin: number | null
+  huntingGroundId: number | null
+  regionName: string | null
+  huntingGround: string | null
   memo: string | null
   createdAt: string
   updatedAt: string
@@ -225,6 +245,8 @@ export interface SchedulerSummary {
 export interface SchedulerBossDetail {
   weeklyBosses: SchedulerBossRecord[]
   monthlyBosses: SchedulerBossRecord[]
+  weeklyCustomizable: boolean
+  monthlyCustomizable: boolean
 }
 
 export interface SyncJob {
@@ -237,17 +259,6 @@ export interface SyncJob {
   errorMessage: string | null
   startedAt: string
   completedAt: string | null
-}
-
-// ─── 길드 콘텐츠 ─────────────────────────────────────────────────
-export interface GuildRecord {
-  id?: number
-  characterId: number
-  characterName?: string
-  recordDate: string
-  contentName: string
-  score: number | null
-  syncedAt: string | null
 }
 
 // ─── 데이터 동기화 ────────────────────────────────────────────────

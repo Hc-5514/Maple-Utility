@@ -1,5 +1,8 @@
 package com.maple.utility.service;
 
+import java.text.Collator;
+import java.util.Comparator;
+import java.util.Locale;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +43,7 @@ public class CharacterSyncService {
 		lockUser(user.getId());
 		int sortOrder = characterRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId()).stream()
 				.mapToInt(MapleCharacter::getSortOrder).max().orElse(0) + 1;
-		for (NexonCharacterSummary summary : characterSummaries) {
+		for (NexonCharacterSummary summary : characterSummaries.stream().sorted(defaultOrder()).toList()) {
 			int currentSortOrder = sortOrder;
 			var existing = characterRepository.findByUserIdAndOcid(user.getId(), summary.ocid());
 			MapleCharacter character = existing
@@ -146,6 +149,15 @@ public class CharacterSyncService {
 			);
 		}
 		return characterRepository.findByUserIdOrderBySortOrderAscIdAsc(user.getId());
+	}
+
+	private Comparator<NexonCharacterSummary> defaultOrder() {
+		// Collator is mutable and not thread-safe: each sync owns its comparator.
+		Collator koreanNames = Collator.getInstance(Locale.KOREAN);
+		return Comparator.comparing(NexonCharacterSummary::characterLevel,
+				Comparator.nullsLast(Comparator.reverseOrder()))
+				.thenComparing(NexonCharacterSummary::characterName, Comparator.nullsLast(koreanNames::compare))
+				.thenComparing(NexonCharacterSummary::ocid);
 	}
 
 	private void lockUser(Long userId) {

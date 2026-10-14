@@ -61,7 +61,7 @@ export default function Header() {
                     navigate('/login')
                   })
                 }}
-                className="min-h-10 text-[14px] leading-5 text-[var(--dash-muted)]"
+                className={navClass({ isActive: false })}
               >
                 로그아웃
               </button>
