@@ -33,7 +33,7 @@ export default function CharacterSummaryCard({
   const nonTarget = progressItems.some(({ key }) => character[key].total === 0)
   return (
     <article
-      className={`relative flex h-full flex-col gap-[23px] rounded-2xl border border-[var(--dash-border)] bg-[var(--dash-card)] p-[23px] shadow-[var(--dash-card-shadow)] backdrop-blur-[12px] ${nonTarget ? 'min-h-[339px]' : 'min-h-[322px]'}`}
+      className={`relative flex h-full flex-col gap-[23px] rounded-2xl border border-[var(--dash-border)] bg-[var(--dash-card)] p-[23px] shadow-[var(--dash-card-shadow)] backdrop-blur-[12px] ${nonTarget ? 'min-h-[383px]' : 'min-h-[366px]'}`}
     >
       <div className="flex items-start gap-4">
         <div
