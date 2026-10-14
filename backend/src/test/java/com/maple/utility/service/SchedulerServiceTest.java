@@ -87,6 +87,9 @@ class SchedulerServiceTest {
 	@Mock
 	private SyncJobRepository syncJobRepository;
 
+	@Mock
+	private com.maple.utility.repository.SchedulerMonthlyFinalizationRepository monthlyFinalizations;
+
 	private SchedulerService schedulerService;
 
 	@BeforeEach
@@ -102,7 +105,7 @@ class SchedulerServiceTest {
 			bossItemAcquisitionRepository,
 				schedulerSyncService,
 				syncJobRepository,
-				CLOCK
+				CLOCK, monthlyFinalizations
 		);
 	}
 
@@ -210,7 +213,7 @@ class SchedulerServiceTest {
 	void summaryCacheKeyNormalizesTodayAndSeparatesUsersAndDates() {
 		assertThat(schedulerService.summaryCacheKey(1L, null))
 				.isEqualTo(schedulerService.summaryCacheKey(1L, LocalDate.now(CLOCK)))
-				.isEqualTo("summary:v2:1:2026-07-14");
+				.isEqualTo("summary:v3:1:2026-07-14");
 		assertThat(schedulerService.summaryCacheKey(2L, null)).isNotEqualTo(schedulerService.summaryCacheKey(1L, null));
 		assertThat(schedulerService.summaryCacheKey(1L, LocalDate.of(2026, 7, 13)))
 				.isNotEqualTo(schedulerService.summaryCacheKey(1L, null));
@@ -561,6 +564,71 @@ class SchedulerServiceTest {
 				new ManualBossRecordSaveRequest(start, ResetPeriod.WEEKLY, List.of(99L))))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("주간 보스 선택 한도");
+	}
+
+	@Test
+	void finalizedMonthReplacesAutomaticMembershipButManualRecordWins() {
+		var character=character(user()); var boss=boss(30L,ResetPeriod.MONTHLY);
+		when(characterRepository.findByIdAndUserId(10L,1L)).thenReturn(Optional.of(character));
+		var end=LocalDate.of(2026,6,30); var month=end.withDayOfMonth(1);
+		var snapshot=new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.FinalSnapshot(end,end.plusDays(1).atTime(2,0),
+				List.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.BossSnapshot(30,false)));
+		when(monthlyFinalizations.findFinalized(10L,month)).thenReturn(Optional.of(snapshot));
+		when(bossMasterRepository.findById(30L)).thenReturn(Optional.of(boss));
+		when(bossRecordRepository.findManualMonthly(10L,month,end)).thenReturn(List.of(SchedulerBossRecord.create(character,boss,month,ResetPeriod.MONTHLY,true,null)));
+		var result=schedulerService.getBoss(1L,10L,month,month,null).monthlyBosses();
+		assertThat(result).hasSize(1); assertThat(result.getFirst().isCompleted()).isTrue(); assertThat(result.getFirst().syncedAt()).isNull();
+	}
+
+	@Test
+	void emptyFinalizedMonthDoesNotResurrectOlderAutomaticBoss() {
+		var character=character(user()); var month=LocalDate.of(2026,6,1); var end=month.plusMonths(1).minusDays(1);
+		when(characterRepository.findByIdAndUserId(10L,1L)).thenReturn(Optional.of(character));
+		var week=month.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.THURSDAY));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L,week,week.plusDays(6),ResetPeriod.WEEKLY)).thenReturn(List.of());
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L,month,end,ResetPeriod.MONTHLY))
+				.thenReturn(List.of(SchedulerBossRecord.create(character,boss(30L,ResetPeriod.MONTHLY),month,ResetPeriod.MONTHLY,true,month.atTime(3,0))));
+		when(monthlyFinalizations.findFinalized(10L,month)).thenReturn(Optional.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.FinalSnapshot(end,end.plusDays(1).atTime(2,0),List.of())));
+		assertThat(schedulerService.getBoss(1L,10L,month,month,null).monthlyBosses()).isEmpty();
+	}
+
+	@Test
+	void summaryMidMonthCannotReadFutureMonthEndSnapshot() {
+		var character=character(user()); var date=LocalDate.of(2026,6,15); var month=date.withDayOfMonth(1);
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(monthlyFinalizations.findFinalized(10L,month)).thenReturn(Optional.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.FinalSnapshot(month.plusMonths(1).minusDays(1),date.plusDays(16).atTime(2,0),
+				List.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.BossSnapshot(30,true)))));
+		assertThat(schedulerService.getSummary(1L,date).characters().getFirst().monthlyBoss().completed()).isZero();
+		verify(bossMasterRepository,org.mockito.Mockito.never()).findById(any());
+	}
+
+	@Test
+	void finalizedFalseOverridesEarlierAutomaticTrueAndHasNoCrystalRevenue() {
+		var character=character(user()); var month=LocalDate.of(2026,6,1); var end=month.plusMonths(1).minusDays(1); var boss=boss(30L,ResetPeriod.MONTHLY);
+		when(characterRepository.findByIdAndUserId(10L,1L)).thenReturn(Optional.of(character));
+		var week=month.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.THURSDAY));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L,week,week.plusDays(6),ResetPeriod.WEEKLY)).thenReturn(List.of());
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L,month,end,ResetPeriod.MONTHLY))
+				.thenReturn(List.of(SchedulerBossRecord.create(character,boss,month,ResetPeriod.MONTHLY,true,month.atTime(3,0))));
+		when(monthlyFinalizations.findFinalized(10L,month)).thenReturn(Optional.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.FinalSnapshot(end,end.plusDays(1).atTime(2,0),
+				List.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.BossSnapshot(30,false)))));
+		when(bossMasterRepository.findById(30L)).thenReturn(Optional.of(boss));
+		var result=schedulerService.getBoss(1L,10L,month,month,null).monthlyBosses().getFirst();
+		assertThat(result.isCompleted()).isFalse(); assertThat(result.acquiredCrystalMeso()).isZero(); assertThat(result.recordDate()).isEqualTo(end);
+	}
+
+	@Test
+	void hiddenSelectionRemainsHiddenAfterLateMonthFinalization() {
+		var character=character(user()); var month=LocalDate.of(2026,6,1); var end=month.plusMonths(1).minusDays(1); var boss=boss(30L,ResetPeriod.MONTHLY);
+		when(characterRepository.findByIdAndUserId(10L,1L)).thenReturn(Optional.of(character));
+		when(monthlyFinalizations.findFinalized(10L,month)).thenReturn(Optional.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.FinalSnapshot(end,end.plusDays(1).atTime(2,0),
+				List.of(new com.maple.utility.repository.SchedulerMonthlyFinalizationRepository.BossSnapshot(30,true)))));
+		when(bossMasterRepository.findById(30L)).thenReturn(Optional.of(boss));
+		var week=month.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.THURSDAY));
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L,week,ResetPeriod.WEEKLY)).thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L,month,ResetPeriod.MONTHLY))
+				.thenReturn(List.of(BossPeriodSelection.create(character,boss,month,false)));
+		assertThat(schedulerService.getBoss(1L,10L,month,month,null).monthlyBosses()).isEmpty();
 	}
 
 	private BossMaster boss(Long id, ResetPeriod resetPeriod) {

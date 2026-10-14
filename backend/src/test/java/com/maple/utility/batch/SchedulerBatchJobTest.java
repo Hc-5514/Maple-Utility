@@ -18,7 +18,7 @@ import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
 import com.maple.utility.repository.UserRepository;
 import com.maple.utility.service.SyncJobService;
-import com.maple.utility.service.SchedulerWeekFinalizationService;
+import com.maple.utility.service.SchedulerHistoryFinalizationService;
 
 @ExtendWith(MockitoExtension.class)
 class SchedulerBatchJobTest {
@@ -30,7 +30,7 @@ class SchedulerBatchJobTest {
 	private SyncJobService syncJobService;
 
 	@Mock
-	private SchedulerWeekFinalizationService finalizationService;
+	private SchedulerHistoryFinalizationService finalizationService;
 
 	private SchedulerBatchJob schedulerBatchJob;
 
@@ -54,7 +54,7 @@ class SchedulerBatchJobTest {
 	@Test
 	void weeklyFinalizationUsesDedicatedService() {
 		schedulerBatchJob.finalizeWeeklyScheduler();
-		verify(finalizationService).finalizeWeeks();
+		verify(finalizationService).runBatch(true);
 	}
 
 	@Test
@@ -62,7 +62,7 @@ class SchedulerBatchJobTest {
 		when(userRepository.findDataOwnersWithActiveKey()).thenReturn(List.of(user(1L), user(2L)));
 		schedulerBatchJob.syncDailyScheduler();
 		var ordered = inOrder(finalizationService, syncJobService);
-		ordered.verify(finalizationService).retryPendingWeeks();
+		ordered.verify(finalizationService).runBatch(false);
 		ordered.verify(syncJobService).startScheduler(1L, true, true);
 		ordered.verify(syncJobService).startScheduler(2L, true, true);
 	}
@@ -70,7 +70,7 @@ class SchedulerBatchJobTest {
 	@Test
 	void retryStorageFailureDoesNotSuppressDailyScheduling() {
 		when(userRepository.findDataOwnersWithActiveKey()).thenReturn(List.of(user(1L)));
-		doThrow(new IllegalStateException("retry storage unavailable")).when(finalizationService).retryPendingWeeks();
+		doThrow(new IllegalStateException("retry storage unavailable")).when(finalizationService).runBatch(false);
 		schedulerBatchJob.syncDailyScheduler();
 		verify(syncJobService).startScheduler(1L, true, true);
 	}

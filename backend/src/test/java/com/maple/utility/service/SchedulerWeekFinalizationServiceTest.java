@@ -251,7 +251,12 @@ class SchedulerWeekFinalizationServiceTest {
 			}
 			return null;
 		});
-		new SchedulerBatchJob(users, daily, priorityService).syncDailyScheduler();
+		var monthly = mock(SchedulerMonthlyFinalizationService.class);
+		when(monthly.prepare(1L, false)).thenReturn(List.of());
+		when(sync.syncHistoricalCharacter(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(character),
+				org.mockito.ArgumentMatchers.eq(TARGET.recordDate()), org.mockito.ArgumentMatchers.eq(NexonRequestMode.BATCH), any())).thenAnswer(invocation -> { calls.incrementAndGet(); return true; });
+		new SchedulerBatchJob(users, daily, new SchedulerHistoryFinalizationService(priorityService, monthly,
+				mock(com.maple.utility.security.NexonOpenApiClient.class), users, caches)).syncDailyScheduler();
 		verify(records).finish(100L, true, LocalDateTime.now(friday));
 		assertThat(dailyCalls.get()).isEqualTo(399);
 		assertThat(calls.get()).isEqualTo(400);
