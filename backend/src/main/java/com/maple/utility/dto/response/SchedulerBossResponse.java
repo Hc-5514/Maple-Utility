@@ -17,7 +17,8 @@ public record SchedulerBossResponse(
 		Long crystalPrice,
 		String resetPeriod,
 		boolean isCompleted,
-		LocalDateTime syncedAt
+		LocalDateTime syncedAt,
+		Long acquiredCrystalMeso
 ) implements Serializable {
 
 	public static SchedulerBossResponse from(SchedulerBossRecord record) {
@@ -32,7 +33,13 @@ public record SchedulerBossResponse(
 				record.getBoss().getCrystalPrice(),
 				record.getResetPeriod().name(),
 				record.isCompleted(),
-				record.getSyncedAt()
+				record.getSyncedAt(),
+				record.getBoss().getCrystalPrice()
 		);
+	}
+
+	public SchedulerBossResponse withAcquiredCrystalMeso(Long acquiredCrystalMeso) {
+		return new SchedulerBossResponse(characterId, characterName, recordDate, bossId, bossName, difficulty,
+				bossImage, crystalPrice, resetPeriod, isCompleted, syncedAt, acquiredCrystalMeso);
 	}
 }

@@ -160,6 +160,8 @@ export interface SchedulerBossRecord {
   difficulty?: BossDifficulty
   bossImage?: string | null
   crystalPrice?: number
+  /** 처치 시 획득한 결정 메소. 미획득이면 0, 미지정이면 crystalPrice 사용 */
+  acquiredCrystalMeso?: number | null
   recordDate?: string
   resetPeriod: ResetPeriod
   isCompleted: boolean

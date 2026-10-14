@@ -28,6 +28,7 @@ import com.maple.utility.dto.response.SchedulerDailyResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SchedulerWeeklyResponse;
 import com.maple.utility.dto.response.TaskSummary;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.BossPeriodSelection;
 import com.maple.utility.entity.MapleCharacter;
@@ -361,12 +362,27 @@ public class SchedulerService {
 			bosses.put(bossId, boss);
 			records.put(bossId, new SchedulerBossResponse(character.getId(), character.getCharacterName(),
 					start, bossId, boss.getBossName(), boss.getDifficulty().name(), boss.getBossImage(),
-					boss.getCrystalPrice(), resetPeriod.name(), selection.isCompleted(), null));
+					boss.getCrystalPrice(), resetPeriod.name(), selection.isCompleted(), null, boss.getCrystalPrice()));
 		}
 		return records.values().stream()
+				.map(record -> record.withAcquiredCrystalMeso(
+						acquiredCrystalMeso(character.getId(), record, start, bosses.get(record.bossId()))))
 				.sorted(Comparator.comparingInt((SchedulerBossResponse record) -> bosses.get(record.bossId()).getSortOrder())
 					.thenComparing(SchedulerBossResponse::bossId))
 				.toList();
+	}
+
+	/** 저장된 기간 기록이 없으면 기본 결정 가격, 있으면 획득한 결정의 메소(미획득 시 0). */
+	private Long acquiredCrystalMeso(Long characterId, SchedulerBossResponse record, LocalDate start, BossMaster boss) {
+		return bossPeriodEntryRepository
+				.findByCharacter_IdAndBoss_IdAndPeriodStart(characterId, record.bossId(), start)
+				.map(entry -> bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(entry.getId()).stream()
+						.filter(acquisition -> acquisition.getBossDropItem().getItemKind() == BossItemKind.CRYSTAL)
+						.findFirst()
+						.map(acquisition -> acquisition.getMesoAmount() != null ? acquisition.getMesoAmount()
+								: boss.getCrystalPrice() / entry.getPartySize())
+						.orElse(0L))
+				.orElse(boss.getCrystalPrice());
 	}
 
 	private LocalDate periodStart(LocalDate date, ResetPeriod resetPeriod) {

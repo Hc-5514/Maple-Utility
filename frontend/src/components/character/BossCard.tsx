@@ -8,6 +8,7 @@ interface Props {
 }
 
 export default function BossCard({ record, onClickDetail }: Props) {
+  const meso = record.acquiredCrystalMeso ?? record.crystalPrice ?? 0
   return (
     <div
       role="button"
@@ -26,9 +27,11 @@ export default function BossCard({ record, onClickDetail }: Props) {
 
       <div className="flex items-center justify-between">
         <span className="text-xs text-white/40">
-          {(record.crystalPrice ?? 0) > 0
-            ? `${(record.crystalPrice ?? 0).toLocaleString()} 메소`
-            : '가격 미확인'}
+          {meso > 0
+            ? `${meso.toLocaleString()} 메소`
+            : record.acquiredCrystalMeso === 0 && (record.crystalPrice ?? 0) > 0
+              ? '결정 미획득'
+              : '가격 미확인'}
         </span>
         <span
           className={`rounded px-2 py-1 text-xs font-semibold ${
