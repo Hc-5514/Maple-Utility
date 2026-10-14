@@ -9,6 +9,7 @@ public record BossPeriodResponse(
 		Long characterId,
 		LocalDate periodStart,
 		int partySize,
+		int maxPartySize,
 		long crystalPrice,
 		LocalDateTime savedAt,
 		List<Item> items

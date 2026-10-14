@@ -109,7 +109,7 @@ public class BossDropService {
 		MapleCharacter character = findCharacter(userId, request.characterId());
 		BossMaster boss = findBoss(bossId);
 		validatePeriodStart(boss, request.periodStart());
-		if (request.partySize() < 1 || request.partySize() > 6) {
+		if (request.partySize() < 1 || request.partySize() > boss.getMaxPartySize()) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PARTY_SIZE", "파티 인원 오류");
 		}
 		List<BossDropItem> dropItems = bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(bossId);
@@ -146,10 +146,9 @@ public class BossDropService {
 				continue;
 			}
 			BossDropItem dropItem = dropItemsById.get(item.bossDropItemId());
+			// 결정 메소는 클라이언트 값을 무시하고 결정 가격 / 인원수로 서버에서 계산
 			Long mesoAmount = dropItem.getItemKind() == BossItemKind.CRYSTAL
-					? item.mesoAmount() == null
-						? boss.getCrystalPrice() == 0 ? null : boss.getCrystalPrice() / request.partySize()
-						: item.mesoAmount()
+					? crystalMeso(boss, request.partySize())
 					: null;
 			if (acquisition == null) {
 				bossItemAcquisitionRepository.save(BossItemAcquisition.createForPeriod(
@@ -182,19 +181,21 @@ public class BossDropService {
 					BossItemAcquisition previous = latest.get(dropItem.getId());
 					int quantity = saved != null ? saved.getQuantity()
 							: previous != null ? previous.getQuantity() : dropItem.getDefaultQuantity();
-					Long mesoAmount = null;
-					if (dropItem.getItemKind() == BossItemKind.CRYSTAL) {
-						mesoAmount = saved != null && saved.getMesoAmount() != null ? saved.getMesoAmount()
-								: previous != null && previous.getMesoAmount() != null ? previous.getMesoAmount()
-								: boss.getCrystalPrice() == 0 ? null : boss.getCrystalPrice() / partySize;
-					}
+					Long mesoAmount = dropItem.getItemKind() == BossItemKind.CRYSTAL
+							? crystalMeso(boss, partySize)
+							: null;
 					// 저장 이력이 없는 기간은 결정 아이템을 기본 획득 처리
 					boolean acquired = saved != null
 							|| (entry == null && dropItem.getItemKind() == BossItemKind.CRYSTAL);
 					return new BossPeriodResponse.Item(BossDropItemResponse.from(dropItem), acquired, quantity, mesoAmount);
 				}).toList();
-		return new BossPeriodResponse(boss.getId(), characterId, periodStart, partySize, boss.getCrystalPrice(),
+		return new BossPeriodResponse(boss.getId(), characterId, periodStart, partySize, boss.getMaxPartySize(),
+				boss.getCrystalPrice(),
 				entry == null ? null : entry.getSavedAt(), items);
+	}
+
+	private Long crystalMeso(BossMaster boss, int partySize) {
+		return boss.getCrystalPrice() == 0 ? null : boss.getCrystalPrice() / partySize;
 	}
 
 	private void validatePeriodStart(BossMaster boss, LocalDate periodStart) {

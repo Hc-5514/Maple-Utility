@@ -45,6 +45,9 @@ public class BossMaster extends BaseTimeEntity {
 	@Column(name = "sort_order", nullable = false)
 	private int sortOrder;
 
+	@Column(name = "max_party_size", nullable = false)
+	private int maxPartySize = 6;
+
 	@Column(name = "is_active", nullable = false)
 	private boolean active;
 }

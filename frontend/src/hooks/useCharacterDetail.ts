@@ -186,7 +186,6 @@ export async function saveBossPeriod(period: BossPeriod): Promise<BossPeriod> {
       bossDropItemId: item.dropItem.id,
       acquired: item.acquired,
       quantity: item.quantity,
-      mesoAmount: item.dropItem.itemKind === 'CRYSTAL' ? item.mesoAmount : null,
     })),
   })
   return data.data

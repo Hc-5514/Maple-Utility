@@ -52,8 +52,18 @@ export function previewBossRecords(characterId: number): SchedulerBossRecord[] {
   })
 }
 
+const THREE_PARTY_BOSSES = ['최초의 대적자', '카링', '림보', '발드릭스', '유피테르', '벨로나']
+
+/** 보스·난이도별 최대 인원: 기본 6인, 대적자·카링·림보·발드릭스·유피테르·벨로나 3인, 익스트림 스우 2인 */
+export function previewMaxPartySize(bossName: string, difficulty: string) {
+  if (bossName === '스우' && difficulty === 'EXTREME') return 2
+  return THREE_PARTY_BOSSES.includes(bossName) ? 3 : 6
+}
+
 export function previewPartySize(characterId: number, bossId: number) {
-  return 1 + ((characterId * 17 + bossId * 13) % 3)
+  const boss = previewBoss(bossId)
+  const max = boss ? previewMaxPartySize(boss.bossName, boss.difficulty) : 6
+  return Math.min(max, 1 + ((characterId * 17 + bossId * 13) % 3))
 }
 
 const savedPeriods = new Map<string, BossPeriod>()
@@ -78,6 +88,7 @@ export function getPreviewPeriod(characterId: number, bossId: number, periodStar
     characterId,
     periodStart,
     partySize,
+    maxPartySize: previewMaxPartySize(boss.bossName, boss.difficulty),
     crystalPrice: boss.crystalPrice,
     savedAt: null,
     items: boss.dropItems.map((dropItem) => ({

@@ -8,7 +8,7 @@ import type { BossPeriod } from '../../types'
 import BossContent from './BossContent'
 
 const period: BossPeriod = {
-  bossId: 5, characterId: 1, periodStart: '2026-10-08', partySize: 1,
+  bossId: 5, characterId: 1, periodStart: '2026-10-08', partySize: 1, maxPartySize: 6,
   crystalPrice: 48_900_000, savedAt: null,
   items: [{
     dropItem: {

@@ -116,6 +116,8 @@ export interface BossPeriod {
   characterId: number
   periodStart: string
   partySize: number
+  /** 보스·난이도별 입장 가능 최대 인원 (백엔드 반환) */
+  maxPartySize: number
   crystalPrice: number
   savedAt: string | null
   items: BossPeriodItem[]

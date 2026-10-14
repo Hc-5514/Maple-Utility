@@ -26,10 +26,10 @@ export const bossHandlers = [
       characterId: number
       periodStart: string
       partySize: number
-      items: { bossDropItemId: number; acquired: boolean; quantity: number; mesoAmount: number | null }[]
+      items: { bossDropItemId: number; acquired: boolean; quantity: number }[]
     }
     const previous = getPreviewPeriod(body.characterId, bossId, body.periodStart)
-    if (!previous || body.partySize < 1 || body.partySize > 6) {
+    if (!previous || body.partySize < 1 || body.partySize > previous.maxPartySize) {
       return HttpResponse.json({ success: false }, { status: 400 })
     }
     const changed = new Map(body.items.map((item) => [item.bossDropItemId, item]))
@@ -42,7 +42,10 @@ export const bossHandlers = [
           ...item,
           acquired: edit.acquired,
           quantity: edit.quantity,
-          mesoAmount: edit.mesoAmount,
+          // 결정 메소는 서버가 결정 가격 / 인원수로 계산
+          mesoAmount: item.dropItem.itemKind === 'CRYSTAL' && previous.crystalPrice > 0
+            ? Math.floor(previous.crystalPrice / body.partySize)
+            : null,
         } : { ...item, acquired: false }
       }),
     }

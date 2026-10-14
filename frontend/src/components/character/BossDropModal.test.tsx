@@ -23,6 +23,7 @@ const period: BossPeriod = {
   characterId: 1,
   periodStart: '2026-10-08',
   partySize: 1,
+  maxPartySize: 3,
   crystalPrice: 48_900_000,
   savedAt: null,
   items: [
@@ -81,6 +82,17 @@ describe('BossDropModal', () => {
     await waitFor(() => expect(screen.getByLabelText('결정 금액')).toHaveProperty('value', '24,450,000'))
     fireEvent.click(screen.getByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }))
     expect(put).not.toHaveBeenCalled()
+  })
+
+  it('limits party size options to the boss max and keeps the crystal meso read-only', async () => {
+    vi.spyOn(client, 'get').mockResolvedValue({ data: { success: true, data: period } } as AxiosResponse)
+
+    renderModal()
+
+    await screen.findByText('강렬한 힘의 결정')
+    fireEvent.click(screen.getByRole('button', { name: /^파티 인원/ }))
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['1명', '2명', '3명'])
+    expect(screen.getByLabelText('결정 금액')).toHaveProperty('readOnly', true)
   })
 
   it('uses the fixed item default quantity', async () => {
