@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
+import com.maple.utility.util.SchedulerPeriodPolicy;
 
 @Repository
 public class SchedulerWeekFinalizationRepository {
@@ -31,20 +32,33 @@ public class SchedulerWeekFinalizationRepository {
 	}
 
 	public void expire(LocalDate today, LocalDateTime now) {
-		jdbc.update("UPDATE scheduler_week_finalizations SET status = 'EXPIRED', last_error = 'NEXON_HISTORY_EXPIRED', updated_at = ? "
-				+ "WHERE " + RETRYABLE + " AND week_start_date + 6 < ?", now, today.minusDays(14));
+		jdbc.update("UPDATE scheduler_week_finalizations SET status = 'EXPIRED', last_error = 'RECENT_WEEK_SCOPE_EXPIRED', updated_at = ? "
+				+ "WHERE " + RETRYABLE + " AND week_start_date < ?", now, SchedulerPeriodPolicy.previousWeekStart(today));
 	}
 
 	public List<Target> due(Long userId, LocalDate today) {
 		return jdbc.query("SELECT * FROM scheduler_week_finalizations WHERE user_id = ? AND " + RETRYABLE
-				+ " AND (last_attempt_at IS NULL OR last_attempt_at < ?) ORDER BY week_start_date, character_id",
-				MAPPER, userId, today.atStartOfDay());
+				+ " AND week_start_date = ? AND (last_attempt_at IS NULL OR last_attempt_at < ?) ORDER BY character_id",
+				MAPPER, userId, SchedulerPeriodPolicy.previousWeekStart(today), today.atStartOfDay());
 	}
 
 	public Optional<Target> lockDue(long id, LocalDate today) {
 		return jdbc.query("SELECT * FROM scheduler_week_finalizations WHERE id = ? AND " + RETRYABLE
-				+ " AND (last_attempt_at IS NULL OR last_attempt_at < ?) FOR UPDATE", MAPPER,
-				id, today.atStartOfDay()).stream().findFirst();
+				+ " AND week_start_date = ? AND (last_attempt_at IS NULL OR last_attempt_at < ?) FOR UPDATE", MAPPER,
+				id, SchedulerPeriodPolicy.previousWeekStart(today), today.atStartOfDay()).stream().findFirst();
+	}
+
+	public boolean hasDueOrUnseeded(Long userId, LocalDate today) {
+		return Boolean.TRUE.equals(jdbc.queryForObject("""
+				SELECT EXISTS (
+				  SELECT 1 FROM characters c
+				  LEFT JOIN scheduler_week_finalizations f
+				    ON f.character_id = c.id AND f.week_start_date = ?
+				  WHERE c.user_id = ? AND c.is_favorite = true
+				    AND (f.id IS NULL OR (f.status IN ('PENDING', 'RETRY', 'NO_DATA')
+				      AND (f.last_attempt_at IS NULL OR f.last_attempt_at < ?)))
+				)
+				""", Boolean.class, SchedulerPeriodPolicy.previousWeekStart(today), userId, today.atStartOfDay()));
 	}
 
 	public void finish(long id, boolean hasData, LocalDateTime now) {

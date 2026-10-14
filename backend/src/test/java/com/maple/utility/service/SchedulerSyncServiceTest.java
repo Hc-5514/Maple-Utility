@@ -1,5 +1,8 @@
 package com.maple.utility.service;
 
+import com.maple.utility.exception.ApiException;
+import static org.mockito.Mockito.verifyNoInteractions;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -191,6 +194,32 @@ class SchedulerSyncServiceTest {
 		assertThatThrownBy(() -> schedulerSyncService.syncHistoricalCharacter(1L, character(user()), LocalDate.parse("2026-06-24")))
 				.isInstanceOf(com.maple.utility.exception.ApiException.class);
 		org.mockito.Mockito.verifyNoInteractions(nexonOpenApiClient);
+	}
+
+	@Test
+	void thursdayRolloverDuringRemoteRequestCannotPersistUnlockedWeek() {
+		Clock mutable = org.mockito.Mockito.mock(Clock.class);
+		when(mutable.getZone()).thenReturn(ZoneId.of("Asia/Seoul"));
+		var instant = new java.util.concurrent.atomic.AtomicReference<>(Instant.parse("2026-10-14T14:59:59Z"));
+		when(mutable.instant()).thenAnswer(invocation -> instant.get());
+		var service = new SchedulerSyncService(nexonOpenApiClient, bossMasterRepository, dailyRecordRepository,
+				weeklyRecordRepository, bossRecordRepository, mutable, syncLock);
+		LocalDate date = LocalDate.parse("2026-10-07");
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
+		when(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", date, NexonRequestMode.BATCH)).thenAnswer(invocation -> {
+			instant.set(Instant.parse("2026-10-14T15:00:00Z"));
+			return new NexonSchedulerResponse(date, List.of(), List.of(), List.of());
+		});
+		assertThatThrownBy(() -> service.syncHistoricalCharacter(1L, character(user()), date))
+				.isInstanceOf(ApiException.class).hasMessageContaining("기간 변경");
+		verifyNoInteractions(dailyRecordRepository, weeklyRecordRepository, bossRecordRepository);
+	}
+
+	@Test
+	void olderWeekWithinThirteenDaysIsStillOutsideBusinessScope() {
+		assertThatThrownBy(() -> schedulerSyncService.syncHistoricalCharacter(1L, character(user()), LocalDate.parse("2026-07-01")))
+				.isInstanceOf(ApiException.class);
+		verifyNoInteractions(nexonOpenApiClient);
 	}
 
 	@Test
