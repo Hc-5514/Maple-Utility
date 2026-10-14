@@ -16,10 +16,10 @@ WHERE boss_name = '스우' AND difficulty = 'EXTREME';
 -- 최대 인원을 초과해 저장된 기간 기록의 결정 메소를 최대 인원 기준으로 재계산한 뒤 인원 보정
 UPDATE boss_item_acquisitions a
 SET meso_amount = m.crystal_price / m.max_party_size
-FROM boss_period_entries e
-JOIN boss_master m ON m.id = e.boss_id
-JOIN boss_drop_items d ON d.id = a.boss_drop_item_id
+FROM boss_period_entries e, boss_master m, boss_drop_items d
 WHERE a.boss_period_entry_id = e.id
+  AND m.id = e.boss_id
+  AND d.id = a.boss_drop_item_id
   AND e.party_size > m.max_party_size
   AND d.item_kind = 'CRYSTAL'
   AND m.crystal_price > 0;
