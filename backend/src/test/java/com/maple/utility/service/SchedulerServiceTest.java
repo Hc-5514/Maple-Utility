@@ -29,6 +29,9 @@ import com.maple.utility.dto.response.SyncJobResponse;
 import com.maple.utility.dto.request.ManualBossRecordSaveRequest;
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.BossPeriodSelection;
+import com.maple.utility.entity.BossDropItem;
+import com.maple.utility.entity.BossItemKind;
+import com.maple.utility.entity.BossPeriodEntry;
 import com.maple.utility.entity.BossItemAcquisition;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
@@ -253,6 +256,63 @@ class SchedulerServiceTest {
 		assertThat(response.monthlyBosses()).hasSize(1);
 		verify(bossRecordRepository).findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(
 				10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY);
+	}
+
+	@Test
+	void getBossComputesCrystalMesoFromPriceAndPartySizeIgnoringStoredMeso() {
+		User user = user();
+		MapleCharacter character = character(user);
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		SchedulerBossRecord cleared = SchedulerBossRecord.create(character, boss, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
+		BossDropItem crystal = newEntity(BossDropItem.class);
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 5);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		// 직접 수정된 것처럼 가격과 무관한 값이 저장돼 있어도 계산값을 사용
+		BossItemAcquisition stored = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L);
+
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of(cleared));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-09"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-06-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L, LocalDate.parse("2026-07-09")))
+				.thenReturn(Optional.of(entry));
+		when(bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(50L)).thenReturn(List.of(stored));
+
+		var response = schedulerService.getBoss(1L, 10L,
+				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
+
+		// 25,000,000 / 5명
+		assertThat(response.weeklyBosses()).singleElement()
+				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isEqualTo(5_000_000L));
+	}
+
+	@Test
+	void getBossReturnsZeroCrystalMesoForUnclearedBoss() {
+		User user = user();
+		MapleCharacter character = character(user);
+		SchedulerBossRecord uncleared = SchedulerBossRecord.create(character, boss(20L, ResetPeriod.WEEKLY), LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, false, null);
+
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of(uncleared));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-09"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-06-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+
+		var response = schedulerService.getBoss(1L, 10L,
+				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
+
+		assertThat(response.weeklyBosses()).singleElement()
+				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isZero());
 	}
 
 	@Test
@@ -507,6 +567,16 @@ class SchedulerServiceTest {
 		ReflectionTestUtils.setField(boss, "sortOrder", 1);
 		ReflectionTestUtils.setField(boss, "active", true);
 		return boss;
+	}
+
+	private <T> T newEntity(Class<T> type) {
+		try {
+			Constructor<T> constructor = type.getDeclaredConstructor();
+			constructor.setAccessible(true);
+			return constructor.newInstance();
+		} catch (ReflectiveOperationException exception) {
+			throw new IllegalStateException(exception);
+		}
 	}
 
 	private BossMaster newBossMaster() {

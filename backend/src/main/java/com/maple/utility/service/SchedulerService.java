@@ -430,7 +430,7 @@ public class SchedulerService {
 				.toList();
 	}
 
-	/** 미처치는 0, 처치는 저장된 결정 메소(없으면 결정 가격 / 인원수), 결정 미획득이면 0. 기록이 없으면 1인 기준 결정 가격. */
+	/** 미처치는 0, 처치는 결정 가격 / 인원수, 결정 미획득이면 0. 기록이 없으면 1인 기준 결정 가격. */
 	private Long acquiredCrystalMeso(Long characterId, SchedulerBossResponse record, LocalDate start, BossMaster boss) {
 		if (!record.isCompleted()) {
 			return 0L;
@@ -440,8 +440,8 @@ public class SchedulerService {
 				.map(entry -> bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(entry.getId()).stream()
 						.filter(acquisition -> acquisition.getBossDropItem().getItemKind() == BossItemKind.CRYSTAL)
 						.findFirst()
-						.map(acquisition -> acquisition.getMesoAmount() != null ? acquisition.getMesoAmount()
-								: boss.getCrystalPrice() / entry.getPartySize())
+						// 저장된 메소 값과 무관하게 결정 가격 / 인원수로 계산
+						.map(acquisition -> boss.getCrystalPrice() / entry.getPartySize())
 						.orElse(0L))
 				.orElse(boss.getCrystalPrice());
 	}
