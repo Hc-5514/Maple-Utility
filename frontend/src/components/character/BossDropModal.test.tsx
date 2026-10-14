@@ -79,12 +79,12 @@ describe('BossDropModal', () => {
     expect(get).toHaveBeenCalledWith('/boss/5/period?characterId=1&periodStart=2026-10-08')
     fireEvent.click(screen.getByRole('button', { name: /^파티 인원/ }))
     fireEvent.click(screen.getByRole('option', { name: '2명' }))
-    await waitFor(() => expect(screen.getByLabelText('결정 금액')).toHaveProperty('value', '24,450,000'))
+    await waitFor(() => expect(screen.getByLabelText('결정 금액').textContent).toBe('24,450,000'))
     fireEvent.click(screen.getByRole('checkbox', { name: '강렬한 힘의 결정 획득 여부' }))
     expect(put).not.toHaveBeenCalled()
   })
 
-  it('limits party size options to the boss max and keeps the crystal meso read-only', async () => {
+  it('limits party size options to the boss max and shows the crystal meso as plain text', async () => {
     vi.spyOn(client, 'get').mockResolvedValue({ data: { success: true, data: period } } as AxiosResponse)
 
     renderModal()
@@ -92,14 +92,19 @@ describe('BossDropModal', () => {
     await screen.findByText('강렬한 힘의 결정')
     fireEvent.click(screen.getByRole('button', { name: /^파티 인원/ }))
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['1명', '2명', '3명'])
-    expect(screen.getByLabelText('결정 금액')).toHaveProperty('readOnly', true)
+    expect(screen.getByLabelText('결정 금액').tagName).toBe('SPAN')
+    expect(screen.getByLabelText('결정 금액').textContent).toBe('48,900,000')
   })
 
-  it('uses the fixed item default quantity', async () => {
+  it('selects fixed item quantity from 1 to the default quantity', async () => {
     vi.spyOn(client, 'get').mockResolvedValue({ data: { success: true, data: period } } as AxiosResponse)
 
     renderModal()
 
-    expect(await screen.findByLabelText('솔 에르다의 기운 수량')).toHaveProperty('value', '3')
+    await screen.findByText('솔 에르다의 기운')
+    fireEvent.click(screen.getByRole('button', { name: /^솔 에르다의 기운 수량: 3/ }))
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['1', '2', '3'])
+    fireEvent.click(screen.getByRole('option', { name: '2' }))
+    expect(screen.getByRole('button', { name: /^솔 에르다의 기운 수량: 2/ })).toBeTruthy()
   })
 })
