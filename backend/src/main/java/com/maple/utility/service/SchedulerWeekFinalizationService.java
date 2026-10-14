@@ -3,7 +3,6 @@ package com.maple.utility.service;
 import com.maple.utility.util.SchedulerPeriodPolicy;
 
 import java.time.Clock;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -105,7 +104,22 @@ public class SchedulerWeekFinalizationService {
 		}
 	}
 
+	public void expireOldTargets() {
+		var now = LocalDateTime.now(clock);
+		records.expire(now.toLocalDate(), now);
+	}
+
+	public List<Target> pendingRecentWeeks(Long userId) {
+		LocalDateTime now = LocalDateTime.now(clock);
+		records.expire(now.toLocalDate(), now);
+		return SchedulerPeriodPolicy.historyReady(now) ? List.copyOf(records.due(userId, now.toLocalDate())) : List.of();
+	}
+
 	private boolean finalizeTargets(Long userId, List<Target> targets, NexonRequestMode mode, Consumer<Boolean> onTarget) {
+		return finalizePrepared(userId, targets, mode, onTarget, null);
+	}
+
+	public boolean finalizePrepared(Long userId, List<Target> targets, NexonRequestMode mode, Consumer<Boolean> onTarget, SchedulerHistoryFetch fetch) {
 		boolean changed = false;
 		for (var target : targets) {
 			boolean skipped = true;
@@ -124,7 +138,9 @@ public class SchedulerWeekFinalizationService {
 					if (current.isEmpty()) { return false; }
 					var character = characters.findByIdAndUserId(target.characterId(), target.userId()).orElse(null);
 					if (character == null || !character.isFavorite()) { return false; }
-					boolean hasData = sync.syncHistoricalCharacter(target.userId(), character, target.recordDate(), mode);
+					boolean hasData = fetch == null
+							? sync.syncHistoricalCharacter(target.userId(), character, target.recordDate(), mode)
+							: sync.syncHistoricalCharacter(target.userId(), character, target.recordDate(), mode, fetch);
 					records.finish(target.id(), hasData, LocalDateTime.now(clock));
 					return hasData;
 				});
@@ -136,10 +152,14 @@ public class SchedulerWeekFinalizationService {
 						&& !"SCHEDULER_SYNC_IN_PROGRESS".equals(error) && !"API_KEY_NOT_REGISTERED".equals(error);
 				// Separate transaction after rollback: a failed snapshot must leave a durable retry entry.
 				LocalDateTime now = LocalDateTime.now(clock);
-				if (!target.weekStartDate().equals(SchedulerPeriodPolicy.previousWeekStart(now.toLocalDate()))) {
-					records.expire(now.toLocalDate(), now);
-				} else {
-					records.retry(target.id(), error, attempted, now);
+				try {
+					if (!target.weekStartDate().equals(SchedulerPeriodPolicy.previousWeekStart(now.toLocalDate()))) {
+						records.expire(now.toLocalDate(), now);
+					} else {
+						records.retry(target.id(), error, attempted, now);
+					}
+				} catch (RuntimeException storageFailure) {
+					log.error("Week retry state unavailable. userId={}, targetId={}", userId, target.id(), storageFailure);
 				}
 				log.warn("Week finalization deferred. userId={}, characterId={}, date={}, code={}",
 						target.userId(), target.characterId(), target.recordDate(), error);

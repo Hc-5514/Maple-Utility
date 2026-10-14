@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import com.maple.utility.entity.User;
 import com.maple.utility.repository.UserRepository;
 import com.maple.utility.service.SyncJobService;
-import com.maple.utility.service.SchedulerWeekFinalizationService;
+import com.maple.utility.service.SchedulerHistoryFinalizationService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -15,12 +15,12 @@ public class SchedulerBatchJob {
 
 	private final UserRepository userRepository;
 	private final SyncJobService syncJobService;
-	private final SchedulerWeekFinalizationService finalizationService;
+	private final SchedulerHistoryFinalizationService finalizationService;
 
 	public SchedulerBatchJob(
 			UserRepository userRepository,
 			SyncJobService syncJobService,
-			SchedulerWeekFinalizationService finalizationService
+			SchedulerHistoryFinalizationService finalizationService
 	) {
 		this.userRepository = userRepository;
 		this.syncJobService = syncJobService;
@@ -31,7 +31,7 @@ public class SchedulerBatchJob {
 	public void syncDailyScheduler() {
 		try {
 			// Existing retries finish before daily jobs can consume the available shared key budget.
-			finalizationService.retryPendingWeeks();
+			finalizationService.runBatch(false);
 		} catch (RuntimeException exception) {
 			log.error("Scheduler finalization retry pass failed before daily batch", exception);
 		}
@@ -46,6 +46,6 @@ public class SchedulerBatchJob {
 
 	@Scheduled(cron = "0 0 2 * * *", zone = "Asia/Seoul")
 	public void finalizeWeeklyScheduler() {
-		finalizationService.finalizeWeeks();
+		finalizationService.runBatch(true);
 	}
 }

@@ -65,6 +65,14 @@ public interface SchedulerBossRecordRepository extends JpaRepository<SchedulerBo
 			List<Long> characterIds, LocalDate startDate, LocalDate endDate, ResetPeriod resetPeriod
 	);
 
+	@Query("""
+			select record from SchedulerBossRecord record
+			where record.character.id = :characterId and record.resetPeriod = com.maple.utility.entity.ResetPeriod.MONTHLY
+			and record.recordDate between :startDate and :endDate and record.syncedAt is null
+			order by record.recordDate asc, record.id asc
+			""")
+	List<SchedulerBossRecord> findManualMonthly(Long characterId, LocalDate startDate, LocalDate endDate);
+
 	List<SchedulerBossRecord> findByCharacterIdInAndRecordDateAndResetPeriodOrderByCharacterIdAscBoss_SortOrderAscIdAsc(
 			List<Long> characterIds,
 			LocalDate recordDate,

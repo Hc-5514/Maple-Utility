@@ -48,6 +48,7 @@ import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
 import com.maple.utility.repository.SyncJobRepository;
+import com.maple.utility.repository.SchedulerMonthlyFinalizationRepository;
 
 @Service
 public class SchedulerService {
@@ -66,6 +67,7 @@ public class SchedulerService {
 	private final SchedulerSyncService schedulerSyncService;
 	private final SyncJobRepository syncJobRepository;
 	private final Clock clock;
+	private final SchedulerMonthlyFinalizationRepository monthlyFinalizations;
 
 	public SchedulerService(
 			CharacterRepository characterRepository,
@@ -78,7 +80,8 @@ public class SchedulerService {
 			BossItemAcquisitionRepository bossItemAcquisitionRepository,
 			SchedulerSyncService schedulerSyncService,
 			SyncJobRepository syncJobRepository,
-			Clock clock
+			Clock clock,
+			SchedulerMonthlyFinalizationRepository monthlyFinalizations
 	) {
 		this.characterRepository = characterRepository;
 		this.dailyRecordRepository = dailyRecordRepository;
@@ -91,6 +94,7 @@ public class SchedulerService {
 		this.schedulerSyncService = schedulerSyncService;
 		this.syncJobRepository = syncJobRepository;
 		this.clock = clock;
+		this.monthlyFinalizations = monthlyFinalizations;
 	}
 
 	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "#root.target.summaryCacheKey(#userId, #date)")
@@ -123,7 +127,7 @@ public class SchedulerService {
 					List<SchedulerDailyRecord> daily = dailyByChar.getOrDefault(id, List.of());
 					List<SchedulerWeeklyRecord> weekly = weeklyByChar.getOrDefault(id, List.of());
 					List<SchedulerBossResponse> weeklyBoss = bossResponsesForPeriod(character, targetDate, ResetPeriod.WEEKLY, weeklyBossByChar.getOrDefault(id, List.of()));
-					List<SchedulerBossResponse> monthlyBoss = bossResponsesForPeriod(character, targetDate, ResetPeriod.MONTHLY, monthlyBossByChar.getOrDefault(id, List.of()));
+					List<SchedulerBossResponse> monthlyBoss = bossResponsesForPeriod(character, targetDate, ResetPeriod.MONTHLY, monthlyBossByChar.getOrDefault(id, List.of()), targetDate);
 					return new SchedulerCharacterSummaryResponse(
 							id,
 							character.getCharacterName(),
@@ -136,7 +140,7 @@ public class SchedulerService {
 							bossSummary(weeklyBoss, WEEKLY_BOSS_LIMIT),
 							bossSummary(monthlyBoss, MONTHLY_BOSS_LIMIT),
 							!daily.isEmpty() || !weekly.isEmpty() || !weeklyBossByChar.getOrDefault(id, List.of()).isEmpty()
-									|| !monthlyBossByChar.getOrDefault(id, List.of()).isEmpty() || !weeklyBoss.isEmpty() || !monthlyBoss.isEmpty()
+									|| !weeklyBoss.isEmpty() || !monthlyBoss.isEmpty()
 					);
 				})
 				.toList();
@@ -145,7 +149,9 @@ public class SchedulerService {
 						dailyRecords.stream().map(SchedulerDailyRecord::getSyncedAt),
 						weeklyRecords.stream().map(SchedulerWeeklyRecord::getSyncedAt),
 						weeklyBossRecords.stream().map(SchedulerBossRecord::getSyncedAt),
-						monthlyBossRecords.stream().map(SchedulerBossRecord::getSyncedAt)
+						monthlyBossRecords.stream().map(SchedulerBossRecord::getSyncedAt),
+						characterIds.stream().flatMap(id -> monthlyFinalizations.findFinalized(id, targetDate.withDayOfMonth(1)).stream())
+								.filter(snapshot -> !snapshot.recordDate().isAfter(targetDate)).map(snapshot -> snapshot.finalizedAt())
 				).flatMap(s -> s)
 				.filter(t -> t != null)
 				.max(Comparator.naturalOrder())
@@ -158,7 +164,7 @@ public class SchedulerService {
 	}
 
 	public String summaryCacheKey(Long userId, LocalDate date) {
-		return "summary:v2:" + userId + ":" + dateOrToday(date);
+		return "summary:v3:" + userId + ":" + dateOrToday(date);
 	}
 
 	private LocalDateTime latestCompletedAt(Long userId) {
@@ -184,7 +190,7 @@ public class SchedulerService {
 				.toList();
 	}
 
-	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'boss:v2:' + #userId + ':' + #characterId + ':' + #weeklyDate + ':' + #monthlyDate + ':' + #legacyDate + ':' + #root.target.today()")
+	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'boss:v3:' + #userId + ':' + #characterId + ':' + #weeklyDate + ':' + #monthlyDate + ':' + #legacyDate + ':' + #root.target.today()")
 	@Transactional(readOnly = true)
 	public SchedulerBossDetailResponse getBoss(
 			Long userId,
@@ -285,7 +291,7 @@ public class SchedulerService {
 		if (request.bossIds().stream().distinct().count() != request.bossIds().size()) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "DUPLICATE_BOSS_SELECTION", "중복 보스 선택");
 		}
-		if (!bossRecordsForPeriod(character.getId(), periodStart, request.resetPeriod()).isEmpty()) {
+		if (!bossResponsesForPeriod(character, periodStart, request.resetPeriod()).isEmpty()) {
 			throw new ApiException(HttpStatus.CONFLICT, "BOSS_RECORD_EXISTS", "선택 기간 보스 기록 존재");
 		}
 
@@ -400,12 +406,36 @@ public class SchedulerService {
 
 	private List<SchedulerBossResponse> bossResponsesForPeriod(
 			MapleCharacter character, LocalDate date, ResetPeriod resetPeriod, List<SchedulerBossRecord> snapshots) {
+		LocalDate cutoff = resetPeriod == ResetPeriod.MONTHLY ? periodStart(date, resetPeriod).plusMonths(1).minusDays(1) : date;
+		return bossResponsesForPeriod(character, date, resetPeriod, snapshots, cutoff);
+	}
+
+	private List<SchedulerBossResponse> bossResponsesForPeriod(MapleCharacter character, LocalDate date,
+			ResetPeriod resetPeriod, List<SchedulerBossRecord> snapshots, LocalDate cutoff) {
 		LocalDate start = periodStart(date, resetPeriod);
 		Map<Long, SchedulerBossResponse> records = new LinkedHashMap<>();
 		Map<Long, BossMaster> bosses = new LinkedHashMap<>();
 		for (SchedulerBossRecord record : snapshots) {
 			records.put(record.getBoss().getId(), SchedulerBossResponse.from(record));
 			bosses.put(record.getBoss().getId(), record.getBoss());
+		}
+		if (resetPeriod == ResetPeriod.MONTHLY) {
+			var finalized = monthlyFinalizations.findFinalized(character.getId(), start).filter(snapshot -> !snapshot.recordDate().isAfter(cutoff));
+			if (finalized.isPresent()) {
+				records.clear(); bosses.clear();
+				var snapshot = finalized.get();
+				for (var row : snapshot.bosses()) {
+					var boss = bossMasterRepository.findById(row.bossId())
+							.orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "MONTH_SNAPSHOT_BOSS_MISSING", "확정 보스 누락"));
+					bosses.put(boss.getId(), boss);
+					records.put(boss.getId(), new SchedulerBossResponse(character.getId(), character.getCharacterName(),
+							snapshot.recordDate(), boss.getId(), boss.getBossName(), boss.getDifficulty().name(), boss.getBossImage(),
+							boss.getCrystalPrice(), resetPeriod.name(), row.completed(), snapshot.finalizedAt(), boss.getCrystalPrice()));
+				}
+				for (var manual : bossRecordRepository.findManualMonthly(character.getId(), start, cutoff)) {
+					bosses.put(manual.getBoss().getId(), manual.getBoss()); records.put(manual.getBoss().getId(), SchedulerBossResponse.from(manual));
+				}
+			}
 		}
 		for (BossPeriodSelection selection : bossPeriodSelectionRepository
 				.findByCharacter_IdAndPeriodStartAndResetPeriod(character.getId(), start, resetPeriod)) {

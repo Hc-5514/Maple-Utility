@@ -260,4 +260,28 @@ class NexonOpenApiClientTest {
             assertThat(e.getCode()).isEqualTo("NEXON_ACCOUNT_UNIDENTIFIABLE");
         });
     }
+	@Test
+	void strictHistoricalMonthlyParsingRejectsUnsupportedDifficulty() throws Exception {
+		var date=LocalDate.of(2026,9,30);
+		when(nexonApiGateway.getWithStoredKey(eq(1L),contains("date=2026-09-30"),eq(NexonRequestMode.REALTIME),
+				eq(com.maple.utility.entity.SyncType.SCHEDULER_REALTIME),eq(false))).thenReturn(objectMapper.readTree("""
+				{"date":"2026-09-30","daily_contents":[],"weekly_contents":[],"boss_contents":[
+				{"registration_flag":true,"content_name":"검은 마법사","difficulty":"UNKNOWN","cycle":"monthly","complete_flag":true}]}
+				"""));
+		assertThatThrownBy(() -> nexonOpenApiClient.getCharacterSchedulerForDateStrict(1L,"ocid",date,NexonRequestMode.REALTIME)).isInstanceOf(ApiException.class);
+	}
+
+	@Test
+	void strictHistoricalParsingIgnoresDailyBossButPreservesMonthlyFalse() throws Exception {
+		var date=LocalDate.of(2026,9,30);
+		when(nexonApiGateway.getWithStoredKey(eq(1L),contains("date=2026-09-30"),eq(NexonRequestMode.REALTIME),
+				eq(com.maple.utility.entity.SyncType.SCHEDULER_REALTIME),eq(false))).thenReturn(objectMapper.readTree("""
+				{"date":"2026-09-30","daily_contents":[],"weekly_contents":[],"boss_contents":[
+				{"registration_flag":true,"content_name":"자쿰","difficulty":"NORMAL","cycle":"daily","complete_flag":true},
+				{"registration_flag":true,"content_name":"검은 마법사","difficulty":"HARD","cycle":"monthly","complete_flag":false}]}
+				"""));
+		assertThat(nexonOpenApiClient.getCharacterSchedulerForDateStrict(1L,"ocid",date,NexonRequestMode.REALTIME).boss())
+				.containsExactly(new NexonSchedulerResponse.Boss(date,"검은 마법사",Difficulty.HARD,ResetPeriod.MONTHLY,false));
+	}
+
 }

@@ -4,7 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
-import com.maple.utility.repository.SchedulerWeekFinalizationRepository.Target;
+import com.maple.utility.service.SchedulerHistoryFinalizationService.Work;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -38,7 +38,7 @@ public class SyncJobService {
 	private final CharacterRepository characters;
 	private final CharacterSyncService characterSync;
 	private final SchedulerSyncService schedulerSync;
-	private final SchedulerWeekFinalizationService weekFinalization;
+	private final SchedulerHistoryFinalizationService historyFinalization;
 	private final NexonOpenApiClient nexon;
 	private final CacheManager cacheManager;
 	private final JdbcTemplate jdbcTemplate;
@@ -48,14 +48,14 @@ public class SyncJobService {
 
 	public SyncJobService(SyncJobRepository jobs, UserRepository users, CharacterRepository characters,
 			CharacterSyncService characterSync, SchedulerSyncService schedulerSync,
-			SchedulerWeekFinalizationService weekFinalization, NexonOpenApiClient nexon,
+			SchedulerHistoryFinalizationService historyFinalization, NexonOpenApiClient nexon,
 			CacheManager cacheManager, JdbcTemplate jdbcTemplate, @Qualifier("syncExecutor") Executor executor, Clock clock, com.maple.utility.repository.UserApiKeyRepository keys) {
 		this.jobs = jobs;
 		this.users = users;
 		this.characters = characters;
 		this.characterSync = characterSync;
 		this.schedulerSync = schedulerSync;
-		this.weekFinalization = weekFinalization;
+		this.historyFinalization = historyFinalization;
 		this.nexon = nexon;
 		this.cacheManager = cacheManager;
 		this.jdbcTemplate = jdbcTemplate;
@@ -90,7 +90,7 @@ public class SyncJobService {
 					&& Duration.between(recent.get().completedAt(), LocalDateTime.now(clock)).compareTo(Duration.ofMinutes(5)) < 0
 					&& recent.get().completedAt().toLocalDate().equals(LocalDateTime.now(clock).toLocalDate())
 					&& !favoritesChanged(userId, recent.get())
-					&& !weekFinalization.hasPendingRecentWeeks(userId)) {
+					&& !historyFinalization.hasPendingHistory(userId)) {
 				return recent.get();
 			}
 		}
@@ -157,8 +157,7 @@ public class SyncJobService {
 		try {
 			List<MapleCharacter> favorites = characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
 			var favoriteIds = favorites.stream().map(MapleCharacter::getId).collect(java.util.stream.Collectors.toSet());
-			List<Target> historyTargets = batch ? List.of() : prepareRecentWeeks(userId).stream()
-					.filter(target -> favoriteIds.contains(target.characterId())).toList();
+			Work historyTargets = batch ? Work.empty() : prepareHistory(userId).favorites(favoriteIds);
 			jobs.setTotal(id, favorites.size() + historyTargets.size());
 			for (MapleCharacter character : favorites) {
 				try {
@@ -173,9 +172,9 @@ public class SyncJobService {
 					jobs.advance(id, true);
 				}
 			}
-			if (!historyTargets.isEmpty()) {
-				// 고정한 지난주 대상만 처리하며 각 결과를 진행률에 한 번 반영.
-				weekFinalization.finalizeRecentWeeks(userId, historyTargets, skipped -> jobs.advance(id, skipped));
+			if (historyTargets.size() > 0) {
+				// 고정한 주간·월간 대상별 결과를 진행률에 한 번 반영.
+				historyFinalization.finalizePrepared(userId, historyTargets, skipped -> jobs.advance(id, skipped));
 			}
 			jobs.complete(id, LocalDateTime.now(clock));
 			evictSchedulerCaches();
@@ -184,12 +183,12 @@ public class SyncJobService {
 		}
 	}
 
-	private List<Target> prepareRecentWeeks(Long userId) {
+	private Work prepareHistory(Long userId) {
 		try {
-			return weekFinalization.prepareRecentWeeks(userId);
+			return historyFinalization.prepare(userId);
 		} catch (RuntimeException exception) {
 			log.warn("Skipping recent week backfill. userId={}", userId, exception);
-			return List.of();
+			return Work.empty();
 		}
 	}
 

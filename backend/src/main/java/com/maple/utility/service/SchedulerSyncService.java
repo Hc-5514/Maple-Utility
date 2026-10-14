@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.MapleCharacter;
+import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.entity.SchedulerBossRecord;
 import com.maple.utility.entity.SchedulerDailyRecord;
 import com.maple.utility.entity.SchedulerWeeklyRecord;
@@ -89,11 +90,18 @@ public class SchedulerSyncService {
 
 	@Transactional
 	public boolean syncHistoricalCharacter(Long userId, MapleCharacter character, LocalDate recordDate, NexonRequestMode mode) {
+		return syncHistoricalCharacter(userId, character, recordDate, mode, null);
+	}
+
+	@Transactional
+	public boolean syncHistoricalCharacter(Long userId, MapleCharacter character, LocalDate recordDate, NexonRequestMode mode, SchedulerHistoryFetch fetch) {
 		if (!SchedulerPeriodPolicy.canFinalize(recordDate, LocalDateTime.now(clock))) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "NEXON_HISTORY_DATE_INVALID", "지난주 최종 조회 날짜 오류");
 		}
 		acquireLock(userId);
-		NexonSchedulerResponse scheduler = nexonOpenApiClient.getCharacterSchedulerForDate(userId, character.getOcid(), recordDate, mode);
+		NexonSchedulerResponse scheduler = fetch == null
+				? nexonOpenApiClient.getCharacterSchedulerForDate(userId, character.getOcid(), recordDate, mode)
+				: fetch.get(userId, character.getOcid(), recordDate, mode);
 		if (scheduler == null) {
 			return false;
 		}
@@ -207,9 +215,12 @@ public class SchedulerSyncService {
 							source.completed(),
 							syncedAt
 					)));
-			record.updateProgress(source.completed(), syncedAt);
+			if (record.getResetPeriod() != ResetPeriod.MONTHLY || record.getSyncedAt() != null) {
+				record.updateProgress(source.completed(), syncedAt);
+			}
 		}
 		bossRecordRepository.deleteAll(bossRecordRepository.findByCharacterIdAndRecordDateOrderByBoss_SortOrderAscIdAsc(character.getId(), recordDate)
-				.stream().filter(record -> !registeredBossIds.contains(record.getBoss().getId())).toList());
+				.stream().filter(record -> record.getResetPeriod() != ResetPeriod.MONTHLY || record.getSyncedAt() != null)
+				.filter(record -> !registeredBossIds.contains(record.getBoss().getId())).toList());
 	}
 }

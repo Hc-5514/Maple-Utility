@@ -260,4 +260,23 @@ class SchedulerSyncServiceTest {
 			throw new IllegalStateException(exception);
 		}
 	}
+	@Test
+	void currentAndHistoricalSynchronizationPreserveManualMonthlyRecord() {
+		var character=character(user()); var boss=boss();
+		org.springframework.test.util.ReflectionTestUtils.setField(boss,"resetPeriod",ResetPeriod.MONTHLY);
+		var date=LocalDate.of(2026,7,14);
+		var manual=SchedulerBossRecord.create(character,boss,date,ResetPeriod.MONTHLY,true,null);
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
+		when(bossRecordRepository.findByCharacterIdAndRecordDateOrderByBoss_SortOrderAscIdAsc(10L,date)).thenReturn(List.of(manual));
+		when(nexonOpenApiClient.getCharacterScheduler(1L,"ocid",false)).thenReturn(new NexonSchedulerResponse(date,List.of(),List.of(),List.of()));
+		schedulerSyncService.syncOneCharacter(1L,character,false,false);
+		verify(bossRecordRepository).deleteAll(List.of());
+		when(bossMasterRepository.findByBossNameAndDifficulty(boss.getBossName(),boss.getDifficulty())).thenReturn(Optional.of(boss));
+		when(bossRecordRepository.findByCharacterIdAndBossIdAndRecordDate(10L,boss.getId(),date)).thenReturn(Optional.of(manual));
+		when(nexonOpenApiClient.getCharacterScheduler(1L,"ocid",false)).thenReturn(new NexonSchedulerResponse(date,List.of(),List.of(),List.of(
+				new NexonSchedulerResponse.Boss(date,boss.getBossName(),boss.getDifficulty(),ResetPeriod.MONTHLY,false))));
+		schedulerSyncService.syncOneCharacter(1L,character,false,false);
+		assertThat(manual.isCompleted()).isTrue(); assertThat(manual.getSyncedAt()).isNull();
+	}
+
 }

@@ -34,6 +34,16 @@ public final class SchedulerPeriodPolicy {
 				&& recordDate.equals(previousWeekStart(now.toLocalDate()).plusDays(6));
 	}
 
+	public static LocalDate lastMonthStart(LocalDate today) {
+		return today.withDayOfMonth(1).minusMonths(1);
+	}
+
+	public static boolean canFinalizeMonth(LocalDate recordDate, LocalDateTime now) {
+		return recordDate.equals(recordDate.withDayOfMonth(1).plusMonths(1).minusDays(1))
+				&& withinHistoryWindow(recordDate, now.toLocalDate())
+				&& (now.toLocalDate().isAfter(recordDate.plusDays(1)) || !now.toLocalTime().isBefore(LocalTime.of(2, 0)));
+	}
+
 	public static boolean customizable(LocalDate start, ResetPeriod resetPeriod, LocalDate today) {
 		LocalDate lockedFrom = previousWeekStart(today);
 		return resetPeriod == ResetPeriod.WEEKLY
