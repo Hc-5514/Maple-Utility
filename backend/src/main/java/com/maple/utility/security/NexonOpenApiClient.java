@@ -101,6 +101,14 @@ public class NexonOpenApiClient {
 	}
 
 	public NexonSchedulerResponse getCharacterSchedulerForDate(Long userId, String ocid, LocalDate date, NexonRequestMode mode) {
+		return getCharacterSchedulerForDate(userId, ocid, date, mode, false);
+	}
+
+	public NexonSchedulerResponse getCharacterSchedulerForDateStrict(Long userId, String ocid, LocalDate date, NexonRequestMode mode) {
+		return getCharacterSchedulerForDate(userId, ocid, date, mode, true);
+	}
+
+	private NexonSchedulerResponse getCharacterSchedulerForDate(Long userId, String ocid, LocalDate date, NexonRequestMode mode, boolean strict) {
 		String uri = UriComponentsBuilder.fromUriString(characterSchedulerUri(ocid))
 				.queryParam("date", date).build().encode().toUriString();
 		JsonNode response = nexonApiGateway.getWithStoredKey(userId, uri, mode,
@@ -109,7 +117,7 @@ public class NexonOpenApiClient {
 		if (response != null && response.isObject() && response.has("date") && response.get("date").isNull()) {
 			return null;
 		}
-		return parseScheduler(response);
+		return parseScheduler(response, strict);
 	}
 
 	private List<NexonCharacterSummary> parseCharacters(JsonNode response) {
@@ -168,6 +176,10 @@ public class NexonOpenApiClient {
 	}
 
 	private NexonSchedulerResponse parseScheduler(JsonNode response) {
+		return parseScheduler(response, false);
+	}
+
+	private NexonSchedulerResponse parseScheduler(JsonNode response, boolean strict) {
 		if (response == null || !response.isObject()) {
 			throw invalidSchedulerResponse();
 		}
@@ -176,7 +188,7 @@ public class NexonOpenApiClient {
 				recordDate,
 				parseDailyRecords(requiredArray(response, "daily_contents"), recordDate),
 				parseWeeklyRecords(requiredArray(response, "weekly_contents"), recordDate),
-				parseBossRecords(requiredArray(response, "boss_contents"), recordDate)
+				parseBossRecords(requiredArray(response, "boss_contents"), recordDate, strict)
 		);
 	}
 
@@ -246,7 +258,7 @@ public class NexonOpenApiClient {
 		return contentName.contains("길드") || contentName.toLowerCase().contains("guild");
 	}
 
-	private List<NexonSchedulerResponse.Boss> parseBossRecords(JsonNode records, LocalDate recordDate) {
+	private List<NexonSchedulerResponse.Boss> parseBossRecords(JsonNode records, LocalDate recordDate, boolean strict) {
 		List<NexonSchedulerResponse.Boss> bossRecords = new ArrayList<>();
 		for (JsonNode record : records) {
 			if (!flag(record, "registration_flag")) {
@@ -258,6 +270,7 @@ public class NexonOpenApiClient {
 			Difficulty difficulty = difficulty(difficultyValue);
 			ResetPeriod resetPeriod = resetPeriod(cycleValue);
 			if (difficulty == null || resetPeriod == null) {
+				if (strict && resetPeriod == ResetPeriod.MONTHLY) { throw invalidSchedulerResponse(); }
 				log.warn("Skipping unsupported Nexon scheduler boss. name={}, difficulty={}, cycle={}",
 						bossName, difficultyValue, cycleValue);
 				continue;
