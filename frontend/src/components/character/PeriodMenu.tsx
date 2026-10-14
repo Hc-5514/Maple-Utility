@@ -64,7 +64,7 @@ export default function PeriodMenu({ label, value, options, onChange, icon, comp
           aria-label={label}
           className={`absolute right-0 z-30 ${fitWidth ? 'w-full' : 'min-w-full'} overflow-hidden rounded-xl border border-[var(--dash-border)] bg-[var(--dash-dialog)] p-[7px] shadow-[var(--dash-menu-shadow)] backdrop-blur-[16px] ${compact ? 'top-[44px]' : fitWidth ? 'top-[52px]' : 'top-[48px]'}`}
         >
-          <div className="period-menu-scroll flex max-h-[196px] flex-col gap-1 overflow-y-auto">
+          <div className="period-menu-scroll flex max-h-[196px] flex-col gap-1 overflow-x-hidden overflow-y-auto">
             {options.map((option) => (
               <button
                 key={option.value}

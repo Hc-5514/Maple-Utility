@@ -17,14 +17,6 @@ interface Props {
   onChange: (draft: BossPeriodDraft) => void
 }
 
-const amountInput =
-  'h-[34px] rounded-lg border border-[color-mix(in_srgb,var(--dash-accent)_45%,transparent)] bg-[var(--dash-subtle)] px-3 text-right text-[13px] text-[var(--dash-text)] outline-none [font-family:Inter,sans-serif] placeholder:text-[var(--dash-muted)] focus:border-[var(--dash-accent)]'
-
-function digits(value: string) {
-  const onlyDigits = value.replace(/[^0-9]/g, '')
-  return onlyDigits === '' ? null : Number(onlyDigits)
-}
-
 export default function BossDropModal({
   onClose, record, characterId, periodStart, draft, onLoaded, onChange,
 }: Props) {
@@ -118,29 +110,28 @@ export default function BossDropModal({
                 )}
               </div>
               {item.dropItem.itemKind === 'FIXED' && (
-                <label className="ml-auto flex items-center gap-3 text-[12px] text-[var(--dash-muted)]">
+                <div className="ml-auto flex items-center gap-3 text-[12px] text-[var(--dash-muted)]">
                   수량
-                  <input
-                    inputMode="numeric"
-                    value={item.quantity.toLocaleString()}
-                    onChange={(event) => changeItem(item.dropItem.id, { quantity: Math.max(1, digits(event.target.value) ?? 1) })}
-                    className={`${amountInput} w-[72px]`}
-                    aria-label={`${item.dropItem.itemName} 수량`}
+                  <PeriodMenu
+                    compact
+                    label={`${item.dropItem.itemName} 수량`}
+                    value={String(item.quantity)}
+                    options={Array.from({ length: Math.max(item.dropItem.defaultQuantity, item.quantity) }, (_, index) => index + 1)
+                      .map((count) => ({ value: String(count), label: String(count) }))}
+                    onChange={(value) => changeItem(item.dropItem.id, { quantity: Number(value) })}
                   />
-                </label>
+                </div>
               )}
               {item.dropItem.itemKind === 'CRYSTAL' && (
-                <label className="ml-auto flex items-center gap-3 text-[12px] text-[var(--dash-muted)]">
-                  메소
-                  <input
-                    inputMode="numeric"
-                    value={item.mesoAmount?.toLocaleString() ?? ''}
-                    placeholder={period.crystalPrice === 0 ? '가격 미확인' : undefined}
-                    readOnly
-                    className={`${amountInput} w-[132px]`}
+                <div className="ml-auto flex items-center gap-3 text-[12px] text-[var(--dash-muted)]">
+                  <span
+                    className="text-[13px] text-[var(--dash-text)] [font-family:Inter,sans-serif]"
                     aria-label="결정 금액"
-                  />
-                </label>
+                  >
+                    {item.mesoAmount?.toLocaleString() ?? (period.crystalPrice === 0 ? '가격 미확인' : '')}
+                  </span>
+                  메소
+                </div>
               )}
               <span className={item.dropItem.itemKind === 'RANDOM' ? 'ml-auto' : ''}>
                 <ThemedCheckbox
