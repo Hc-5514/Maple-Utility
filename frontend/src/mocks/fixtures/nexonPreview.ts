@@ -73,8 +73,6 @@ export function getPreviewPeriod(characterId: number, bossId: number, periodStar
   const saved = savedPeriods.get(key)
   if (saved) return saved
   const partySize = previewPartySize(characterId, bossId)
-  const completed = previewBossRecords(characterId).some((record) => record.bossId === bossId && record.isCompleted)
-  const isSnapshotPeriod = periodStart === previewWeekStart
   return {
     bossId,
     characterId,
@@ -90,7 +88,7 @@ export function getPreviewPeriod(characterId: number, bossId: number, periodStar
         itemDescription: null,
         dropRateTier: null,
       },
-      acquired: dropItem.itemKind === 'CRYSTAL' && completed && isSnapshotPeriod,
+      acquired: dropItem.itemKind === 'CRYSTAL',
       quantity: dropItem.defaultQuantity,
       mesoAmount: dropItem.itemKind === 'CRYSTAL' ? Math.floor(boss.crystalPrice / partySize) : null,
     })),

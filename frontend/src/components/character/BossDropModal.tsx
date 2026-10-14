@@ -83,7 +83,7 @@ export default function BossDropModal({
             <li key={item.dropItem.id} className="flex flex-wrap items-center gap-3 border-b border-white/10 py-3 last:border-0">
               <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" className="h-8 w-8" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-white">{item.dropItem.itemName}</p>
+                <label htmlFor={`drop-item-${item.dropItem.id}`} className="block cursor-pointer text-sm text-white">{item.dropItem.itemName}</label>
                 {item.dropItem.itemKind === 'CRYSTAL' && period.crystalPrice === 0 && (
                   <span className="text-xs text-amber-300">가격 미확인</span>
                 )}
@@ -118,10 +118,11 @@ export default function BossDropModal({
                 </label>
               )}
               <input
+                id={`drop-item-${item.dropItem.id}`}
                 type="checkbox"
                 checked={item.acquired}
                 onChange={(event) => changeItem(item.dropItem.id, { acquired: event.target.checked })}
-                className="h-4 w-4 shrink-0 cursor-pointer accent-[#4ade80]"
+                className="h-5 w-5 shrink-0 cursor-pointer accent-[#4ade80]"
                 aria-label={`${item.dropItem.itemName} 획득 여부`}
               />
             </li>
