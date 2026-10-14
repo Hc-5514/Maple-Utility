@@ -40,7 +40,10 @@ export default function DateButton({
         value={value}
         min={min}
         max={max}
-        onChange={(event) => event.target.value && onChange(event.target.value)}
+        onChange={(event) => {
+          if (event.target.value) onChange(event.target.value)
+          event.target.blur()
+        }}
         className="pointer-events-none absolute inset-0 opacity-0"
       />
     </div>
