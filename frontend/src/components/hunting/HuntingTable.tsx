@@ -121,20 +121,6 @@ export default function HuntingTable({
                 </span>
               </div>
             ))}
-          <div role="row" className="flex h-16 items-center gap-[18px] bg-[var(--dash-accent)]/3 px-6">
-            <span role="cell" className="w-[243px] shrink-0 text-[14px] leading-[1.45]">
-              합계
-            </span>
-            <span role="cell" className={`${cell} ${inter} w-[110px] text-[var(--dash-meso)]`}>
-              {(summary?.totalMeso ?? 0).toLocaleString('ko-KR')}
-            </span>
-            <span role="cell" className={`${cell} ${inter} w-[96px] text-center`}>
-              {(summary?.totalSolErda ?? 0).toLocaleString('ko-KR')}
-            </span>
-            <span role="cell" className="w-[574px] shrink-0 text-[12px] leading-[1.45] text-[var(--dash-muted)]">
-              총 메소 / 총 솔 에르다 조각
-            </span>
-          </div>
         </div>
       </div>
       <Pagination label="사냥 기록 페이지" page={page} totalPages={totalPages} onPageChange={onPageChange} />
