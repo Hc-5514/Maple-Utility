@@ -44,7 +44,7 @@ export default function BossDropModal({
   }
 
   const changePartySize = (partySize: number) => {
-    if (!period || partySize < 1 || partySize > 6) return
+    if (!period || partySize < 1 || partySize > period.maxPartySize) return
     onChange({
       ...period,
       partySize,
@@ -93,7 +93,8 @@ export default function BossDropModal({
           compact
           label="파티 인원"
           value={String(period?.partySize ?? 1)}
-          options={[1, 2, 3, 4, 5, 6].map((size) => ({ value: String(size), label: `${size}명` }))}
+          options={Array.from({ length: period?.maxPartySize ?? 6 }, (_, index) => index + 1)
+            .map((size) => ({ value: String(size), label: `${size}명` }))}
           onChange={(value) => changePartySize(Number(value))}
         />
       </div>
@@ -135,7 +136,7 @@ export default function BossDropModal({
                     inputMode="numeric"
                     value={item.mesoAmount?.toLocaleString() ?? ''}
                     placeholder={period.crystalPrice === 0 ? '가격 미확인' : undefined}
-                    onChange={(event) => changeItem(item.dropItem.id, { mesoAmount: digits(event.target.value) })}
+                    readOnly
                     className={`${amountInput} w-[132px]`}
                     aria-label="결정 금액"
                   />

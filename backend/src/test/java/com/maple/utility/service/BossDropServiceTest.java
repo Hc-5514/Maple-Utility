@@ -226,6 +226,7 @@ class BossDropServiceTest {
 	void savePeriodUpdatesExistingAcquisitionWithoutInsert() {
 		MapleCharacter character = character(user());
 		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 48_900_000L);
 		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
 		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
 		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-10-08"), 1);
@@ -238,10 +239,11 @@ class BossDropServiceTest {
 				LocalDate.parse("2026-10-08"))).thenReturn(Optional.of(entry));
 		when(bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(50L)).thenReturn(List.of(existing));
 		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2,
-				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, 24_450_000L)));
+				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, 1L)));
 
 		bossDropService.savePeriod(1L, 20L, request);
 
+		// 클라이언트가 보낸 메소(1)는 무시되고 결정 가격 / 인원수가 저장된다
 		assertThat(existing.getMesoAmount()).isEqualTo(24_450_000L);
 		verify(bossItemAcquisitionRepository, never()).save(any(BossItemAcquisition.class));
 	}
@@ -265,6 +267,45 @@ class BossDropServiceTest {
 			assertThat(item.acquired()).isTrue();
 			assertThat(item.mesoAmount()).isEqualTo(48_900_000L);
 		});
+	}
+
+	@Test
+	void savePeriodRejectsPartySizeAboveBossMax() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "maxPartySize", 2);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 3, List.of());
+
+		assertThatThrownBy(() -> bossDropService.savePeriod(1L, 20L, request))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("파티 인원 오류");
+	}
+
+	@Test
+	void getPeriodReturnsMaxPartySizeAndComputedCrystalMeso() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 90_000_000L);
+		ReflectionTestUtils.setField(boss, "maxPartySize", 3);
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-10-08"), 3);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		BossItemAcquisition stale = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.of(entry));
+		when(bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(50L)).thenReturn(List.of(stale));
+
+		var response = bossDropService.getPeriod(1L, 20L, 10L, LocalDate.parse("2026-10-08"));
+
+		assertThat(response.maxPartySize()).isEqualTo(3);
+		assertThat(response.items()).singleElement()
+				.satisfies(item -> assertThat(item.mesoAmount()).isEqualTo(30_000_000L));
 	}
 
 	private User user() {
