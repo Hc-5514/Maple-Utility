@@ -15,7 +15,7 @@ const columns: [string, string][] = [
   ['솔 에르다 조각', 'w-[96px]'],
   ['사냥터', 'w-[180px]'],
   ['사냥 시간', 'w-[85px]'],
-  ['메모', 'w-[300px]'],
+  ['메모', 'min-w-0 flex-1'],
   ['관리', 'w-[110px]'],
 ]
 const inter = '[font-family:Inter,sans-serif]'
@@ -75,10 +75,14 @@ export default function HuntingTable({
         <div role="table" aria-label="사냥 내역" className="min-w-[1280px]">
           <div
             role="row"
-            className="flex h-12 items-center gap-[18px] bg-[var(--dash-track)] px-6 text-center text-[12px] text-[var(--dash-muted)]"
+            className="flex h-12 items-center gap-[25px] bg-[var(--dash-track)] px-6 text-center text-[12px] text-[var(--dash-muted)]"
           >
             {columns.map(([label, width]) => (
-              <span key={label} role="columnheader" className={`shrink-0 ${width}`}>
+              <span
+                key={label}
+                role="columnheader"
+                className={width.includes('flex-1') ? width : `shrink-0 ${width}`}
+              >
                 {label}
               </span>
             ))}
@@ -88,7 +92,7 @@ export default function HuntingTable({
               <div
                 key={record.id}
                 role="row"
-                className="flex h-[88px] items-center gap-[18px] border-b border-[var(--dash-border)] px-6"
+                className="flex h-[88px] items-center gap-[25px] border-b border-[var(--dash-border)] px-6"
               >
                 <span role="cell" className={`${cell} w-[105px] text-center`}>
                   {record.recordDate}
@@ -108,7 +112,7 @@ export default function HuntingTable({
                 <span role="cell" className={`${cell} ${inter} w-[85px] text-center`}>
                   {formatDuration(record.playDurationMin)}
                 </span>
-                <span role="cell" className={`${cell} w-[300px] truncate`}>
+                <span role="cell" className="min-w-0 flex-1 truncate text-[13px]">
                   {record.memo || '-'}
                 </span>
                 <span role="cell" className="flex w-[110px] shrink-0 justify-center gap-[18px]">
