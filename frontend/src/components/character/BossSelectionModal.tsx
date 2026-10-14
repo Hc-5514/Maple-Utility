@@ -11,8 +11,8 @@ import type { BossCandidate, ResetPeriod, SchedulerBossRecord } from '../../type
 export const BOSS_LIMITS: Record<ResetPeriod, number> = { WEEKLY: 12, MONTHLY: 1 }
 
 const LOCKED_NOTICE: Record<ResetPeriod, string> = {
-  WEEKLY: '최근 3주는 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
-  MONTHLY: '최근 3주가 포함된 달은 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
+  WEEKLY: '이번 주와 지난주는 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
+  MONTHLY: '이번 주와 지난주가 포함된 달은 넥슨 스케줄러 기록으로 표시되어 변경할 수 없습니다',
 }
 
 /** n/limit counts cleared bosses (the game caps clears at the limit), not bosses listed in the scheduler. */

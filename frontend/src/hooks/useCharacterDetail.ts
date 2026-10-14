@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
+import { useSeoulDay } from './useSeoulDay'
 import { getSessionGeneration, isCurrentSession } from '../api/session'
 import { useCharacterStore } from '../stores/characterStore'
 import type {
@@ -53,8 +54,9 @@ export function useCharacterWeekly(characterId: number, weekStart: string) {
 }
 
 export function useCharacterBoss(characterId: number, weeklyDate: string, monthlyDate: string) {
+  const policyDay = useSeoulDay()
   return useQuery({
-    queryKey: ['scheduler/boss', characterId, weeklyDate, monthlyDate],
+    queryKey: ['scheduler/boss', characterId, weeklyDate, monthlyDate, policyDay],
     queryFn: async () => {
       const { data } = await client.get<ApiResponse<SchedulerBossDetail>>(
         `/scheduler/${characterId}/boss?weeklyDate=${weeklyDate}&monthlyDate=${monthlyDate}`,

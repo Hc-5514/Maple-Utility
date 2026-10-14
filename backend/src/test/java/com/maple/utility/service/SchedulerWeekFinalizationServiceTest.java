@@ -59,6 +59,7 @@ class SchedulerWeekFinalizationServiceTest {
 		User user = User.create(OAuthProvider.KAKAO, "oauth", null, "nickname");
 		ReflectionTestUtils.setField(user, "id", 1L);
 		character = MapleCharacter.create(user, "ocid", "캐릭터", "스카니아", "히어로", 280, 1);
+		character.toggleFavorite();
 		ReflectionTestUtils.setField(character, "id", 10L);
 		lenient().when(users.findDataOwnersWithActiveKey()).thenReturn(List.of(user));
 		lenient().when(manager.getTransaction(any())).thenReturn(status);
@@ -78,7 +79,7 @@ class SchedulerWeekFinalizationServiceTest {
 		verify(manager).commit(status);
 		verify(cache).clear();
 		verify(records).seed(1L, LocalDate.parse("2026-07-09"));
-		verify(records).seed(1L, LocalDate.parse("2026-07-02"));
+		verify(records, never()).seed(1L, LocalDate.parse("2026-07-02"));
 		verify(records).expire(TODAY, NOW);
 	}
 
@@ -86,15 +87,15 @@ class SchedulerWeekFinalizationServiceTest {
 	void liveSyncSeedsRecentWeeksAndFinalizesWithRealtimeBudget() {
 		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET));
 		when(sync.syncHistoricalCharacter(1L, character, TARGET.recordDate(), NexonRequestMode.REALTIME)).thenReturn(true);
-		Runnable progress = mock(Runnable.class);
+		java.util.function.Consumer<Boolean> progress = mock(java.util.function.Consumer.class);
 
-		assertThat(service.prepareRecentWeeks(1L)).isEqualTo(1);
-		assertThat(service.finalizeRecentWeeks(1L, progress)).isTrue();
+		assertThat(service.prepareRecentWeeks(1L)).containsExactly(TARGET);
+		assertThat(service.finalizeRecentWeeks(1L, List.of(TARGET), progress)).isTrue();
 
 		verify(records).seed(1L, LocalDate.parse("2026-07-09"));
-		verify(records).seed(1L, LocalDate.parse("2026-07-02"));
+		verify(records, never()).seed(1L, LocalDate.parse("2026-07-02"));
 		verify(records).finish(100L, true, NOW);
-		verify(progress).run();
+		verify(progress).accept(false);
 		verifyNoInteractions(caches);
 	}
 
@@ -102,8 +103,8 @@ class SchedulerWeekFinalizationServiceTest {
 	void liveSyncSkipsCallsWhenRecentWeeksAreAlreadyFinalized() {
 		when(records.due(1L, TODAY)).thenReturn(List.of());
 
-		assertThat(service.prepareRecentWeeks(1L)).isZero();
-		assertThat(service.finalizeRecentWeeks(1L, () -> { })).isFalse();
+		assertThat(service.prepareRecentWeeks(1L)).isEmpty();
+		assertThat(service.finalizeRecentWeeks(1L, List.of(), skipped -> { })).isFalse();
 
 		verifyNoInteractions(sync);
 	}
@@ -132,9 +133,10 @@ class SchedulerWeekFinalizationServiceTest {
 
 	@Test
 	void exhaustedBudgetLeavesEveryRemainingCharacterDurableAndUnattempted() {
-		Target second = new Target(101L, 1L, 10L, LocalDate.parse("2026-07-02"));
+		Target second = new Target(101L, 1L, 11L, LocalDate.parse("2026-07-09"));
 		when(records.due(1L, TODAY)).thenReturn(List.of(TARGET, second));
 		when(records.lockDue(101L, TODAY)).thenReturn(Optional.of(second));
+		when(characters.findByIdAndUserId(11L, 1L)).thenReturn(Optional.of(character));
 		when(sync.syncHistoricalCharacter(anyLong(), any(), any(), any()))
 				.thenThrow(new ApiException(HttpStatus.TOO_MANY_REQUESTS, "NEXON_BATCH_LIMIT_REACHED", "예산 소진"));
 		service.finalizeWeeks();
@@ -177,6 +179,48 @@ class SchedulerWeekFinalizationServiceTest {
 		service.retryPendingWeeks();
 		verify(records, never()).seed(anyLong(), any());
 		verifyNoInteractions(sync, characters);
+	}
+
+	@Test
+	void thursdayBeforeTwoDoesNotSeedQueryOrConsumeAnAttempt() {
+		Clock early = Clock.fixed(Instant.parse("2026-07-15T16:59:00Z"), ZoneId.of("Asia/Seoul"));
+		var earlyService = new SchedulerWeekFinalizationService(records, users, characters, sync, lock, caches, manager, early);
+		assertThat(earlyService.prepareRecentWeeks(1L)).isEmpty();
+		assertThat(earlyService.hasPendingRecentWeeks(1L)).isFalse();
+		earlyService.finalizeWeeks();
+		verify(records, never()).seed(anyLong(), any());
+		verify(records, never()).due(anyLong(), any());
+		verify(records, never()).finish(anyLong(), anyBoolean(), any());
+		verifyNoInteractions(sync);
+	}
+
+	@Test
+	void fixedLiveTargetListDoesNotRequeryAndCountsNoDataAsSkipped() {
+		var progress = new java.util.ArrayList<Boolean>();
+		assertThat(service.finalizeRecentWeeks(1L, List.of(TARGET), progress::add)).isFalse();
+		assertThat(progress).containsExactly(true);
+		verify(records, never()).due(anyLong(), any());
+		verify(records).finish(100L, false, NOW);
+	}
+
+	@Test
+	void targetFinalizedByBatchCountsOnceWithoutAnotherExternalCall() {
+		when(records.lockDue(100L, TODAY)).thenReturn(Optional.empty());
+		var progress = new java.util.ArrayList<Boolean>();
+		service.finalizeRecentWeeks(1L, List.of(TARGET), progress::add);
+		assertThat(progress).containsExactly(true);
+		verifyNoInteractions(sync);
+	}
+
+	@Test
+	void olderWeekStillInsideProviderWindowCannotBeRetried() {
+		var older = new Target(101L, 1L, 10L, LocalDate.parse("2026-07-02"));
+		var progress = new java.util.ArrayList<Boolean>();
+		service.finalizeRecentWeeks(1L, List.of(older), progress::add);
+		assertThat(progress).containsExactly(true);
+		verify(records).expire(TODAY, NOW);
+		verifyNoInteractions(sync);
+		verify(records, never()).retry(anyLong(), any(), anyBoolean(), any());
 	}
 
 	@Test

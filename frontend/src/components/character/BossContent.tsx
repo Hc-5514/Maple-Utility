@@ -208,7 +208,7 @@ export default function BossContent({ characterId, date, weekStart: selectedWeek
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => setSelecting(true)}
             disabled={isLoading || isError || !anyCustomizable}
-            title={!anyCustomizable ? '최근 3주와 그 주가 포함된 달은 넥슨 스케줄러 기록으로 표시됩니다' : undefined}
+            title={!anyCustomizable ? '이번 주·지난주와 해당 주가 포함된 달은 넥슨 스케줄러 기록으로 표시됩니다' : undefined}
             className={`${controlButton} disabled:cursor-not-allowed disabled:opacity-40`}>
             <img src={assets.imgManage} alt="" className="size-4" />
             보스 선택

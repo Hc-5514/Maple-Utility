@@ -109,13 +109,12 @@ class SyncJobServiceTest {
 
 	@Test
 	void recentSchedulerJobWithUnchangedFavoritesIsReused() {
-		var recent = job(22L, "SCHEDULER", "COMPLETED", 1, 1, LocalDateTime.now(CLOCK).minusMinutes(2));
+		var recent = job(22L, "SCHEDULER", "COMPLETED", 2, 2, LocalDateTime.now(CLOCK).minusMinutes(2));
 		when(jobs.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(recent));
-		when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.startsWith("SELECT COUNT"),
-				org.mockito.ArgumentMatchers.eq(Integer.class), org.mockito.ArgumentMatchers.eq(1L))).thenReturn(1);
+
 		when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.startsWith("SELECT EXISTS"),
 				org.mockito.ArgumentMatchers.eq(Boolean.class), org.mockito.ArgumentMatchers.eq(1L),
-				org.mockito.ArgumentMatchers.eq(recent.completedAt()))).thenReturn(false);
+				org.mockito.ArgumentMatchers.eq(recent.startedAt()))).thenReturn(false);
 
 		assertThat(service.startScheduler(1L, false, false)).isEqualTo(recent);
 		verify(jobs, never()).start(1L, "SCHEDULER");
@@ -140,12 +139,20 @@ class SyncJobServiceTest {
 		MapleCharacter character = character();
 		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(45L, "SCHEDULER", "STARTED", 0, 0, null), true));
 		when(characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
-		when(weekFinalization.prepareRecentWeeks(1L)).thenReturn(2);
+		var targets = List.of(new com.maple.utility.repository.SchedulerWeekFinalizationRepository.Target(1L, 1L, 10L, java.time.LocalDate.parse("2026-09-24")));
+		when(weekFinalization.prepareRecentWeeks(1L)).thenReturn(targets);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			java.util.function.Consumer<Boolean> onTarget = invocation.getArgument(2);
+			onTarget.accept(true);
+			return false;
+		}).when(weekFinalization).finalizeRecentWeeks(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(targets), org.mockito.ArgumentMatchers.any());
 
 		service.startScheduler(1L, true, false);
 
-		verify(jobs).setTotal(45L, 3);
-		verify(weekFinalization).finalizeRecentWeeks(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any());
+		verify(jobs).setTotal(45L, 2);
+		verify(weekFinalization).finalizeRecentWeeks(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(targets), org.mockito.ArgumentMatchers.any());
+		verify(jobs).advance(45L, false);
+		verify(jobs).advance(45L, true);
 		verify(jobs).complete(45L, LocalDateTime.now(CLOCK));
 	}
 
@@ -173,6 +180,39 @@ class SyncJobServiceTest {
 
 		verify(cache).clear();
 		verify(jobs).complete(45L, LocalDateTime.now(CLOCK));
+	}
+
+	@Test
+	void newlyEligibleHistoryPreventsFiveMinuteReuse() {
+		var recent = job(22L, "SCHEDULER", "COMPLETED", 1, 1, LocalDateTime.now(CLOCK).minusMinutes(2));
+		when(jobs.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(recent));
+		when(weekFinalization.hasPendingRecentWeeks(1L)).thenReturn(true);
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(47L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		service.startScheduler(1L, false, false);
+		verify(jobs).start(1L, "SCHEDULER");
+	}
+
+	@Test
+	void favoriteRemovalPreventsReuseWithoutComparingProgressTotal() {
+		var recent = job(22L, "SCHEDULER", "COMPLETED", 2, 2, LocalDateTime.now(CLOCK).minusMinutes(2));
+		when(jobs.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(recent));
+		when(jdbcTemplate.queryForObject(org.mockito.ArgumentMatchers.startsWith("SELECT EXISTS"),
+				org.mockito.ArgumentMatchers.eq(Boolean.class), org.mockito.ArgumentMatchers.eq(1L),
+				org.mockito.ArgumentMatchers.eq(recent.startedAt()))).thenReturn(true);
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(48L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		service.startScheduler(1L, false, false);
+		verify(jobs).start(1L, "SCHEDULER");
+	}
+
+	@Test
+	void completedJobFromPreviousSeoulDateCannotBeReused() {
+		Clock midnight = Clock.fixed(Instant.parse("2026-10-14T15:01:00Z"), ZoneId.of("Asia/Seoul"));
+		var midnightService = new SyncJobService(jobs, users, characters, characterSync, schedulerSync,
+				weekFinalization, nexon, cacheManager, jdbcTemplate, Runnable::run, midnight, keys);
+		when(jobs.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(job(22L, "SCHEDULER", "COMPLETED", 1, 1, LocalDateTime.parse("2026-10-14T23:59:00"))));
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(49L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		midnightService.startScheduler(1L, false, false);
+		verify(jobs).start(1L, "SCHEDULER");
 	}
 
 	private MapleCharacter character() {

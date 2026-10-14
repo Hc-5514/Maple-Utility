@@ -1,10 +1,15 @@
 package com.maple.utility.service;
 
+import com.maple.utility.util.SchedulerPeriodPolicy;
+
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.TemporalAdjusters;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.maple.utility.repository.SchedulerWeekFinalizationRepository.Target;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,17 +59,22 @@ public class SchedulerWeekFinalizationService {
 		run(false);
 	}
 
-	/** Seeds the two completed Wednesdays for a live sync and returns how many still need a snapshot. */
-	public int prepareRecentWeeks(Long userId) {
-		LocalDate today = LocalDate.now(clock);
-		records.expire(today, LocalDateTime.now(clock));
-		seedRecentWeeks(userId, today);
-		return records.due(userId, today).size();
+	/** 조회·진행률에 사용할 지난주 대상 목록 고정. */
+	public List<Target> prepareRecentWeeks(Long userId) {
+		LocalDateTime now = LocalDateTime.now(clock);
+		records.expire(now.toLocalDate(), now);
+		if (!SchedulerPeriodPolicy.historyReady(now)) { return List.of(); }
+		seedRecentWeeks(userId, now.toLocalDate());
+		return List.copyOf(records.due(userId, now.toLocalDate()));
 	}
 
-	/** Fills unfinalized recent weeks during a live sync; finalized weeks are skipped by the durable status. */
-	public boolean finalizeRecentWeeks(Long userId, Runnable onTarget) {
-		return finalizeUser(userId, LocalDate.now(clock), NexonRequestMode.REALTIME, onTarget);
+	public boolean hasPendingRecentWeeks(Long userId) {
+		LocalDateTime now = LocalDateTime.now(clock);
+		return SchedulerPeriodPolicy.historyReady(now) && records.hasDueOrUnseeded(userId, now.toLocalDate());
+	}
+
+	public boolean finalizeRecentWeeks(Long userId, List<Target> targets, Consumer<Boolean> onTarget) {
+		return finalizeTargets(userId, List.copyOf(targets), NexonRequestMode.REALTIME, onTarget);
 	}
 
 	private void run(boolean seedNewWeeks) {
@@ -76,7 +86,9 @@ public class SchedulerWeekFinalizationService {
 				if (seedNewWeeks) {
 					seedRecentWeeks(user.getId(), today);
 				}
-				changed |= finalizeUser(user.getId(), today, NexonRequestMode.BATCH, () -> { });
+				if (SchedulerPeriodPolicy.historyReady(LocalDateTime.now(clock))) {
+					changed |= finalizeTargets(user.getId(), records.due(user.getId(), today), NexonRequestMode.BATCH, skipped -> { });
+				}
 			} catch (RuntimeException exception) {
 				log.error("Week finalization failed for user. userId={}", user.getId(), exception);
 			}
@@ -87,43 +99,52 @@ public class SchedulerWeekFinalizationService {
 		}
 	}
 
-	// Seed the two completed Wednesdays still covered by Nexon's inclusive 14-day window.
 	private void seedRecentWeeks(Long userId, LocalDate today) {
-		LocalDate wednesday = today.with(TemporalAdjusters.previous(DayOfWeek.WEDNESDAY));
-		while (!wednesday.isBefore(today.minusDays(14))) {
-			records.seed(userId, wednesday.minusDays(6));
-			wednesday = wednesday.minusWeeks(1);
+		if (SchedulerPeriodPolicy.historyReady(LocalDateTime.now(clock))) {
+			records.seed(userId, SchedulerPeriodPolicy.previousWeekStart(today));
 		}
 	}
 
-	private boolean finalizeUser(Long userId, LocalDate today, NexonRequestMode mode, Runnable onTarget) {
+	private boolean finalizeTargets(Long userId, List<Target> targets, NexonRequestMode mode, Consumer<Boolean> onTarget) {
 		boolean changed = false;
-		for (var target : records.due(userId, today)) {
+		for (var target : targets) {
+			boolean skipped = true;
 			try {
 				Boolean saved = transaction.execute(status -> {
+					LocalDateTime now = LocalDateTime.now(clock);
+					if (target.userId() != userId || !SchedulerPeriodPolicy.canFinalize(target.recordDate(), now)) {
+						records.expire(now.toLocalDate(), now);
+						return false;
+					}
 					if (!syncLock.tryAcquire(target.userId())) {
 						records.retry(target.id(), "SCHEDULER_SYNC_IN_PROGRESS", false, LocalDateTime.now(clock));
 						return false;
 					}
-					var current = records.lockDue(target.id(), today);
+					var current = records.lockDue(target.id(), now.toLocalDate());
 					if (current.isEmpty()) { return false; }
 					var character = characters.findByIdAndUserId(target.characterId(), target.userId()).orElse(null);
-					if (character == null) { return false; }
+					if (character == null || !character.isFavorite()) { return false; }
 					boolean hasData = sync.syncHistoricalCharacter(target.userId(), character, target.recordDate(), mode);
 					records.finish(target.id(), hasData, LocalDateTime.now(clock));
 					return hasData;
 				});
-				changed |= Boolean.TRUE.equals(saved);
+				skipped = !Boolean.TRUE.equals(saved);
+				changed |= !skipped;
 			} catch (RuntimeException exception) {
 				String error = exception instanceof ApiException api ? api.getCode() : "FINALIZATION_FAILED";
 				boolean attempted = !error.endsWith("LIMIT_REACHED") && !error.endsWith("LIMIT_EXCEEDED")
 						&& !"SCHEDULER_SYNC_IN_PROGRESS".equals(error) && !"API_KEY_NOT_REGISTERED".equals(error);
 				// Separate transaction after rollback: a failed snapshot must leave a durable retry entry.
-				records.retry(target.id(), error, attempted, LocalDateTime.now(clock));
+				LocalDateTime now = LocalDateTime.now(clock);
+				if (!target.weekStartDate().equals(SchedulerPeriodPolicy.previousWeekStart(now.toLocalDate()))) {
+					records.expire(now.toLocalDate(), now);
+				} else {
+					records.retry(target.id(), error, attempted, now);
+				}
 				log.warn("Week finalization deferred. userId={}, characterId={}, date={}, code={}",
 						target.userId(), target.characterId(), target.recordDate(), error);
 			} finally {
-				onTarget.run();
+				onTarget.accept(skipped);
 			}
 		}
 		return changed;

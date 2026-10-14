@@ -498,20 +498,27 @@ class SchedulerServiceTest {
 	}
 
 	@Test
-	void customSelectionIsLockedForRecentThreeWeeksAndOverlappingMonths() {
+	void customSelectionIsLockedForCurrentAndPreviousWeekAndOverlappingMonths() {
 		MapleCharacter character = character(user());
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss(20L, ResetPeriod.WEEKLY)));
+		when(bossMasterRepository.findById(30L)).thenReturn(Optional.of(boss(30L, ResetPeriod.MONTHLY)));
 
-		for (String start : List.of("2026-07-09", "2026-07-02", "2026-06-25")) {
-			assertThatThrownBy(() -> schedulerService.addBossesToPeriod(1L, 10L,
-					new ManualBossRecordSaveRequest(LocalDate.parse(start), ResetPeriod.WEEKLY, List.of(20L))))
+		for (String start : List.of("2026-07-09", "2026-07-02")) {
+			var request = new ManualBossRecordSaveRequest(LocalDate.parse(start), ResetPeriod.WEEKLY, List.of(20L));
+			assertThatThrownBy(() -> schedulerService.addBossesToPeriod(1L, 10L, request))
 					.isInstanceOf(ApiException.class)
-					.hasMessageContaining("변경 불가");
+					.satisfies(error -> assertThat(((ApiException) error).getCode()).isEqualTo("BOSS_PERIOD_LOCKED"));
+			assertThatThrownBy(() -> schedulerService.saveManualBossRecords(1L, 10L, request))
+					.isInstanceOf(ApiException.class)
+					.satisfies(error -> assertThat(((ApiException) error).getCode()).isEqualTo("BOSS_PERIOD_LOCKED"));
+			assertThatThrownBy(() -> schedulerService.hideBossFromPeriod(1L, 10L, 20L, LocalDate.parse(start), ResetPeriod.WEEKLY))
+					.isInstanceOf(ApiException.class)
+					.satisfies(error -> assertThat(((ApiException) error).getCode()).isEqualTo("BOSS_PERIOD_LOCKED"));
 		}
 		assertThatThrownBy(() -> schedulerService.hideBossFromPeriod(1L, 10L, 30L, LocalDate.parse("2026-07-03"), ResetPeriod.MONTHLY))
-				.isInstanceOf(ApiException.class);
-		assertThatThrownBy(() -> schedulerService.hideBossFromPeriod(1L, 10L, 30L, LocalDate.parse("2026-06-01"), ResetPeriod.MONTHLY))
-				.isInstanceOf(ApiException.class);
+				.isInstanceOf(ApiException.class)
+				.satisfies(error -> assertThat(((ApiException) error).getCode()).isEqualTo("BOSS_PERIOD_LOCKED"));
 	}
 
 	@Test
@@ -521,15 +528,15 @@ class SchedulerServiceTest {
 		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(any(), any(), any(), any())).thenReturn(List.of());
 		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(any(), any(), any())).thenReturn(List.of());
 
-		var recent = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-06-25"), LocalDate.parse("2026-07-01"), null);
+		var recent = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-07-02"), LocalDate.parse("2026-07-01"), null);
 		var overlapping = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-06-24"), LocalDate.parse("2026-06-30"), null);
 		var older = schedulerService.getBoss(1L, 10L, LocalDate.parse("2026-06-24"), LocalDate.parse("2026-05-31"), null);
 
 		assertThat(recent.weeklyCustomizable()).isFalse();
 		assertThat(recent.monthlyCustomizable()).isFalse();
 		assertThat(overlapping.weeklyCustomizable()).isTrue();
-		// June overlaps the locked weeks starting 2026-06-25, so it mirrors Nexon and stays locked
-		assertThat(overlapping.monthlyCustomizable()).isFalse();
+		// 최근 두 주차는 7월에만 포함되므로 6월 잠금 해제
+		assertThat(overlapping.monthlyCustomizable()).isTrue();
 		assertThat(older.monthlyCustomizable()).isTrue();
 	}
 

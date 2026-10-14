@@ -1,5 +1,7 @@
 package com.maple.utility.service;
 
+import com.maple.utility.util.SchedulerPeriodPolicy;
+
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -51,7 +53,6 @@ import com.maple.utility.repository.SyncJobRepository;
 public class SchedulerService {
 
 	private static final int WEEKLY_BOSS_LIMIT = 12;
-	private static final int LOCKED_RECENT_WEEKS = 2;
 	private static final int MONTHLY_BOSS_LIMIT = 1;
 
 	private final CharacterRepository characterRepository;
@@ -183,7 +184,7 @@ public class SchedulerService {
 				.toList();
 	}
 
-	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'boss:' + #userId + ':' + #characterId + ':' + #weeklyDate + ':' + #monthlyDate + ':' + #legacyDate + ':' + #root.target.today()")
+	@Cacheable(cacheNames = RedisCacheNames.SCHEDULER, key = "'boss:v2:' + #userId + ':' + #characterId + ':' + #weeklyDate + ':' + #monthlyDate + ':' + #legacyDate + ':' + #root.target.today()")
 	@Transactional(readOnly = true)
 	public SchedulerBossDetailResponse getBoss(
 			Long userId,
@@ -340,10 +341,7 @@ public class SchedulerService {
 
 	/** Recent weeks and every month overlapping them mirror the Nexon scheduler and are not customizable. */
 	private boolean isCustomizable(LocalDate periodStart, ResetPeriod resetPeriod) {
-		LocalDate lockedFrom = weekStartDate(LocalDate.now(clock)).minusWeeks(LOCKED_RECENT_WEEKS);
-		return resetPeriod == ResetPeriod.WEEKLY
-				? periodStart.isBefore(lockedFrom)
-				: periodStart.plusMonths(1).minusDays(1).isBefore(lockedFrom);
+		return SchedulerPeriodPolicy.customizable(periodStart, resetPeriod, LocalDate.now(clock));
 	}
 
 	private void assertCustomizable(LocalDate periodStart, ResetPeriod resetPeriod) {

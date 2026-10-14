@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.maple.utility.repository.SchedulerWeekFinalizationRepository.Target;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -87,7 +88,9 @@ public class SyncJobService {
 			var recent = jobs.latestCompleted(userId, "SCHEDULER");
 			if (recent.isPresent() && recent.get().completedAt() != null
 					&& Duration.between(recent.get().completedAt(), LocalDateTime.now(clock)).compareTo(Duration.ofMinutes(5)) < 0
-					&& !favoritesChanged(userId, recent.get())) {
+					&& recent.get().completedAt().toLocalDate().equals(LocalDateTime.now(clock).toLocalDate())
+					&& !favoritesChanged(userId, recent.get())
+					&& !weekFinalization.hasPendingRecentWeeks(userId)) {
 				return recent.get();
 			}
 		}
@@ -153,8 +156,10 @@ public class SyncJobService {
 	private void runScheduler(Long userId, Long id, boolean batch, boolean force) {
 		try {
 			List<MapleCharacter> favorites = characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
-			int historyTargets = batch ? 0 : prepareRecentWeeks(userId);
-			jobs.setTotal(id, favorites.size() + historyTargets);
+			var favoriteIds = favorites.stream().map(MapleCharacter::getId).collect(java.util.stream.Collectors.toSet());
+			List<Target> historyTargets = batch ? List.of() : prepareRecentWeeks(userId).stream()
+					.filter(target -> favoriteIds.contains(target.characterId())).toList();
+			jobs.setTotal(id, favorites.size() + historyTargets.size());
 			for (MapleCharacter character : favorites) {
 				try {
 					schedulerSync.syncOneCharacter(userId, character, batch, force);
@@ -168,9 +173,9 @@ public class SyncJobService {
 					jobs.advance(id, true);
 				}
 			}
-			if (historyTargets > 0) {
-				// Live syncs fill the two finalizable past weeks now; the 02:00 batch only retries what remains.
-				weekFinalization.finalizeRecentWeeks(userId, () -> jobs.advance(id, false));
+			if (!historyTargets.isEmpty()) {
+				// 고정한 지난주 대상만 처리하며 각 결과를 진행률에 한 번 반영.
+				weekFinalization.finalizeRecentWeeks(userId, historyTargets, skipped -> jobs.advance(id, skipped));
 			}
 			jobs.complete(id, LocalDateTime.now(clock));
 			evictSchedulerCaches();
@@ -179,12 +184,12 @@ public class SyncJobService {
 		}
 	}
 
-	private int prepareRecentWeeks(Long userId) {
+	private List<Target> prepareRecentWeeks(Long userId) {
 		try {
 			return weekFinalization.prepareRecentWeeks(userId);
 		} catch (RuntimeException exception) {
 			log.warn("Skipping recent week backfill. userId={}", userId, exception);
-			return 0;
+			return List.of();
 		}
 	}
 
@@ -198,14 +203,9 @@ public class SyncJobService {
 	}
 
 	private boolean favoritesChanged(Long userId, SyncJobResponse job) {
-		Integer count = jdbcTemplate.queryForObject(
-				"SELECT COUNT(*) FROM characters WHERE user_id = ? AND is_favorite = true", Integer.class, userId);
-		if (count == null || count != job.totalCount()) {
-			return true;
-		}
 		Boolean updated = jdbcTemplate.queryForObject(
-				"SELECT EXISTS (SELECT 1 FROM characters WHERE user_id = ? AND is_favorite = true AND updated_at > ?)",
-				Boolean.class, userId, job.completedAt());
+				"SELECT EXISTS (SELECT 1 FROM characters WHERE user_id = ? AND updated_at > ?)",
+				Boolean.class, userId, job.startedAt());
 		return Boolean.TRUE.equals(updated);
 	}
 

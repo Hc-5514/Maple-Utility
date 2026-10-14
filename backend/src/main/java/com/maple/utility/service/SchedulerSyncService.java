@@ -1,5 +1,7 @@
 package com.maple.utility.service;
 
+import com.maple.utility.util.SchedulerPeriodPolicy;
+
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -87,9 +89,7 @@ public class SchedulerSyncService {
 
 	@Transactional
 	public boolean syncHistoricalCharacter(Long userId, MapleCharacter character, LocalDate recordDate, NexonRequestMode mode) {
-		LocalDate today = LocalDate.now(clock);
-		if (!recordDate.isBefore(today) || recordDate.isBefore(today.minusDays(14))
-				|| recordDate.getDayOfWeek() != DayOfWeek.WEDNESDAY) {
+		if (!SchedulerPeriodPolicy.canFinalize(recordDate, LocalDateTime.now(clock))) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "NEXON_HISTORY_DATE_INVALID", "지난주 최종 조회 날짜 오류");
 		}
 		acquireLock(userId);
@@ -103,6 +103,9 @@ public class SchedulerSyncService {
 				|| scheduler.weekly().stream().anyMatch(row -> !weekStart.equals(row.weekStartDate()))
 				|| scheduler.boss().stream().anyMatch(row -> !recordDate.equals(row.recordDate()))) {
 			throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_HISTORY_DATE_MISMATCH", "Nexon 과거 스케줄러 조회 날짜 불일치");
+		}
+		if (!SchedulerPeriodPolicy.canFinalize(recordDate, LocalDateTime.now(clock))) {
+			throw new ApiException(HttpStatus.CONFLICT, "NEXON_HISTORY_SCOPE_CHANGED", "동기화 중 조회 기간 변경");
 		}
 		persist(character, scheduler);
 		return true;
