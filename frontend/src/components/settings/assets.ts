@@ -1,5 +1,9 @@
 export const settingsAssets = {
   light: {
+    imgContextUsers: '/assets/settings/context-users-light.svg',
+    imgContextSwap: '/assets/settings/context-swap-light.svg',
+    imgContextAlert: '/assets/settings/context-alert-light.svg',
+    imgContextWarn: '/assets/settings/context-warn.svg',
     imgCharacterPortrait: '/assets/settings/light-9b938.png',
     imgCharacterPortrait1: '/assets/settings/light-bbc7d.png',
     imgCharacterPortrait2: '/assets/settings/light-39b45.png',
@@ -23,6 +27,10 @@ export const settingsAssets = {
     imgInfo: '/assets/settings/light-78334.svg',
   },
   dark: {
+    imgContextUsers: '/assets/settings/context-users-dark.svg',
+    imgContextSwap: '/assets/settings/context-swap-dark.svg',
+    imgContextAlert: '/assets/settings/context-alert-dark.svg',
+    imgContextWarn: '/assets/settings/context-warn.svg',
     imgCharacterPortrait: '/assets/settings/dark-9b938.png',
     imgCharacterPortrait1: '/assets/settings/dark-bbc7d.png',
     imgCharacterPortrait2: '/assets/settings/dark-39b45.png',

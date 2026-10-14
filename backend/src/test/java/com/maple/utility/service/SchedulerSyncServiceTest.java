@@ -37,6 +37,7 @@ import com.maple.utility.repository.SchedulerBossRecordRepository;
 import com.maple.utility.repository.SchedulerDailyRecordRepository;
 import com.maple.utility.repository.SchedulerWeeklyRecordRepository;
 import com.maple.utility.security.NexonOpenApiClient;
+import com.maple.utility.security.NexonRequestMode;
 import com.maple.utility.security.NexonSchedulerResponse;
 
 @ExtendWith(MockitoExtension.class)
@@ -157,7 +158,7 @@ class SchedulerSyncServiceTest {
 		var character = character(user());
 		var date = LocalDate.parse("2026-07-08");
 		when(syncLock.tryAcquire(1L)).thenReturn(true);
-		when(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", date))
+		when(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", date, NexonRequestMode.BATCH))
 				.thenReturn(new NexonSchedulerResponse(date, List.of(), List.of(), List.of()));
 		assertThat(schedulerSyncService.syncHistoricalCharacter(1L, character, date)).isTrue();
 		verify(dailyRecordRepository).findByCharacterIdAndRecordDateOrderByIdAsc(10L, date);
@@ -169,7 +170,7 @@ class SchedulerSyncServiceTest {
 	void historicalDateMismatchCannotModifyAnyRecord() {
 		when(syncLock.tryAcquire(1L)).thenReturn(true);
 		var date = LocalDate.parse("2026-07-08");
-		when(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", date))
+		when(nexonOpenApiClient.getCharacterSchedulerForDate(1L, "ocid", date, NexonRequestMode.BATCH))
 				.thenReturn(new NexonSchedulerResponse(LocalDate.parse("2026-07-14"), List.of(), List.of(), List.of()));
 		assertThatThrownBy(() -> schedulerSyncService.syncHistoricalCharacter(1L, character(user()), date))
 				.isInstanceOf(com.maple.utility.exception.ApiException.class);

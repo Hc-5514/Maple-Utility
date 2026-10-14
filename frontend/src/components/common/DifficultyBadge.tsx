@@ -1,19 +1,11 @@
 import type { BossDifficulty } from '../../types'
 
-const COLOR: Record<BossDifficulty, string> = {
-  EASY:    '#6b7280',
-  NORMAL:  '#22c55e',
-  HARD:    '#ef4444',
-  CHAOS:   '#a855f7',
-  EXTREME: '#f97316',
-}
-
-const LABEL: Record<BossDifficulty, string> = {
-  EASY:    '이지',
-  NORMAL:  '노말',
-  HARD:    '하드',
-  CHAOS:   '카오스',
-  EXTREME: '익스트림',
+export const DIFFICULTY_COLOR: Record<BossDifficulty, string> = {
+  EASY: 'var(--dash-easy)',
+  NORMAL: 'var(--dash-normal)',
+  HARD: 'var(--dash-hard)',
+  CHAOS: 'var(--dash-chaos)',
+  EXTREME: 'var(--dash-extreme)',
 }
 
 interface Props {
@@ -21,13 +13,13 @@ interface Props {
 }
 
 export default function DifficultyBadge({ difficulty }: Props) {
-  const color = COLOR[difficulty]
+  const color = DIFFICULTY_COLOR[difficulty]
   return (
     <span
-      className="inline-block rounded px-2 py-0.5 text-xs font-semibold"
-      style={{ backgroundColor: `${color}20`, color }}
+      className="inline-flex items-center rounded-[6px] px-2 py-[2px] text-[11px] leading-[13px] font-semibold [font-family:Inter,sans-serif]"
+      style={{ backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`, color }}
     >
-      {LABEL[difficulty]}
+      {difficulty}
     </span>
   )
 }

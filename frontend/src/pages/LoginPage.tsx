@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
-import { useAuthStore } from '../stores/authStore'
-import type { ApiKeyStatusResponse, ApiResponse, AuthLoginResponse, User } from '../types'
+import { apiKeyErrorMessage, installAuthSession } from '../api/authSession'
+import type { ApiResponse, AuthLoginResponse } from '../types'
 
 const getKakaoOAuthUrl = () => {
   const redirectUri = encodeURIComponent(import.meta.env.VITE_REDIRECT_URI ?? '')
@@ -20,33 +21,13 @@ const getKakaoOAuthConfigError = () => {
   return null
 }
 
-const afterLogin = async (
-  data: AuthLoginResponse,
-  setUser: (u: User | null) => void,
-  setHasApiKey: (v: boolean) => void,
-) => {
-  localStorage.setItem('accessToken', data.accessToken)
-  const { data: meRes } = await client.get<ApiResponse<User>>('/auth/me')
-  setUser(meRes.data)
-  try {
-    const { data: keyData } = await client.get<ApiResponse<ApiKeyStatusResponse>>('/api-key/status')
-    if (keyData.data.registered && keyData.data.keyStatus === 'ACTIVE') {
-      setHasApiKey(true)
-      return true
-    }
-  } catch {
-    return false
-  }
-  return false
-}
-
 export default function LoginPage() {
   const [kakaoLoading, setKakaoLoading] = useState(false)
   const [apiKey, setApiKey] = useState('')
   const [apiKeyLoading, setApiKeyLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
-  const { setUser, setHasApiKey } = useAuthStore()
+  const queryClient = useQueryClient()
   const isMock = import.meta.env.VITE_USE_MOCK === 'true'
 
   const handleKakaoLogin = async () => {
@@ -55,7 +36,7 @@ export default function LoginPage() {
       setKakaoLoading(true)
       try {
         const { data } = await client.post<ApiResponse<AuthLoginResponse>>('/auth/kakao', {})
-        const hasKey = await afterLogin(data.data, setUser, setHasApiKey)
+        const hasKey = await installAuthSession(queryClient, data.data, 'KAKAO')
         navigate(hasKey ? '/dashboard' : '/settings', { replace: true })
       } catch {
         setError('로그인 중 오류가 발생했습니다. 다시 시도해 주세요.')
@@ -83,10 +64,10 @@ export default function LoginPage() {
     setError(null)
     try {
       const { data } = await client.post<ApiResponse<AuthLoginResponse>>('/auth/nexon-apikey', { apiKey: key })
-      const hasKey = await afterLogin(data.data, setUser, setHasApiKey)
+      const hasKey = await installAuthSession(queryClient, data.data, 'NEXON_APIKEY')
       navigate(hasKey ? '/dashboard' : '/settings', { replace: true })
-    } catch {
-      setError('API Key가 올바르지 않거나 넥슨 서버와 통신에 실패했습니다.')
+    } catch (loginError) {
+      setError(apiKeyErrorMessage(loginError, 'API Key가 올바르지 않거나 넥슨 서버와 통신에 실패했습니다.'))
     } finally {
       setApiKeyLoading(false)
     }

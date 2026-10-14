@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import client from '../api/client'
+import { getSessionGeneration, isCurrentSession } from '../api/session'
 import { useCharacterStore } from '../stores/characterStore'
 import type {
   ApiResponse,
@@ -8,7 +9,6 @@ import type {
   BossItemAcquisition,
   BossPeriod,
   Character,
-  GuildRecord,
   SchedulerBossDetail,
   SchedulerBossRecord,
   SchedulerDailyRecord,
@@ -109,19 +109,6 @@ export async function hideBossFromPeriod(
   await client.delete(`/scheduler/${characterId}/boss/selection/${bossId}?${query}`)
 }
 
-export function useCharacterGuild(characterId: number, date: string) {
-  return useQuery({
-    queryKey: ['scheduler/guild', characterId, date],
-    queryFn: async () => {
-      const { data } = await client.get<ApiResponse<GuildRecord[]>>(
-        `/scheduler/${characterId}/guild?date=${date}`,
-      )
-      return data.data
-    },
-    enabled: characterId > 0,
-  })
-}
-
 export function useToggleFavorite(characterId: number) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -132,25 +119,29 @@ export function useToggleFavorite(characterId: number) {
       return data.data
     },
     onMutate: async () => {
+      const generation = getSessionGeneration()
       await queryClient.cancelQueries({ queryKey: ['characters', 'favorites', characterId] })
+      if (!isCurrentSession(generation)) return { generation, previous: undefined }
       const previous = queryClient.getQueryData<Character | null>(['characters', 'favorites', characterId])
       if (previous) {
         queryClient.setQueryData(['characters', 'favorites', characterId], { ...previous, favorite: !previous.favorite })
         useCharacterStore.getState().updateFavorite(characterId, !previous.favorite)
       }
-      return { previous }
+      return { previous, generation }
     },
     onError: (_error, _variables, context) => {
-      if (context?.previous) {
+      if (context?.previous && isCurrentSession(context.generation)) {
         queryClient.setQueryData(['characters', 'favorites', characterId], context.previous)
         useCharacterStore.getState().updateFavorite(characterId, context.previous.favorite)
       }
     },
-    onSuccess: (updated) => {
+    onSuccess: (updated, _variables, context) => {
+      if (context && !isCurrentSession(context.generation)) return
       queryClient.setQueryData(['characters', 'favorites', characterId], updated)
       useCharacterStore.getState().updateFavorite(characterId, updated.favorite)
     },
-    onSettled: () => {
+    onSettled: (_data, _error, _variables, context) => {
+      if (context && !isCurrentSession(context.generation)) return
       void queryClient.invalidateQueries({ queryKey: ['characters', 'favorites', characterId] })
       void queryClient.invalidateQueries({ queryKey: ['characters'] })
       void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })

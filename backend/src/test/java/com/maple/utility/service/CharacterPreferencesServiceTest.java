@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -114,6 +115,58 @@ class CharacterPreferencesServiceTest {
 		when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 		when(characters.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
 		assertThat(service.updatePreferences(1L, List.of())).isEmpty();
+	}
+
+	@Test
+	void savesExactlyEighteenFavoritesAcrossWorlds() {
+		List<MapleCharacter> owned = ownedCharacters(19);
+		when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+		when(characters.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(owned);
+		List<Preference> preferences = owned.stream()
+				.map(item -> new Preference(item.getId(), item.getId() < 28L)).toList();
+		assertThat(service.updatePreferences(1L, preferences)).filteredOn(CharacterResponse::favorite).hasSize(18);
+	}
+
+	@Test
+	void overLimitSaveDoesNotChangeFavoritesOrderOrCache() {
+		List<MapleCharacter> owned = ownedCharacters(19);
+		when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+		when(characters.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(owned);
+		List<Preference> preferences = owned.reversed().stream()
+				.map(item -> new Preference(item.getId(), true)).toList();
+		assertThatThrownBy(() -> service.updatePreferences(1L, preferences))
+				.isInstanceOfSatisfying(ApiException.class, error -> {
+					assertThat(error.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+					assertThat(error.getCode()).isEqualTo("FAVORITE_LIMIT_EXCEEDED");
+				});
+		assertThat(owned).noneMatch(MapleCharacter::isFavorite);
+		assertThat(owned).extracting(MapleCharacter::getSortOrder)
+				.containsExactlyElementsOf(IntStream.range(0, 19).map(index -> index + 4).boxed().toList());
+		verifyNoInteractions(cacheManager);
+	}
+
+	@Test
+	void existingOverLimitFavoritesMustBeReducedBeforeSaving() {
+		List<MapleCharacter> owned = ownedCharacters(20);
+		owned.forEach(MapleCharacter::toggleFavorite);
+		when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+		when(characters.findByUserIdOrderBySortOrderAscIdAsc(1L)).thenReturn(owned);
+		assertThatThrownBy(() -> service.updatePreferences(1L, owned.stream()
+				.map(item -> new Preference(item.getId(), item.getId() < 29L)).toList()))
+				.isInstanceOfSatisfying(ApiException.class,
+						error -> assertThat(error.getCode()).isEqualTo("FAVORITE_LIMIT_EXCEEDED"));
+		assertThat(owned).allMatch(MapleCharacter::isFavorite);
+		assertThat(service.updatePreferences(1L, owned.stream()
+				.map(item -> new Preference(item.getId(), item.getId() < 28L)).toList()))
+				.filteredOn(CharacterResponse::favorite).hasSize(18);
+	}
+
+	private List<MapleCharacter> ownedCharacters(int count) {
+		return IntStream.range(0, count).mapToObj(index -> {
+			MapleCharacter item = character(10L + index, index + 4);
+			item.updateBasicInfo("캐릭터" + index, index % 2 == 0 ? "루나" : "베라", "히어로", 280);
+			return item;
+		}).toList();
 	}
 
 	@Test

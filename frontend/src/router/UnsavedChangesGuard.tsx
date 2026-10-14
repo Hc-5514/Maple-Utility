@@ -11,6 +11,7 @@ import { useBeforeUnload, useBlocker, useLocation } from 'react-router-dom'
 import ThemedConfirmDialog from '../components/common/ThemedConfirmDialog'
 
 const Context = createContext({
+  dirty: false,
   setDirty: (() => {}) as (dirty: boolean) => void,
   requestLeave: (action: () => void) => action(),
 })
@@ -61,7 +62,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     } else if (blocker.state === 'blocked') blocker.proceed()
   }
   return (
-    <Context.Provider value={{ setDirty, requestLeave }}>
+    <Context.Provider value={{ dirty, setDirty, requestLeave }}>
       {children}
       {(action || blocker.state === 'blocked') && (
         <ThemedConfirmDialog title="저장하지 않은 변경사항" onCancel={cancel} onConfirm={confirm}>

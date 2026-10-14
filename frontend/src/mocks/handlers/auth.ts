@@ -7,7 +7,7 @@ const mockUser = {
   nickname: '미리보기',
 }
 
-const mockAuthToken = {
+export const mockAuthToken = {
   accessToken: 'mock-access-token-xyz',
   tokenType: 'Bearer' as const,
   expiresIn: 3600,
@@ -15,7 +15,6 @@ const mockAuthToken = {
 
 export const authHandlers = [
   http.post('*/api/v1/auth/kakao', () => {
-    localStorage.setItem('accessToken', mockAuthToken.accessToken)
     return HttpResponse.json({
       success: true,
       data: {
@@ -26,7 +25,6 @@ export const authHandlers = [
   }),
 
   http.post('*/api/v1/auth/nexon-apikey', () => {
-    localStorage.setItem('accessToken', mockAuthToken.accessToken)
     return HttpResponse.json({
       success: true,
       data: {
@@ -38,12 +36,10 @@ export const authHandlers = [
 
   http.post('*/api/v1/auth/refresh', () => {
     const refreshed = { ...mockAuthToken, accessToken: 'mock-refreshed-token-xyz' }
-    localStorage.setItem('accessToken', refreshed.accessToken)
     return HttpResponse.json({ success: true, data: refreshed })
   }),
 
   http.post('*/api/v1/auth/logout', () => {
-    localStorage.removeItem('accessToken')
     return new HttpResponse(null, { status: 204 })
   }),
 

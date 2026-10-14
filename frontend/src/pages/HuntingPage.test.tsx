@@ -66,7 +66,8 @@ describe('HuntingPage', () => {
 
     expect(await screen.findByText('43억 2500만')).toBeTruthy()
     expect(screen.getByText('25개 기록')).toBeTruthy()
-    expect(screen.getAllByText('4,325,000,000')).toHaveLength(2)
+    expect(screen.getAllByText('4,325,000,000')).toHaveLength(1)
+    expect(screen.queryByText('총 메소 / 총 솔 에르다 조각')).toBeNull()
     expect(await screen.findByText('2시간 30분')).toBeTruthy()
     expect(pageCalls(get)[0]).toMatch(/page=0&size=10$/)
     expect(screen.getByRole('button', { name: '표시 건수: 10개씩 보기' })).toBeTruthy()
