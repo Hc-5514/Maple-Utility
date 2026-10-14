@@ -4,7 +4,7 @@ import {
 } from '../fixtures/nexonPreview'
 import catalog from '../fixtures/nexonPreviewCatalog.json'
 import type { BossCandidate, SchedulerBossRecord } from '../../types'
-import { localDate, thursdayWeekStart } from '../../utils/date'
+import { localDate, seoulDate, thursdayWeekStart } from '../../utils/date'
 
 const syncedAt = `${previewDate}T00:00:00+09:00`
 const manualBossRecords = new Map<string, SchedulerBossRecord[]>()
@@ -35,11 +35,11 @@ function bossCandidates(resetPeriod: 'WEEKLY' | 'MONTHLY'): BossCandidate[] {
 
 const bossLimits = { WEEKLY: 12, MONTHLY: 1 } as const
 
-// 최근 3주(넥슨 제공 구간)와 그 구간에 걸친 달은 수정 불가
+// 이번 주·지난주(목~수)와 해당 주차에 걸친 달의 보스 선택 잠금
 function customizable(periodStart: string, resetPeriod: 'WEEKLY' | 'MONTHLY') {
-  const today = new Date()
+  const today = new Date(`${seoulDate()}T12:00:00`)
   const lockedFrom = new Date(`${thursdayWeekStart(today)}T12:00:00`)
-  lockedFrom.setDate(lockedFrom.getDate() - 14)
+  lockedFrom.setDate(lockedFrom.getDate() - 7)
   if (resetPeriod === 'MONTHLY') {
     const monthEnd = new Date(`${periodStart.slice(0, 7)}-01T12:00:00`)
     monthEnd.setMonth(monthEnd.getMonth() + 1, 0)
