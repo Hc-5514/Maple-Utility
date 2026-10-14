@@ -16,7 +16,8 @@ interface Props {
 
 export default function BossCard({ record, onClickDetail, onDelete, badge }: Props) {
   const assets = characterAssets[useThemeStore().theme]
-  const price = record.crystalPrice ?? 0
+  // 처치 보스는 백엔드가 계산한 결정 가격/인원수, 미처치 보스는 0 메소
+  const meso = record.isCompleted ? record.acquiredCrystalMeso ?? record.crystalPrice ?? 0 : 0
   // 드랍 아이템은 처치한 보스에만 존재하므로 미처치 카드는 상호작용 없음
   const detailProps = record.isCompleted
     ? {
@@ -62,8 +63,12 @@ export default function BossCard({ record, onClickDetail, onDelete, badge }: Pro
           </div>
         </div>
         <div className={`flex min-h-[30px] items-center ${onDelete ? 'pr-[44px]' : ''}`}>
-          <span className="text-[13px] text-[var(--dash-muted)]">
-            {price > 0 ? `${price.toLocaleString()} 메소` : '가격 미확인'}
+          <span className="text-[15px] text-[var(--dash-muted)]">
+            {meso > 0 || !record.isCompleted
+              ? `${meso.toLocaleString()} 메소`
+              : record.acquiredCrystalMeso === 0 && (record.crystalPrice ?? 0) > 0
+                ? '결정 미획득'
+                : '가격 미확인'}
           </span>
         </div>
       </div>

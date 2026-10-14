@@ -121,7 +121,8 @@ export default function BossContent({ characterId, date, weekStart: selectedWeek
           : previous)
       }
       await queryClient.invalidateQueries({
-        predicate: (query) => typeof query.queryKey[0] === 'string' && query.queryKey[0].startsWith('stats/'),
+        predicate: (query) => typeof query.queryKey[0] === 'string'
+          && (query.queryKey[0].startsWith('stats/') || query.queryKey[0] === 'scheduler/boss'),
       })
       setSaveSuccess(true)
     } catch {

@@ -28,6 +28,7 @@ import com.maple.utility.dto.response.SchedulerDailyResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SchedulerWeeklyResponse;
 import com.maple.utility.dto.response.TaskSummary;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.BossPeriodSelection;
 import com.maple.utility.entity.MapleCharacter;
@@ -419,12 +420,30 @@ public class SchedulerService {
 			bosses.put(bossId, boss);
 			records.put(bossId, new SchedulerBossResponse(character.getId(), character.getCharacterName(),
 					start, bossId, boss.getBossName(), boss.getDifficulty().name(), boss.getBossImage(),
-					boss.getCrystalPrice(), resetPeriod.name(), selection.isCompleted(), null));
+					boss.getCrystalPrice(), resetPeriod.name(), selection.isCompleted(), null, boss.getCrystalPrice()));
 		}
 		return records.values().stream()
+				.map(record -> record.withAcquiredCrystalMeso(
+						acquiredCrystalMeso(character.getId(), record, start, bosses.get(record.bossId()))))
 				.sorted(Comparator.comparingInt((SchedulerBossResponse record) -> bosses.get(record.bossId()).getSortOrder())
 					.thenComparing(SchedulerBossResponse::bossId))
 				.toList();
+	}
+
+	/** 미처치는 0, 처치는 결정 가격 / 인원수, 결정 미획득이면 0. 기록이 없으면 1인 기준 결정 가격. */
+	private Long acquiredCrystalMeso(Long characterId, SchedulerBossResponse record, LocalDate start, BossMaster boss) {
+		if (!record.isCompleted()) {
+			return 0L;
+		}
+		return bossPeriodEntryRepository
+				.findByCharacter_IdAndBoss_IdAndPeriodStart(characterId, record.bossId(), start)
+				.map(entry -> bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(entry.getId()).stream()
+						.filter(acquisition -> acquisition.getBossDropItem().getItemKind() == BossItemKind.CRYSTAL)
+						.findFirst()
+						// 저장된 메소 값과 무관하게 결정 가격 / 인원수로 계산
+						.map(acquisition -> boss.getCrystalPrice() / entry.getPartySize())
+						.orElse(0L))
+				.orElse(boss.getCrystalPrice());
 	}
 
 	private LocalDate periodStart(LocalDate date, ResetPeriod resetPeriod) {
