@@ -8,7 +8,8 @@ interface Props {
 }
 
 export default function BossCard({ record, onClickDetail }: Props) {
-  const meso = record.acquiredCrystalMeso ?? record.crystalPrice ?? 0
+  // 미처치 보스는 결정을 획득하지 않았으므로 0 메소
+  const meso = record.isCompleted ? record.acquiredCrystalMeso ?? record.crystalPrice ?? 0 : 0
   return (
     <div
       role="button"
@@ -26,8 +27,8 @@ export default function BossCard({ record, onClickDetail }: Props) {
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-white/40">
-          {meso > 0
+        <span className="text-[15px] text-white/40">
+          {meso > 0 || !record.isCompleted
             ? `${meso.toLocaleString()} 메소`
             : record.acquiredCrystalMeso === 0 && (record.crystalPrice ?? 0) > 0
               ? '결정 미획득'
