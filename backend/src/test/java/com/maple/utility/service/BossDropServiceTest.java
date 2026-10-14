@@ -251,7 +251,7 @@ class BossDropServiceTest {
 		MapleCharacter character = character(user());
 		BossMaster boss = boss(20L);
 		ReflectionTestUtils.setField(boss, "crystalPrice", 48_900_000L);
-		BossDropItem crystal = dropItem(100L, boss, "강력한 힘의 결정");
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
 		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));

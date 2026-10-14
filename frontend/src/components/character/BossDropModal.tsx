@@ -78,9 +78,9 @@ export default function BossDropModal({
       ) : !period || period.items.length === 0 ? (
         <p className="text-sm text-white/50">드랍 아이템 정보 없음</p>
       ) : (
-        <ul className="max-h-[60vh] space-y-1 overflow-y-auto">
+        <ul className="max-h-[60vh] divide-y divide-white/10 overflow-y-auto border-y border-white/10">
           {period.items.map((item) => (
-            <li key={item.dropItem.id} className="flex flex-wrap items-center gap-3 border-b border-white/10 py-3 last:border-0">
+            <li key={item.dropItem.id} className="flex h-14 items-center gap-3">
               <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" className="h-8 w-8" />
               <div className="min-w-0 flex-1">
                 <label htmlFor={`drop-item-${item.dropItem.id}`} className="block cursor-pointer text-sm text-white">{item.dropItem.itemName}</label>
