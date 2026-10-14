@@ -284,4 +284,30 @@ class NexonOpenApiClientTest {
 				.containsExactly(new NexonSchedulerResponse.Boss(date,"검은 마법사",Difficulty.HARD,ResetPeriod.MONTHLY,false));
 	}
 
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.CsvSource({"true,true", "false,false", "\"true\",true", "\"false\",false"})
+	void monthlyFlagAndRegisteredDifficultyArePreservedForBothWireFormats(String wireFlag, boolean completed) throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("date=2026-09-30"), eq(NexonRequestMode.REALTIME),
+				eq(com.maple.utility.entity.SyncType.SCHEDULER_REALTIME), eq(false))).thenReturn(objectMapper.readTree("""
+				{"date":"2026-09-30T00:00+09:00","daily_contents":[],"weekly_contents":[],"boss_contents":[
+				{"registration_flag":"false","content_name":"검은 마법사","difficulty":"hard","cycle":"bossMonthly","complete_flag":"true"},
+				{"registration_flag":"true","content_name":"검은 마법사","difficulty":"extreme","cycle":"bossMonthly","complete_flag":%s}]}
+				""".formatted(wireFlag)));
+		var result = nexonOpenApiClient.getCharacterSchedulerForDateStrict(1L, "fixture-ocid", LocalDate.of(2026, 9, 30), NexonRequestMode.REALTIME);
+		assertThat(result.boss()).containsExactly(new NexonSchedulerResponse.Boss(LocalDate.of(2026, 9, 30),
+				"검은 마법사", Difficulty.EXTREME, ResetPeriod.MONTHLY, completed));
+	}
+
+	@Test
+	void missingMonthlyCompleteFlagIsRejectedInsteadOfDefaultingToFalse() throws Exception {
+		when(nexonApiGateway.getWithStoredKey(eq(1L), contains("date=2026-09-30"), eq(NexonRequestMode.REALTIME),
+				eq(com.maple.utility.entity.SyncType.SCHEDULER_REALTIME), eq(false))).thenReturn(objectMapper.readTree("""
+				{"date":"2026-09-30","daily_contents":[],"weekly_contents":[],"boss_contents":[
+				{"registration_flag":"true","content_name":"검은 마법사","difficulty":"hard","cycle":"bossMonthly"}]}
+				"""));
+		assertThatThrownBy(() -> nexonOpenApiClient.getCharacterSchedulerForDateStrict(1L, "fixture-ocid", LocalDate.of(2026, 9, 30), NexonRequestMode.REALTIME))
+				.isInstanceOf(ApiException.class)
+				.satisfies(error -> assertThat(((ApiException) error).getCode()).isEqualTo("NEXON_RESPONSE_INVALID"));
+	}
+
 }
