@@ -162,6 +162,8 @@ public class DataContextService {
             jdbc.update("INSERT INTO data_context_accounts(account_id,context_id) VALUES (?,?) ON CONFLICT(account_id) DO UPDATE SET context_id = EXCLUDED.context_id", accountId, target.id());
         }
         link(identity.getId(), target.id());
+        // Only a user-initiated connection counts as use; legacy reconciliation and maintenance must not.
+        if (reconcileLegacy) markUsed(identity.getId(), target.id());
         // A merge clears the persistence context after JDBC updates. Reload credentials so saving a
         // detached pre-merge entity cannot restore an old context or lose duplicate assignments.
         matches = keys.findAllById(matches.stream().map(UserApiKey::getId).toList()).stream()
@@ -294,7 +296,8 @@ public class DataContextService {
 
     public JwtAuthentication defaultPrincipal(User identity) {
         Context context = own(identity);
-        List<Long> connected = jdbc.query("SELECT context_id FROM user_data_contexts WHERE user_id = ? ORDER BY created_at,context_id",
+        // The most recently used dataset wins; datasets never used keep the registration order.
+        List<Long> connected = jdbc.query("SELECT context_id FROM user_data_contexts WHERE user_id = ? ORDER BY last_used_at DESC NULLS LAST,created_at,context_id",
                 (rs, row) -> rs.getLong(1), identity.getId());
         for (Long id : connected) {
             Context candidate = canonical(id);
@@ -416,6 +419,12 @@ public class DataContextService {
             }
         }
         return count;
+    }
+
+    private void markUsed(Long identityId, Long contextId) {
+        jdbc.update("UPDATE user_data_contexts SET last_used_at = ?, updated_at = ? WHERE user_id = ? AND context_id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.now(clock)), java.sql.Timestamp.valueOf(LocalDateTime.now(clock)),
+                identityId, contextId);
     }
 
     private void link(Long identityId, Long contextId) {
