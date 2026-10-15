@@ -45,6 +45,7 @@ RESET_CONFIRM=RESET-ALL-USER-DATA RESET_BACKUP_VERIFIED=yes RESET_WRITERS_STOPPE
    - `character-basic::*`
    - `static-data::*`
    - `nexon-api::*`
+   - `nexon:api:cache:*` — NexonApiGateway 직접 응답 캐시
 
    `nexon:api:daily:*` 유지. `FLUSHDB`·`FLUSHALL` 금지. 정지된 앱 상태에서 허용 패턴 재조회 결과 0 확인.
 7. 새 JWT 환경으로 앱 기동·상태 확인 후 점검 해제. 기존 Access/Refresh Token 인증 거부 확인.
