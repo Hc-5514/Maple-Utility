@@ -36,6 +36,8 @@ import com.maple.utility.security.NexonOpenApiClient;
 @Service
 public class DataContextService {
     public static final long CONNECTION_LOCK = 259L;
+    /** Maximum number of independent Nexon account datasets one Kakao identity may connect. */
+    public static final int MAX_CONTEXTS_PER_KAKAO = 5;
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final UserApiKeyRepository keys;
@@ -142,6 +144,10 @@ public class DataContextService {
         contexts.stream().map(Context::kakaoUserId).filter(Objects::nonNull).forEach(kakaoIds::add);
         if (identity.getOauthProvider() == OAuthProvider.KAKAO) kakaoIds.add(identity.getId());
         if (kakaoIds.size() > 1) throw new ApiException(HttpStatus.CONFLICT, "DATA_CONTEXT_CONFLICT", "이미 다른 카카오 계정에 연결된 데이터셋");
+        if (identity.getOauthProvider() == OAuthProvider.KAKAO && exceedsContextLimit(identity.getId(), contexts)) {
+            throw new ApiException(HttpStatus.CONFLICT, "DATA_CONTEXT_LIMIT_EXCEEDED",
+                    "넥슨 계정은 최대 " + MAX_CONTEXTS_PER_KAKAO + "개까지 연결할 수 있습니다");
+        }
         // The canonical owner follows direct-login source priority; record-level conflicts use provenance independently.
         Context target = contexts.stream().min(Comparator
                 .comparingInt((Context c) -> user(c.ownerUserId()).getOauthProvider() == OAuthProvider.NEXON_APIKEY ? 0 : 1)
@@ -170,6 +176,68 @@ public class DataContextService {
             if (!duplicate.getId().equals(credential.getId())) duplicate.assignContext(target.id(), null);
         }
         return new Connection(new JwtAuthentication(target.ownerUserId(), identity.getId(), target.id(), credential.getId()), credential, verified);
+    }
+
+    /** Canonical datasets of the identity that hold at least one credential, the same set the list endpoint shows. */
+    private Set<Long> connectedContextIds(Long identityId) {
+        return new LinkedHashSet<>(jdbc.query("""
+                SELECT DISTINCT c.id
+                FROM user_data_contexts l
+                JOIN data_contexts c ON c.id = l.context_id
+                JOIN user_api_keys k ON k.context_id = c.id
+                WHERE l.user_id = ? AND c.canonical_context_id IS NULL
+                """, (rs, row) -> rs.getLong(1), identityId));
+    }
+
+    /** Datasets merged into one target count once, so only unrelated connected datasets add to the total. */
+    private boolean exceedsContextLimit(Long identityId, List<Context> incoming) {
+        Set<Long> incomingIds = new LinkedHashSet<>();
+        incoming.forEach(context -> incomingIds.add(context.id()));
+        long others = connectedContextIds(identityId).stream().filter(id -> !incomingIds.contains(id)).count();
+        return others + 1 > MAX_CONTEXTS_PER_KAKAO;
+    }
+
+    /**
+     * Read-only check of whether a key can be connected, without linking, merging or saving anything.
+     * The key is still verified against Nexon so the answer reflects the real account ownership.
+     */
+    @Transactional(readOnly = true)
+    public Precheck precheck(User identity, String rawKey) {
+        String key = normalize(rawKey);
+        NexonAccountCharacters verified = nexon.verifyAccounts(identity.getId(), key);
+        String fingerprint = ApiKeyFingerprint.of(key);
+        Set<Long> ids = new LinkedHashSet<>();
+        for (String accountId : verified.accountIds()) {
+            jdbc.query("SELECT context_id FROM data_context_accounts WHERE account_id = ?",
+                    (rs, row) -> rs.getLong(1), accountId).forEach(id -> ids.add(canonical(id).id()));
+        }
+        keys.findByKeyFingerprint(fingerprint).ifPresent(match -> ids.add(canonical(match.getContextId()).id()));
+        for (UserApiKey legacy : keys.findByKeyFingerprintIsNullOrderByIdAsc()) {
+            if (ApiKeyFingerprint.of(normalize(crypto.decrypt(legacy.getEncryptedKey()))).equals(fingerprint)) {
+                ids.add(canonical(legacy.getContextId()).id());
+            }
+        }
+        Set<Long> connected = connectedContextIds(identity.getId());
+        boolean kakao = identity.getOauthProvider() == OAuthProvider.KAKAO;
+        int count = connected.size();
+        if (kakao) {
+            for (Long id : ids) {
+                Long owner = canonical(id).kakaoUserId();
+                if (owner != null && !owner.equals(identity.getId())) {
+                    return new Precheck(PrecheckStatus.LINKED_TO_OTHER_KAKAO, count, MAX_CONTEXTS_PER_KAKAO);
+                }
+            }
+        }
+        if (!ids.isEmpty() && connected.containsAll(ids)) {
+            return new Precheck(PrecheckStatus.ALREADY_LINKED, count, MAX_CONTEXTS_PER_KAKAO);
+        }
+        if (kakao) {
+            long others = connected.stream().filter(id -> !ids.contains(id)).count();
+            if (others + 1 > MAX_CONTEXTS_PER_KAKAO) {
+                return new Precheck(PrecheckStatus.LIMIT_EXCEEDED, count, MAX_CONTEXTS_PER_KAKAO);
+            }
+        }
+        return new Precheck(PrecheckStatus.AVAILABLE, count, MAX_CONTEXTS_PER_KAKAO);
     }
 
     private void reconcileOwnLegacyKeys(User identity, String incomingKey) {
@@ -365,6 +433,8 @@ public class DataContextService {
     public static String suffix(String key) { return key.length() > 4 ? key.substring(key.length()-4) : null; }
     private String firstName(NexonAccountCharacters response) { return response.characters().stream().map(c -> c.characterName()).findFirst().orElse(null); }
     private ApiException denied(String code, String message) { return new ApiException(HttpStatus.UNAUTHORIZED, code, message); }
+    public enum PrecheckStatus { AVAILABLE, ALREADY_LINKED, LINKED_TO_OTHER_KAKAO, LIMIT_EXCEEDED }
+    public record Precheck(PrecheckStatus status, int connectedCount, int maxCount) { }
     public record Context(Long id, Long ownerUserId, Long kakaoUserId, Long canonicalId) { }
     public record Connection(JwtAuthentication principal, UserApiKey credential, NexonAccountCharacters verified) { }
     private record CredentialGroup(Long contextId, String fingerprint) { }
