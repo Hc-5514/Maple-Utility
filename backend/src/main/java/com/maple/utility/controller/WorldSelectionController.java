@@ -30,6 +30,7 @@ public class WorldSelectionController {
 	@PutMapping
 	public WorldSelectionResponse saveSelection(
 			@Valid @RequestBody WorldSelectionRequest request, Authentication authentication) {
-		return service.saveSelection(((JwtAuthentication) authentication.getPrincipal()).userId(), request.worldNames());
+		JwtAuthentication principal = (JwtAuthentication) authentication.getPrincipal();
+		return service.saveSelection(principal.userId(), principal.identityUserId(), request.worldNames());
 	}
 }
