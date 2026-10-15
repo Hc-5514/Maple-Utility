@@ -288,6 +288,137 @@ class SharedLoginPostgresTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM user_api_keys",Long.class)).isEqualTo(1);
     }
 
+    @Test void legacyAliasSessionMarksRepresentativeCurrentAndWhitespaceDeletionRemovesOnlySameKey() throws Exception {
+        Session first=direct("account-a-1"), other=direct("account-a-2");
+        var actor=principal(first);
+        long alias=legacyAlias(actor,"  account-a-1  ");
+        Session oldSession=new Session(tokens.createAccessToken(new JwtAuthentication(actor.userId(),actor.identityUserId(),actor.contextId(),alias)).value(), first.refresh());
+
+        JsonNode rows=dataContexts(oldSession);
+
+        assertThat(rows.size()).isEqualTo(2);
+        assertThat(rows.findValues("current")).filteredOn(JsonNode::asBoolean).hasSize(1);
+        assertThat(rows.get(0).path("credentialId").asLong()).isEqualTo(actor.credentialId());
+        assertThat(rows.get(0).path("current").asBoolean()).isTrue();
+        mvc.perform(delete("/api/v1/api-key").header("Authorization","Bearer "+oldSession.access())).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForList("SELECT id FROM user_api_keys",Long.class)).containsExactly(principal(other).credentialId());
+        assertThat(characters(other)).contains("캐릭터A");
+    }
+
+    @Test void fingerprintedRepresentativeWinsEvenWhenLegacyAliasHasSmallerIdAndNullsChooseSmallestId() throws Exception {
+        Session first=direct("account-a-1");
+        var p=principal(first);
+        long newer=legacyAlias(p,"account-a-1");
+        jdbc.update("UPDATE user_api_keys SET key_fingerprint=NULL WHERE id=?",p.credentialId());
+        jdbc.update("UPDATE user_api_keys SET key_fingerprint=? WHERE id=?",ApiKeyFingerprint.of("account-a-1"),newer);
+
+        assertThat(dataContexts(first).get(0).path("credentialId").asLong()).isEqualTo(newer);
+        assertThat(dataContexts(first).get(0).path("current").asBoolean()).isTrue();
+        jdbc.update("UPDATE user_api_keys SET key_fingerprint=NULL");
+        assertThat(dataContexts(first).get(0).path("credentialId").asLong()).isEqualTo(p.credentialId());
+    }
+
+    @Test void distinctFullKeysWithSameSuffixRemainSeparateAndRepeatedRegistrationReusesRepresentative() throws Exception {
+        Session first=register(social("social-1"),"account-a-same");
+        Session second=register(first,"account-a-other-same");
+        Session repeated=register(second,"  account-a-same  ");
+
+        assertThat(dataContexts(repeated).size()).isEqualTo(2);
+        assertThat(dataContexts(repeated).findValuesAsText("keySuffix")).containsExactly("same","same");
+        assertThat(principal(repeated).credentialId()).isEqualTo(principal(first).credentialId());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM user_api_keys",Long.class)).isEqualTo(2);
+    }
+
+    @Test void selectionAfterLegacyFingerprintClearPersistsNewFingerprintThroughPersistenceContextReload() throws Exception {
+        Session first=direct("account-a-1");
+        jdbc.update("UPDATE user_api_keys SET key_fingerprint=NULL");
+
+        var selected=contexts.select(principal(first).identityUserId(),principal(first).credentialId());
+
+        assertThat(selected.credentialId()).isEqualTo(principal(first).credentialId());
+        assertThat(jdbc.queryForObject("SELECT key_fingerprint FROM user_api_keys",String.class)).isEqualTo(ApiKeyFingerprint.of("account-a-1"));
+    }
+
+    @Test void sameNicknameOnDifferentVerifiedAccountsDoesNotAuthorizeDataMerge() throws Exception {
+        when(nexon.verifyAccounts(anyLong(),eq("account-b-1"))).thenReturn(new NexonAccountCharacters(Set.of("B"),
+            List.of(new NexonCharacterSummary("B-ocid","캐릭터A","루나","비숍",280))));
+        Session first=direct("account-a-1"), different=direct("account-b-1");
+
+        assertThat(principal(first).contextId()).isNotEqualTo(principal(different).contextId());
+        assertThat(jdbc.queryForObject("SELECT count(DISTINCT nickname) FROM users WHERE oauth_provider='NEXON_APIKEY'",Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM data_context_accounts",Long.class)).isEqualTo(2);
+        assertThat(dataContexts(first).size()).isEqualTo(1);
+    }
+
+    @Test void savedSocialPreferencesSurviveDirectDefaultsExtraKeyMergeLogoutReloginAndRefresh() throws Exception {
+        Session social=social("social-1");
+        long id=contextCharacter(social,"A-ocid","캐릭터A","루나",280,false,1);
+        mvc.perform(put("/api/v1/characters/preferences").header("Authorization","Bearer "+social.access())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"characters\":[{\"characterId\":"+id+",\"favorite\":true}]}"))
+            .andExpect(status().isOk());
+        selectWorld(social,"루나");
+        Session direct=direct("account-a-1");
+        Session linked=register(social,"account-a-1");
+        Session extra=direct("account-a-2");
+
+        assertThat(principal(linked).contextId()).isEqualTo(principal(direct).contextId()).isEqualTo(principal(extra).contextId());
+        assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters",Boolean.class)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT source_user_id FROM data_preference_sources WHERE setting_type='FAVORITE'",Long.class))
+            .isEqualTo(principal(social).identityUserId());
+        mvc.perform(post("/api/v1/auth/logout").header("Authorization","Bearer "+linked.access())
+            .cookie(new Cookie("refreshToken",linked.refresh()))).andExpect(status().isNoContent());
+        Session again=social("social-1");
+        var refreshResult=mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refreshToken",again.refresh())))
+            .andExpect(status().isOk()).andReturn();
+        Session refreshed=new Session(json.readTree(refreshResult.getResponse().getContentAsString()).path("accessToken").asText(),again.refresh());
+        assertThat(characters(refreshed)).contains("캐릭터A", "\"favorite\":true");
+        mvc.perform(get("/api/v1/characters/world-selection").header("Authorization","Bearer "+refreshed.access()))
+            .andExpect(jsonPath("$.worldNames[0]").value("루나"));
+    }
+
+    @Test void explicitFalseAndEmptyWorldWrittenByKakaoRetainActorDespiteDirectDataOwner() throws Exception {
+        Session direct=direct("account-a-1"), kakao=register(social("social-1"),"account-a-1");
+        long id=jdbc.queryForObject("SELECT id FROM characters",Long.class);
+        mvc.perform(put("/api/v1/characters/preferences").header("Authorization","Bearer "+kakao.access())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"characters\":[{\"characterId\":"+id+",\"favorite\":false}]}"))
+            .andExpect(status().isOk());
+        mvc.perform(put("/api/v1/characters/world-selection").header("Authorization","Bearer "+kakao.access())
+            .contentType(MediaType.APPLICATION_JSON).content("{\"worldNames\":[]}"))
+            .andExpect(status().isOk());
+
+        assertThat(principal(direct).userId()).isNotEqualTo(principal(kakao).identityUserId());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM data_preference_sources WHERE state='EXPLICIT' AND saved_at IS NOT NULL AND source_user_id=?",Long.class,principal(kakao).identityUserId())).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM user_selected_worlds",Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters",Boolean.class)).isFalse();
+    }
+
+    @Test void historicalSeparateSocialAndDirectOwnersWithFourRowsConvergeToThreeUniqueKeys() throws Exception {
+        Session kakao=social("social-1"), direct=direct("account-a-1");
+        long socialCharacter=contextCharacter(kakao,"A-ocid","저장캐릭터","루나",280,true,1);
+        long legacy=legacyAlias(principal(kakao),"account-a-1");
+        jdbc.update("INSERT INTO data_preference_sources(setting_type,record_id,source_user_id,state,saved_at) VALUES ('FAVORITE',?,?,'EXPLICIT',CURRENT_TIMESTAMP)",socialCharacter,principal(kakao).identityUserId());
+
+        Session linked=register(kakao,"account-a-1");
+        direct("account-a-2");
+        direct("account-a-3");
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM user_api_keys",Long.class)).isEqualTo(4);
+        assertThat(jdbc.queryForObject("SELECT count(DISTINCT context_id) FROM user_api_keys",Long.class)).isEqualTo(1);
+        assertThat(dataContexts(linked).size()).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM characters",Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters",Boolean.class)).isTrue();
+        var p=principal(kakao);
+        Session historical=new Session(tokens.createAccessToken(new JwtAuthentication(p.userId(),p.identityUserId(),p.contextId(),legacy)).value(),kakao.refresh());
+        assertThat(dataContexts(historical).findValues("current")).filteredOn(JsonNode::asBoolean).hasSize(1);
+        assertThat(characters(historical)).contains("\"favorite\":true");
+        assertThat(principal(linked).credentialId()).isEqualTo(principal(direct).credentialId());
+    }
+
+    long legacyAlias(JwtAuthentication p,String plaintext) {
+        return jdbc.queryForObject("INSERT INTO user_api_keys(user_id,context_id,encrypted_key,key_status,key_fingerprint) VALUES (?,?,?,'ACTIVE',NULL) RETURNING id",Long.class,
+            p.identityUserId(),p.contextId(),crypto.encrypt(plaintext));
+    }
+
     JsonNode dataContexts(Session session) throws Exception {
         return json.readTree(mvc.perform(get("/api/v1/auth/data-contexts")
                 .header("Authorization", "Bearer " + session.access()))

@@ -26,6 +26,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.service.DataContextMergeService;
 import com.maple.utility.service.DataContextService;
+import com.maple.utility.service.DataPreferenceSourceService;
+import com.maple.utility.service.DataPreferenceSourceService.PreferenceSource;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maple.utility.service.SchedulerSyncLock;
 
 /** Executes production merge SQL against migrated PostgreSQL, including real foreign keys and rollback. */
@@ -219,6 +222,7 @@ class SharedLoginMergePostgresTest {
 		assertThat(number("SELECT count(*) FROM characters")).isEqualTo(2);
 		assertThat(number("SELECT user_id FROM characters WHERE id=301")).isEqualTo(101);
 		assertThat(number("SELECT count(*) FROM data_merge_provenance")).isZero();
+		assertThat(number("SELECT count(*) FROM data_context_merge_audits")).isZero();
 	}
 
 	@Test
@@ -241,6 +245,185 @@ class SharedLoginMergePostgresTest {
 		assertThat(number("SELECT character_id FROM hunting_records")).isEqualTo(301);
 		assertThat(number("SELECT count(*) FROM user_selected_worlds")).isEqualTo(2);
 		assertThat(number("SELECT count(*) FROM data_merge_provenance")).isZero();
+		assertThat(number("SELECT count(*) FROM data_context_merge_audits")).isZero();
+	}
+
+	@Test
+	void explicitSocialFavoriteSurvivesDirectDefaultAndRetainsActualActor() {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		user(103, "NEXON_APIKEY", "2026-01-01");
+		character(301, 101, "same", "카카오", true);
+		character(302, 102, "same", "직접", false);
+		character(303, 103, "same", "추가", false);
+		explicit("FAVORITE", 301, 101);
+
+		merge(102, 101);
+		merge(102, 103);
+
+		assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters WHERE id=302", Boolean.class)).isTrue();
+		assertThat(number("SELECT source_user_id FROM data_preference_sources WHERE setting_type='FAVORITE' AND record_id=302")).isEqualTo(101);
+		assertThat(jdbc.queryForObject("SELECT state FROM data_preference_sources WHERE setting_type='FAVORITE' AND record_id=302", String.class)).isEqualTo("EXPLICIT");
+	}
+
+	@Test
+	void explicitSocialRemovalWinsOverLegacyDirectFavorite() {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		character(301, 101, "same", "카카오", false);
+		character(302, 102, "same", "직접", true);
+		explicit("FAVORITE", 301, 101);
+
+		merge(102, 101);
+
+		assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters WHERE id=302", Boolean.class)).isFalse();
+	}
+
+	@ParameterizedTest
+	@CsvSource({"LEGACY,UNKNOWN", "UNKNOWN,UNKNOWN"})
+	void historicalTrueFavoriteSurvivesUnknownFalseRegardlessOfProvider(String sourceState, String targetState) {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		character(301, 101, "same", "카카오", true);
+		character(302, 102, "same", "직접", false);
+		new DataPreferenceSourceService(jdbc).put("FAVORITE", 301, new PreferenceSource(101, sourceState, null));
+		new DataPreferenceSourceService(jdbc).put("FAVORITE", 302, new PreferenceSource(102, targetState, null));
+
+		merge(102, 101);
+
+		assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters WHERE id=302", Boolean.class)).isTrue();
+	}
+
+	@Test
+	void equalExplicitSettingsUseDirectIdentityThenOldestCreationRatherThanSaveTime() {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		character(301, 101, "same", "카카오", true);
+		character(302, 102, "same", "직접", false);
+		explicit("FAVORITE", 301, 101);
+		explicit("FAVORITE", 302, 102);
+
+		merge(102, 101);
+
+		assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters WHERE id=302", Boolean.class)).isFalse();
+		assertThat(number("SELECT source_user_id FROM data_preference_sources WHERE setting_type='FAVORITE' AND record_id=302")).isEqualTo(102);
+	}
+
+	@Test
+	void explicitSocialOrderKeepsRelativeSequenceAndAppendsUniqueDirectCharacters() {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		character(301, 101, "shared", "공유", false);
+		character(303, 101, "social-only", "카카오", false);
+		character(302, 102, "shared", "공유", false);
+		character(304, 102, "direct-only", "직접", false);
+		jdbc.update("UPDATE characters SET sort_order=CASE id WHEN 303 THEN 1 WHEN 301 THEN 2 WHEN 304 THEN 1 ELSE 2 END");
+		explicit("SORT_ORDER", 101, 101);
+
+		merge(102, 101);
+
+		assertThat(jdbc.queryForList("SELECT ocid FROM characters WHERE user_id=102 ORDER BY sort_order", String.class))
+				.containsExactly("social-only", "shared", "direct-only");
+		assertThat(jdbc.queryForList("SELECT sort_order FROM characters WHERE user_id=102 ORDER BY sort_order", Integer.class)).containsExactly(1, 2, 3);
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void nonemptyLegacyWorldsSurviveDefaultButExplicitEmptySelectionWins(boolean explicitEmpty) {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		jdbc.update("INSERT INTO user_selected_worlds(user_id,world_name) VALUES (101,'루나')");
+		if (explicitEmpty) explicit("WORLD_SELECTION", 102, 102);
+
+		merge(102, 101);
+
+		assertThat(jdbc.queryForList("SELECT world_name FROM user_selected_worlds WHERE user_id=102", String.class))
+				.isEqualTo(explicitEmpty ? java.util.List.of() : java.util.List.of("루나"));
+		assertThat(number("SELECT count(*) FROM user_selected_worlds WHERE user_id=101")).isZero();
+	}
+
+	@Test
+	void nineteenFavoritesRejectEntireMergeWithoutPreferenceProvenanceOrAuditWrites() {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		for (int i=0; i<19; i++) character(300+i, i<10 ? 101 : 102, "unique-"+i, "캐릭터"+i, true);
+		var before = jdbc.queryForList("SELECT * FROM characters ORDER BY id");
+
+		assertThatThrownBy(() -> merge(102, 101)).isInstanceOfSatisfying(ApiException.class,
+				e -> assertThat(e.getCode()).isEqualTo("DATA_CONTEXT_FAVORITE_LIMIT_EXCEEDED"));
+
+		assertThat(jdbc.queryForList("SELECT * FROM characters ORDER BY id")).isEqualTo(before);
+		assertThat(number("SELECT count(*) FROM data_preference_sources")).isZero();
+		assertThat(number("SELECT count(*) FROM data_merge_provenance")).isZero();
+		assertThat(number("SELECT count(*) FROM data_context_merge_audits")).isZero();
+	}
+
+	@ParameterizedTest
+	@ValueSource(booleans = {false, true})
+	void monthlyConflictPreservesEntireWinningSnapshotSetAndMovesUniqueMonths(boolean sourceWins) {
+		user(101, sourceWins ? "NEXON_APIKEY" : "KAKAO", "2024-01-01");
+		user(102, sourceWins ? "KAKAO" : "NEXON_APIKEY", "2025-01-01");
+		character(301, 101, "same", "원본", false);
+		character(302, 102, "same", "대상", false);
+		var bosses = jdbc.queryForList("SELECT id FROM boss_master ORDER BY id LIMIT 3", Long.class);
+		jdbc.update("INSERT INTO scheduler_monthly_finalizations(id,user_id,character_id,month_start_date,status) VALUES (501,101,301,'2026-10-01','FINALIZED'),(502,102,302,'2026-10-01','NO_DATA'),(503,101,301,'2026-09-01','FINALIZED')");
+		jdbc.update("INSERT INTO scheduler_monthly_boss_snapshots VALUES (501,?,true),(501,?,false),(502,?,false),(503,?,true)", bosses.get(0), bosses.get(1), bosses.get(2), bosses.get(2));
+
+		merge(102, 101);
+
+		long winner = sourceWins ? 501 : 502;
+		assertThat(number("SELECT count(*) FROM scheduler_monthly_finalizations")).isEqualTo(2);
+		assertThat(number("SELECT count(*) FROM scheduler_monthly_finalizations WHERE user_id=102 AND character_id=302")).isEqualTo(2);
+		assertThat(jdbc.queryForList("SELECT boss_id FROM scheduler_monthly_boss_snapshots WHERE finalization_id=? ORDER BY boss_id", Long.class, winner))
+				.isEqualTo(sourceWins ? bosses.subList(0,2) : java.util.List.of(bosses.get(2)));
+		assertThat(number("SELECT count(*) FROM scheduler_monthly_boss_snapshots WHERE finalization_id="+(sourceWins ? 502 : 501))).isZero();
+		assertThat(number("SELECT count(*) FROM scheduler_monthly_boss_snapshots WHERE finalization_id=503")).isEqualTo(1);
+	}
+
+	@Test
+	void auditCapturesBeforeAndAfterValuesSourcesAndCountsWithoutCredentialsOrExternalErrors() throws Exception {
+		user(101, "KAKAO", "2024-01-01");
+		user(102, "NEXON_APIKEY", "2025-01-01");
+		character(301, 101, "same", "카카오", true);
+		character(302, 102, "same", "직접", false);
+		explicit("FAVORITE", 301, 101);
+		jdbc.update("INSERT INTO user_selected_worlds(user_id,world_name) VALUES (101,'루나')");
+		jdbc.update("INSERT INTO user_api_keys(user_id,encrypted_key,key_fingerprint) VALUES (101,'cipher-secret',repeat('f',64))");
+		jdbc.update("INSERT INTO scheduler_monthly_finalizations(user_id,character_id,month_start_date,last_error) VALUES (101,301,'2026-10-01','external-secret')");
+		jdbc.update("INSERT INTO data_sync_logs(user_id,sync_type,status,error_message,started_at) VALUES (101,'CHARACTER_SYNC','FAILED','sync-secret',CURRENT_TIMESTAMP)");
+
+		merge(102, 101);
+
+		var row = jdbc.queryForMap("SELECT before_state::text AS before,after_state::text AS after FROM data_context_merge_audits");
+		var mapper = new ObjectMapper();
+		var before = mapper.readTree((String) row.get("before"));
+		var after = mapper.readTree((String) row.get("after"));
+		assertThat(before.path("characters").path("count").asInt()).isEqualTo(2);
+		assertThat(after.path("characters").path("count").asInt()).isEqualTo(1);
+		assertThat(before.path("user_selected_worlds").path("rows").get(0).path("world_name").asText()).isEqualTo("루나");
+		assertThat(after.path("characters").path("rows").get(0).path("is_favorite").asBoolean()).isTrue();
+		assertThat(after.path("data_preference_sources").path("rows").toString()).contains("EXPLICIT", "101");
+		assertThat(row.toString()).doesNotContain("cipher-secret", "external-secret", "sync-secret", "user_api_keys", "key_fingerprint", "encrypted_key");
+	}
+
+	@ParameterizedTest
+	@CsvSource({"KAKAO,2024-01-01,NEXON_APIKEY,2025-01-01,false", "NEXON_APIKEY,2024-01-01,NEXON_APIKEY,2025-01-01,true", "NEXON_APIKEY,2025-01-01,NEXON_APIKEY,2024-01-01,false", "NEXON_APIKEY,2024-01-01,NEXON_APIKEY,2024-01-01,true"})
+	void explicitFavoriteConflictsUseProviderOldestCreationThenSmallestId(String sourceProvider,String sourceCreated,String targetProvider,String targetCreated,boolean favorite) {
+		user(101,sourceProvider,sourceCreated);
+		user(102,targetProvider,targetCreated);
+		character(301,101,"same","원본",true);
+		character(302,102,"same","대상",false);
+		explicit("FAVORITE",301,101);
+		explicit("FAVORITE",302,102);
+
+		merge(102,101);
+
+		assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters WHERE id=302",Boolean.class)).isEqualTo(favorite);
+		assertThat(number("SELECT source_user_id FROM data_preference_sources WHERE setting_type='FAVORITE' AND record_id=302")).isEqualTo(favorite ? 101 : 102);
+	}
+
+	private void explicit(String type, long record, long actor) {
+		transactions.executeWithoutResult(status -> new DataPreferenceSourceService(jdbc).saveExplicit(type, record, actor));
 	}
 
 	@AfterEach
