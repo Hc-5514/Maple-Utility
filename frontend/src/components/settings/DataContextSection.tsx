@@ -1,5 +1,5 @@
 import { useCallback, useState, type CSSProperties } from 'react'
-import { dataContextSwitchErrorMessage } from '../../api/authSession'
+import { dataContextSwitchErrorMessage, MAX_NEXON_ACCOUNTS } from '../../api/authSession'
 import {
   useDataContexts,
   useSwitchDataContext,
@@ -10,6 +10,11 @@ import { useThemeStore } from '../../stores/themeStore'
 import CharacterPortrait from '../common/CharacterPortrait'
 import ThemedConfirmDialog from '../common/ThemedConfirmDialog'
 import { formatVerifiedAt } from './formatVerifiedAt'
+import {
+  AddNexonAccountDialog,
+  DeleteAccountDataDialog,
+  UnlinkNexonAccountDialog,
+} from './NexonAccountDialogs'
 import { settingsAssets } from './assets'
 
 const MAX_KEYS_PER_ACCOUNT = 3
@@ -25,7 +30,14 @@ export default function DataContextSection() {
   const { contexts, groups } = useDataContexts()
   const switchContext = useSwitchDataContext()
   const [target, setTarget] = useState<DataContextGroup | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [unlinking, setUnlinking] = useState<DataContextGroup | null>(null)
+  const [deleting, setDeleting] = useState<DataContextGroup | null>(null)
   const closeDialog = useCallback(() => setTarget(null), [])
+  const closeAdd = useCallback(() => setAdding(false), [])
+  const closeUnlink = useCallback(() => setUnlinking(null), [])
+  const closeDelete = useCallback(() => setDeleting(null), [])
+  const atLimit = groups.length >= MAX_NEXON_ACCOUNTS
   const switching = switchContext.isPending
   const targetCredential = target?.credentials[0]
 
@@ -45,10 +57,24 @@ export default function DataContextSection() {
           <img src={assets.imgContextUsers} alt="" />
         </div>
         <div className="settings-api-copy settings-context-copy">
-          <h2 id="data-context-heading">연결된 넥슨 계정</h2>
+          <div className="settings-context-title-row">
+            <h2 id="data-context-heading">연결된 넥슨 계정</h2>
+            {groups.length > 0 && (
+              <span className="settings-count">
+                {groups.length}개 계정 · 최대 {MAX_NEXON_ACCOUNTS}개
+              </span>
+            )}
+          </div>
           <p>같은 넥슨 계정의 API Key는 모든 데이터를 공유합니다.</p>
         </div>
-        {groups.length > 0 && <span className="settings-count">{groups.length}개 계정</span>}
+        <button
+          type="button"
+          className="settings-button settings-context-add"
+          disabled={atLimit || contexts.isLoading}
+          onClick={() => setAdding(true)}
+        >
+          + 계정 추가
+        </button>
       </div>
       {contexts.isLoading ? (
         <p role="status" className="settings-context-state settings-muted text-sm">
@@ -148,6 +174,25 @@ export default function DataContextSection() {
                     </li>
                   ))}
                 </ul>
+                <div className="settings-context-card-actions">
+                  <button
+                    type="button"
+                    className="settings-button"
+                    aria-label={`${group.name} 연결 해제`}
+                    onClick={() => setUnlinking(group)}
+                  >
+                    연결 해제
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-button settings-danger"
+                    aria-label={`${group.name} 데이터 삭제`}
+                    onClick={() => setDeleting(group)}
+                  >
+                    <img src={assets.imgTrash2} alt="" />
+                    데이터 삭제
+                  </button>
+                </div>
                 {group.credentials.length > 1 && (
                   <p className="settings-context-note">
                     <img src={assets.imgInfo} alt="" />
@@ -161,9 +206,13 @@ export default function DataContextSection() {
           </ul>
           <p className="settings-context-note">
             <img src={assets.imgInfo} alt="" />
-            {groups.length > 1
-              ? '계정을 전환하면 현재 화면의 데이터가 선택한 계정 기준으로 바뀝니다. 이전 계정의 기록은 삭제되지 않으며 다시 선택하면 복원됩니다.'
-              : '다른 넥슨 계정의 API Key를 등록하면 이곳에서 계정을 전환할 수 있습니다.'}
+            {groups.length === 0
+              ? '연결된 넥슨 계정이 없습니다. 계정 추가로 Nexon Open API Key를 등록해 주세요.'
+              : atLimit
+                ? `넥슨 계정은 최대 ${MAX_NEXON_ACCOUNTS}개까지 연결할 수 있습니다. 새 계정을 추가하려면 기존 계정의 연결을 해제해 주세요.`
+                : groups.length > 1
+                  ? '계정을 전환하면 현재 화면의 데이터가 선택한 계정 기준으로 바뀝니다. 이전 계정의 기록은 삭제되지 않으며 다시 선택하면 복원됩니다.'
+                  : '다른 넥슨 계정의 API Key를 등록하면 이곳에서 계정을 전환할 수 있습니다.'}
           </p>
           {switching && (
             <p role="status" className="settings-context-switching">
@@ -179,6 +228,9 @@ export default function DataContextSection() {
           )}
         </>
       )}
+      {adding && <AddNexonAccountDialog onClose={closeAdd} />}
+      {unlinking && <UnlinkNexonAccountDialog group={unlinking} onClose={closeUnlink} />}
+      {deleting && <DeleteAccountDataDialog group={deleting} onClose={closeDelete} />}
       {target && (
         <ThemedConfirmDialog
           title="넥슨 계정 전환"

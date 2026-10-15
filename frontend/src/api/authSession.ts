@@ -88,3 +88,46 @@ export function dataContextSwitchErrorMessage(error: unknown) {
   }
   return '계정을 전환하지 못했습니다. 기존 계정과 로그인 상태가 유지됩니다. 잠시 후 다시 시도해 주세요.'
 }
+
+export const MAX_NEXON_ACCOUNTS = 5
+
+export function dataContextAddErrorMessage(error: unknown) {
+  if (isAxiosError(error)) {
+    const code = error.response?.data?.code
+    if (code === 'DATA_CONTEXT_CONFLICT')
+      return '이미 다른 카카오 계정에 연결된 넥슨 계정입니다. 해당 카카오 계정에서 연결을 해제한 뒤 다시 시도해 주세요.'
+    if (code === 'DATA_CONTEXT_LIMIT_EXCEEDED')
+      return `넥슨 계정은 최대 ${MAX_NEXON_ACCOUNTS}개까지 연결할 수 있습니다. 기존 계정의 연결을 해제한 뒤 다시 시도해 주세요.`
+    if (code === 'NEXON_ACCOUNT_UNIDENTIFIABLE')
+      return '넥슨 계정을 확인할 수 없습니다. API Key와 계정의 캐릭터 정보를 확인해 주세요.'
+    if (code === 'API_KEY_INVALID' || code === 'API_KEY_EXPIRED')
+      return 'API Key가 유효하지 않습니다. 키를 확인한 뒤 다시 시도해 주세요.'
+  }
+  return '계정을 추가하지 못했습니다. API Key를 확인한 뒤 다시 시도해 주세요.'
+}
+
+export function dataContextUnlinkErrorMessage(error: unknown) {
+  if (isAxiosError(error) && error.response?.data?.code === 'DATA_CONTEXT_ACCESS_DENIED')
+    return '해제할 수 없는 계정입니다. 연결된 계정 목록을 새로 불러와 주세요.'
+  return '연결 해제에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+}
+
+export function dataContextDeleteErrorMessage(error: unknown) {
+  if (isAxiosError(error)) {
+    const code = error.response?.data?.code
+    if (code === 'DATA_CONTEXT_SYNC_IN_PROGRESS') return '동기화가 진행 중입니다. 완료 후 다시 시도해 주세요.'
+    if (code === 'DATA_CONTEXT_ACCESS_DENIED')
+      return '삭제할 수 없는 계정입니다. 연결된 계정 목록을 새로 불러와 주세요.'
+  }
+  return '데이터 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+}
+
+// 경고 문구가 2문장 이상이고 한 문장이 길면(Figma 기준: 행 폭의 절반 초과) 문장 단위로 줄바꿈
+const LONG_SENTENCE_LENGTH = 16
+export function breakSentences(text: string) {
+  const sentences = text.split(/(?<=[.?!])\s+/).filter(Boolean)
+  if (sentences.length < 2) return text
+  return sentences.some((sentence) => sentence.length > LONG_SENTENCE_LENGTH)
+    ? sentences.join('\n')
+    : sentences.join(' ')
+}

@@ -43,6 +43,8 @@ function setup(
     status?: ApiKeyStatusResponse
     characters?: Character[]
     favoriteLimitError?: boolean
+    // 단일 API Key 섹션은 API Key 로그인에서만 노출
+    provider?: 'KAKAO' | 'NEXON_APIKEY'
   } = {}
 ) {
   let saved = (options.characters ?? original).map((c) => ({ ...c }))
@@ -100,7 +102,7 @@ function setup(
     return { data: { success: true, data: { worldNames: selected } } } as AxiosResponse
   })
   useAuthStore.setState({
-    user: { id: 1, nickname: '테스트', email: null, oauthProvider: 'KAKAO' },
+    user: { id: 1, nickname: '테스트', email: null, oauthProvider: options.provider ?? 'KAKAO' },
     hasApiKey: true,
     isInitializing: false,
   })
@@ -260,6 +262,7 @@ describe('Settings preferences', () => {
   })
   it('refreshes characters after key registration and discards the previous context draft', async () => {
     const { get } = setup({
+      provider: 'NEXON_APIKEY',
       status: { registered: false, keyStatus: null, keySuffix: null, lastVerifiedAt: null },
     })
     const post = vi
@@ -348,6 +351,7 @@ describe('Settings preferences', () => {
   })
   it('shows a replacement form for registered INVALID keys and only the suffix', async () => {
     setup({
+      provider: 'NEXON_APIKEY',
       status: {
         registered: true,
         keyStatus: 'INVALID',
@@ -359,6 +363,13 @@ describe('Settings preferences', () => {
     expect(screen.getByText('•••••••• – •••••••• – •••••••• – ••••abcd')).toBeTruthy()
     expect(screen.getByText('2026.09.17 09:42')).toBeTruthy()
     expect(screen.getByLabelText('Nexon API Key', { selector: 'input' })).toBeTruthy()
+  })
+  it('hides the single API key section for Kakao login', async () => {
+    setup()
+    await screen.findByText('꼬농')
+    expect(screen.queryByTestId('api-key-card')).toBeNull()
+    expect(screen.queryByText('Nexon API Key', { selector: 'h2' })).toBeNull()
+    expect(screen.getByText('연결된 넥슨 계정')).toBeTruthy()
   })
   it('preserves hidden positions when swapping visible neighbors', () => {
     const next = moveVisibleNeighbor(original, [1, 3, 6], 6, -1)

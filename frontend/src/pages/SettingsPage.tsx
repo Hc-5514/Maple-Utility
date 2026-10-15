@@ -555,6 +555,9 @@ function CharacterSection() {
 }
 export default function SettingsPage() {
   const sessionRevision = useAuthStore((state) => state.sessionRevision)
+  const provider = useAuthStore((state) => state.user?.oauthProvider)
+  // 카카오 로그인은 연결된 넥슨 계정에서 키를 추가·해제하므로 단일 API Key 섹션을 두지 않음
+  const kakao = provider === 'KAKAO'
   return (
     <div className="settings-page">
       <div data-testid="settings-heading" className="settings-heading">
@@ -564,7 +567,7 @@ export default function SettingsPage() {
           API 연결과 내 캐릭터를 관리하세요. 나에게 맞는 메이플의 시작.
         </p>
       </div>
-      <ApiKeySection key={`key-${sessionRevision}`} />
+      {!kakao && <ApiKeySection key={`key-${sessionRevision}`} />}
       <DataContextSection key={`contexts-${sessionRevision}`} />
       <CharacterSection key={`characters-${sessionRevision}`} />
     </div>

@@ -92,7 +92,16 @@ function failure(code: string) {
   } as AxiosResponse)
 }
 
-function setup(options: { switchError?: string; listError?: boolean; rows?: DataContextItem[] } = {}) {
+function setup(
+  options: {
+    switchError?: string
+    listError?: boolean
+    rows?: DataContextItem[]
+    precheck?: string
+    addError?: string
+    removeError?: string
+  } = {}
+) {
   const get = vi.spyOn(client, 'get').mockImplementation(async (url) => {
     if (url === '/auth/data-contexts') {
       if (options.listError) throw new Error('network')
@@ -104,8 +113,18 @@ function setup(options: { switchError?: string; listError?: boolean; rows?: Data
     if (url === '/auth/me') return ok({ id: 1, nickname: '테스트', email: null })
     return ok(null)
   })
-  const post = vi.spyOn(client, 'post').mockImplementation(async () => {
+  const post = vi.spyOn(client, 'post').mockImplementation(async (url) => {
+    if (url === '/auth/data-contexts/precheck')
+      return ok({ status: options.precheck ?? 'AVAILABLE', connectedCount: 2, maxCount: 5 })
+    if (url === '/api-key') {
+      if (options.addError) throw failure(options.addError)
+      return ok({ registered: true, keyStatus: 'ACTIVE', keySuffix: 'wxyz', lastVerifiedAt: null, auth: switched })
+    }
     if (options.switchError) throw failure(options.switchError)
+    return ok(switched)
+  })
+  const del = vi.spyOn(client, 'delete').mockImplementation(async () => {
+    if (options.removeError) throw failure(options.removeError)
     return ok(switched)
   })
   const router = createMemoryRouter(
@@ -121,7 +140,7 @@ function setup(options: { switchError?: string; listError?: boolean; rows?: Data
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  return { get, post }
+  return { get, post, del }
 }
 
 const card = () => within(screen.getByTestId('data-context-card'))
@@ -267,6 +286,111 @@ describe('Settings connected Nexon accounts', () => {
         get.mock.calls.filter(([url]) => url === '/auth/data-contexts').length
       ).toBeGreaterThan(before)
     )
+  })
+})
+
+describe('Settings multiple Nexon accounts', () => {
+  const fiveAccounts = (): DataContextItem[] =>
+    Array.from({ length: 5 }, (_, index) => ({
+      ...contexts[0],
+      contextId: index + 1,
+      credentialId: (index + 1) * 10,
+      current: index === 0,
+      representativeCharacterName: `계정${index + 1}`,
+    }))
+
+  it('shows the account count next to the title with add, unlink and data delete actions', async () => {
+    setup()
+    await card().findByText('꼬농')
+    expect(card().getByText('2개 계정 · 최대 5개')).toBeTruthy()
+    expect((card().getByRole('button', { name: '+ 계정 추가' }) as HTMLButtonElement).disabled).toBe(false)
+    expect(card().getByRole('button', { name: '꼬농 연결 해제' })).toBeTruthy()
+    expect(card().getByRole('button', { name: '꼬마별궁수 데이터 삭제' })).toBeTruthy()
+  })
+
+  it('disables adding at the limit and explains why', async () => {
+    setup({ rows: fiveAccounts() })
+    await card().findByText('계정1')
+    expect((card().getByRole('button', { name: '+ 계정 추가' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(card().getByText(/최대 5개까지 연결할 수 있습니다/)).toBeTruthy()
+  })
+
+  it('prechecks the key before adding the account and closes on success', async () => {
+    const { post } = setup()
+    await card().findByText('꼬농')
+    fireEvent.click(card().getByRole('button', { name: '+ 계정 추가' }))
+    const dialog = within(screen.getByRole('dialog'))
+    fireEvent.change(dialog.getByLabelText('Nexon API Key'), { target: { value: 'live_new_wxyz' } })
+    fireEvent.click(dialog.getByRole('button', { name: '추가' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    const urls = post.mock.calls.map(([url]) => url)
+    expect(urls.indexOf('/auth/data-contexts/precheck')).toBeGreaterThanOrEqual(0)
+    expect(urls.indexOf('/api-key')).toBeGreaterThan(urls.indexOf('/auth/data-contexts/precheck'))
+    expect(post).toHaveBeenCalledWith('/api-key', { apiKey: 'live_new_wxyz' })
+  })
+
+  it('stops with a notice and never registers a key linked to another Kakao account', async () => {
+    const { post } = setup({ precheck: 'LINKED_TO_OTHER_KAKAO' })
+    await card().findByText('꼬농')
+    fireEvent.click(card().getByRole('button', { name: '+ 계정 추가' }))
+    const dialog = within(screen.getByRole('dialog'))
+    fireEvent.change(dialog.getByLabelText('Nexon API Key'), { target: { value: 'live_other' } })
+    fireEvent.click(dialog.getByRole('button', { name: '추가' }))
+    expect(await dialog.findByRole('alert')).toBeTruthy()
+    expect(dialog.getByRole('alert').textContent).toContain('이미 다른 카카오 계정에 연결된 넥슨 계정')
+    expect(post.mock.calls.some(([url]) => url === '/api-key')).toBe(false)
+    expect((dialog.getByRole('button', { name: '추가' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows the failure and offers a retry when adding fails', async () => {
+    setup({ addError: 'API_KEY_INVALID' })
+    await card().findByText('꼬농')
+    fireEvent.click(card().getByRole('button', { name: '+ 계정 추가' }))
+    const dialog = within(screen.getByRole('dialog'))
+    fireEvent.change(dialog.getByLabelText('Nexon API Key'), { target: { value: 'live_bad' } })
+    fireEvent.click(dialog.getByRole('button', { name: '추가' }))
+    expect((await dialog.findByRole('alert')).textContent).toContain('API Key가 유효하지 않습니다')
+    expect(dialog.getByRole('button', { name: '다시 시도' })).toBeTruthy()
+  })
+
+  it('unlinks an account only after confirmation and keeps the dialog on failure', async () => {
+    const { del } = setup()
+    await card().findByText('꼬농')
+    fireEvent.click(card().getByRole('button', { name: '꼬마별궁수 연결 해제' }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText(/기록 데이터는 삭제되지 않으며/)).toBeTruthy()
+    expect(del).not.toHaveBeenCalled()
+    fireEvent.click(dialog.getByRole('button', { name: '연결 해제' }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('/auth/data-contexts/2/link'))
+  })
+
+  it('warns that unlinking the current account switches to another account', async () => {
+    setup()
+    await card().findByText('꼬농')
+    fireEvent.click(card().getByRole('button', { name: '꼬농 연결 해제' }))
+    expect(within(screen.getByRole('dialog')).getByText(/현재 사용 중인 계정입니다/)).toBeTruthy()
+  })
+
+  it('permanently deletes account data only after the irreversible warning is confirmed', async () => {
+    const { del } = setup()
+    await card().findByText('꼬농')
+    fireEvent.click(card().getByRole('button', { name: '꼬마별궁수 데이터 삭제' }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText(/영구 삭제됩니다/)).toBeTruthy()
+    expect(dialog.getByText('이 작업은 되돌릴 수 없습니다.')).toBeTruthy()
+    expect(del).not.toHaveBeenCalled()
+    fireEvent.click(dialog.getByRole('button', { name: '영구 삭제' }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('/auth/data-contexts/2'))
+  })
+
+  it('shows a retry when data deletion fails and does not remove anything locally', async () => {
+    setup({ removeError: 'SOMETHING' })
+    await card().findByText('꼬농')
+    fireEvent.click(card().getByRole('button', { name: '꼬마별궁수 데이터 삭제' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '영구 삭제' }))
+    const alert = await within(screen.getByRole('dialog')).findByText('데이터 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    expect(alert).toBeTruthy()
+    expect(card().getByText('꼬마별궁수')).toBeTruthy()
   })
 })
 
