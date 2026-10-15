@@ -58,6 +58,8 @@ body {
   --dash-dialog: rgba(37, 34, 55, 0.96);
   --dash-overlay: rgba(9, 10, 20, 0.42);
   --dash-button-text: #211c3b;
+  --dash-danger: #f87171;
+  --dash-danger-text: #211c3b;
   --dash-card-shadow: 0px 8px 32px rgba(0, 0, 0, 0.09);
   --dash-modal-shadow: 0px 24px 64px rgba(0, 0, 0, 0.33);
   --dash-menu-shadow: 0px 12px 32px rgba(0, 0, 0, 0.33);
@@ -91,6 +93,8 @@ body {
   --dash-dialog: rgba(252, 250, 255, 0.96);
   --dash-overlay: rgba(33, 28, 59, 0.18);
   --dash-button-text: #fff;
+  --dash-danger: #dc2626;
+  --dash-danger-text: #fff;
   --dash-card-shadow: 0px 8px 32px rgba(101, 83, 148, 0.04);
   --dash-modal-shadow: 0px 24px 64px rgba(101, 83, 148, 0.16);
   --dash-menu-shadow: 0px 12px 32px rgba(101, 83, 148, 0.16);
@@ -738,4 +742,55 @@ html:has(.dashboard-theme main) {
   .settings-context-key-id {
     flex-wrap: wrap;
   }
+}
+
+/* 다중 넥슨 계정 관리 */
+.settings-context-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.settings-context-heading .settings-context-add {
+  margin-left: auto;
+}
+.settings-context-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.settings-danger {
+  color: var(--dash-danger);
+  border-color: color-mix(in srgb, var(--dash-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--dash-danger) 8%, transparent);
+}
+.settings-danger-solid {
+  background: var(--dash-danger);
+  border-color: transparent;
+  padding: 0 22px;
+  color: var(--dash-danger-text);
+}
+.settings-input[aria-invalid='true'] {
+  border: 2px solid var(--dash-danger);
+}
+.settings-dialog-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre-line;
+  color: var(--dash-muted);
+}
+.settings-dialog-status img {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+.settings-dialog-status[data-kind='error'] {
+  color: var(--dash-danger);
+}
+.settings-dialog-status[data-kind='progress'] {
+  color: var(--dash-accent);
 }

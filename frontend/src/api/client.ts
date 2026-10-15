@@ -93,9 +93,15 @@ client.interceptors.response.use(
       && originalRequest.url === '/auth/data-context'
       && typeof switchErrorCode === 'string'
       && !tokenErrorCodes.includes(switchErrorCode)
+    // 연결 해제·데이터 삭제의 업무 오류 401도 토큰 문제가 아님
+    const dataContextRemovalRejected = originalRequest?.method?.toLowerCase() === 'delete'
+      && (originalRequest.url ?? '').startsWith('/auth/data-contexts/')
+      && typeof switchErrorCode === 'string'
+      && !tokenErrorCodes.includes(switchErrorCode)
     if (
       error.response?.status === 401 && originalRequest && !originalRequest._retry
       && !authExchange && !invalidRegistrationKey && !dataContextSwitchRejected
+      && !dataContextRemovalRejected
     ) {
       originalRequest._retry = true
 
