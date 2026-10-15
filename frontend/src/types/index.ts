@@ -58,12 +58,27 @@ export interface DataContextItem {
   keySuffix: string | null
   status: ApiKeyStatus
   lastVerifiedAt: string | null
+  // 계정(데이터셋) 연결 시각. 목록은 현재 사용 중 계정 우선, 이후 연결순
+  linkedAt: string | null
   current: boolean
   representativeCharacterName: string | null
   characterClass: string | null
   worldName: string | null
   characterLevel: number | null
   characterImage: string | null
+}
+
+// POST /auth/data-contexts/precheck 응답. 데이터 변경 없이 연동 가능 여부만 판정
+export type DataContextPrecheckStatus =
+  | 'AVAILABLE'
+  | 'ALREADY_LINKED'
+  | 'LINKED_TO_OTHER_KAKAO'
+  | 'LIMIT_EXCEEDED'
+
+export interface DataContextPrecheckResponse {
+  status: DataContextPrecheckStatus
+  connectedCount: number
+  maxCount: number
 }
 
 export interface ApiKeyRegistrationResponse extends ApiKeyStatusResponse {

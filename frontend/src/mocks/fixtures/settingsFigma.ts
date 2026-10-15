@@ -6,6 +6,11 @@ export const settingsFigmaScenario = [
   'settings-figma',
   'settings-favorites-limit',
   'settings-favorites-over-limit',
+  // 다중 넥슨 계정 설정 화면(Figma `설정` 페이지) 미리보기
+  'settings-multi-account',
+  'settings-single-account',
+  'settings-account-limit',
+  'settings-apikey-login',
 ].includes(scenario)
 const names = ['꼬농', '말랑꼬농', '꼬마렌의일기', '꼬마별궁수', '도구꼬농', '도끼꼬농']
 const classes = ['아크메이지(썬,콜)', '윈드브레이커', '렌', '보우마스터', '비숍', '히어로']
