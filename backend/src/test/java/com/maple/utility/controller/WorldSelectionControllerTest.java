@@ -29,7 +29,7 @@ class WorldSelectionControllerTest {
 	@Mock WorldSelectionService service;
 	private MockMvc mvc;
 	private final UsernamePasswordAuthenticationToken authentication =
-			new UsernamePasswordAuthenticationToken(new JwtAuthentication(7L), null, List.of());
+			new UsernamePasswordAuthenticationToken(new JwtAuthentication(7L, 99L, 1L, 2L), null, List.of());
 
 	@BeforeEach
 	void setUp() {
@@ -47,11 +47,11 @@ class WorldSelectionControllerTest {
 
 	@Test
 	void writeAcceptsEmptySelection() throws Exception {
-		when(service.saveSelection(7L, List.of())).thenReturn(new WorldSelectionResponse(List.of()));
+		when(service.saveSelection(7L, 99L, List.of())).thenReturn(new WorldSelectionResponse(List.of()));
 		mvc.perform(put("/api/v1/characters/world-selection").principal(authentication)
 						.contentType("application/json").content("{\"worldNames\":[]}"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.worldNames").isEmpty());
-		verify(service).saveSelection(7L, List.of());
+		verify(service).saveSelection(7L, 99L, List.of());
 	}
 
 	@Test
