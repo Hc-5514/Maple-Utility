@@ -102,6 +102,13 @@ public class AuthController {
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, expireLegacyRefreshTokenCookie().toString(), refreshTokenCookie(result.refreshToken()).toString()).body(result.response());
     }
 
+    /** Read-only: tells whether a Nexon API key can be added to this account, without changing anything. */
+    @PostMapping("/data-contexts/precheck")
+    public com.maple.utility.service.DataContextService.Precheck precheck(
+            @Valid @RequestBody com.maple.utility.dto.request.ApiKeyRegisterRequest request, Authentication authentication) {
+        return contexts.precheck(contexts.user(currentUserId(authentication)), request.apiKey());
+    }
+
     @PostMapping("/data-context")
     public ResponseEntity<AuthResponse> selectContext(
             @Valid @RequestBody com.maple.utility.dto.request.DataContextSelectRequest request,

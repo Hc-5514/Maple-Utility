@@ -36,6 +36,8 @@ import com.maple.utility.security.NexonOpenApiClient;
 @Service
 public class DataContextService {
     public static final long CONNECTION_LOCK = 259L;
+    /** Maximum number of independent Nexon account datasets one Kakao identity may connect. */
+    public static final int MAX_CONTEXTS_PER_KAKAO = 5;
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final UserApiKeyRepository keys;
@@ -142,6 +144,10 @@ public class DataContextService {
         contexts.stream().map(Context::kakaoUserId).filter(Objects::nonNull).forEach(kakaoIds::add);
         if (identity.getOauthProvider() == OAuthProvider.KAKAO) kakaoIds.add(identity.getId());
         if (kakaoIds.size() > 1) throw new ApiException(HttpStatus.CONFLICT, "DATA_CONTEXT_CONFLICT", "이미 다른 카카오 계정에 연결된 데이터셋");
+        if (identity.getOauthProvider() == OAuthProvider.KAKAO && exceedsContextLimit(identity.getId(), contexts)) {
+            throw new ApiException(HttpStatus.CONFLICT, "DATA_CONTEXT_LIMIT_EXCEEDED",
+                    "넥슨 계정은 최대 " + MAX_CONTEXTS_PER_KAKAO + "개까지 연결할 수 있습니다");
+        }
         // The canonical owner follows direct-login source priority; record-level conflicts use provenance independently.
         Context target = contexts.stream().min(Comparator
                 .comparingInt((Context c) -> user(c.ownerUserId()).getOauthProvider() == OAuthProvider.NEXON_APIKEY ? 0 : 1)
@@ -156,6 +162,8 @@ public class DataContextService {
             jdbc.update("INSERT INTO data_context_accounts(account_id,context_id) VALUES (?,?) ON CONFLICT(account_id) DO UPDATE SET context_id = EXCLUDED.context_id", accountId, target.id());
         }
         link(identity.getId(), target.id());
+        // Only a user-initiated connection counts as use; legacy reconciliation and maintenance must not.
+        if (reconcileLegacy) markUsed(identity.getId(), target.id());
         // A merge clears the persistence context after JDBC updates. Reload credentials so saving a
         // detached pre-merge entity cannot restore an old context or lose duplicate assignments.
         matches = keys.findAllById(matches.stream().map(UserApiKey::getId).toList()).stream()
@@ -354,6 +362,68 @@ public class DataContextService {
         return new java.util.ArrayList<>(all);
     }
 
+    /** Canonical datasets of the identity that hold at least one credential, the same set the list endpoint shows. */
+    private Set<Long> connectedContextIds(Long identityId) {
+        return new LinkedHashSet<>(jdbc.query("""
+                SELECT DISTINCT c.id
+                FROM user_data_contexts l
+                JOIN data_contexts c ON c.id = l.context_id
+                JOIN user_api_keys k ON k.context_id = c.id
+                WHERE l.user_id = ? AND c.canonical_context_id IS NULL
+                """, (rs, row) -> rs.getLong(1), identityId));
+    }
+
+    /** Datasets merged into one target count once, so only unrelated connected datasets add to the total. */
+    private boolean exceedsContextLimit(Long identityId, List<Context> incoming) {
+        Set<Long> incomingIds = new LinkedHashSet<>();
+        incoming.forEach(context -> incomingIds.add(context.id()));
+        long others = connectedContextIds(identityId).stream().filter(id -> !incomingIds.contains(id)).count();
+        return others + 1 > MAX_CONTEXTS_PER_KAKAO;
+    }
+
+    /**
+     * Read-only check of whether a key can be connected, without linking, merging or saving anything.
+     * The key is still verified against Nexon so the answer reflects the real account ownership.
+     */
+    @Transactional(readOnly = true)
+    public Precheck precheck(User identity, String rawKey) {
+        String key = normalize(rawKey);
+        NexonAccountCharacters verified = nexon.verifyAccounts(identity.getId(), key);
+        String fingerprint = ApiKeyFingerprint.of(key);
+        Set<Long> ids = new LinkedHashSet<>();
+        for (String accountId : verified.accountIds()) {
+            jdbc.query("SELECT context_id FROM data_context_accounts WHERE account_id = ?",
+                    (rs, row) -> rs.getLong(1), accountId).forEach(id -> ids.add(canonical(id).id()));
+        }
+        keys.findByKeyFingerprint(fingerprint).ifPresent(match -> ids.add(canonical(match.getContextId()).id()));
+        for (UserApiKey legacy : keys.findByKeyFingerprintIsNullOrderByIdAsc()) {
+            if (ApiKeyFingerprint.of(normalize(crypto.decrypt(legacy.getEncryptedKey()))).equals(fingerprint)) {
+                ids.add(canonical(legacy.getContextId()).id());
+            }
+        }
+        Set<Long> connected = connectedContextIds(identity.getId());
+        boolean kakao = identity.getOauthProvider() == OAuthProvider.KAKAO;
+        int count = connected.size();
+        if (kakao) {
+            for (Long id : ids) {
+                Long owner = canonical(id).kakaoUserId();
+                if (owner != null && !owner.equals(identity.getId())) {
+                    return new Precheck(PrecheckStatus.LINKED_TO_OTHER_KAKAO, count, MAX_CONTEXTS_PER_KAKAO);
+                }
+            }
+        }
+        if (!ids.isEmpty() && connected.containsAll(ids)) {
+            return new Precheck(PrecheckStatus.ALREADY_LINKED, count, MAX_CONTEXTS_PER_KAKAO);
+        }
+        if (kakao) {
+            long others = connected.stream().filter(id -> !ids.contains(id)).count();
+            if (others + 1 > MAX_CONTEXTS_PER_KAKAO) {
+                return new Precheck(PrecheckStatus.LIMIT_EXCEEDED, count, MAX_CONTEXTS_PER_KAKAO);
+            }
+        }
+        return new Precheck(PrecheckStatus.AVAILABLE, count, MAX_CONTEXTS_PER_KAKAO);
+    }
+
     private void reconcileOwnLegacyKeys(User identity, String incomingKey) {
         Context context = own(identity);
         Long known = jdbc.queryForObject("SELECT COUNT(*) FROM data_context_accounts WHERE context_id=?", Long.class, context.id());
@@ -408,7 +478,8 @@ public class DataContextService {
 
     public JwtAuthentication defaultPrincipal(User identity) {
         Context context = own(identity);
-        List<Long> connected = jdbc.query("SELECT context_id FROM user_data_contexts WHERE user_id = ? ORDER BY created_at,context_id",
+        // The most recently used dataset wins; datasets never used keep the registration order.
+        List<Long> connected = jdbc.query("SELECT context_id FROM user_data_contexts WHERE user_id = ? ORDER BY last_used_at DESC NULLS LAST,created_at,context_id",
                 (rs, row) -> rs.getLong(1), identity.getId());
         for (Long id : connected) {
             Context candidate = canonical(id);
@@ -458,7 +529,8 @@ public class DataContextService {
         }, identityId);
         List<CredentialListing> credentials = jdbc.query("""
                 SELECT DISTINCT c.id, c.owner_user_id, k.id AS credential_id,
-                       k.encrypted_key, k.key_fingerprint, k.key_status, k.last_verified_at
+                       k.encrypted_key, k.key_fingerprint, k.key_status, k.last_verified_at,
+                       l.created_at AS linked_at
                 FROM user_data_contexts l
                 JOIN data_contexts c ON c.id = l.context_id
                 JOIN user_api_keys k ON k.context_id = c.id
@@ -471,7 +543,9 @@ public class DataContextService {
             return new CredentialListing(contextId, rs.getLong("owner_user_id"), credentialId,
                     ApiKeyFingerprint.of(normalizedKey), rs.getString("key_fingerprint") != null,
                     suffix(normalizedKey), rs.getString("key_status"),
-                    rs.getObject("last_verified_at", LocalDateTime.class));
+                    rs.getObject("last_verified_at", LocalDateTime.class),
+                    // user_data_contexts timestamps are TIMESTAMPTZ; read them in the JVM zone (Asia/Seoul).
+                    rs.getTimestamp("linked_at") == null ? null : rs.getTimestamp("linked_at").toLocalDateTime());
         }, identityId);
         Map<CredentialGroup, CredentialListing> unique = new LinkedHashMap<>();
         Set<CredentialGroup> currentGroups = new LinkedHashSet<>();
@@ -481,11 +555,20 @@ public class DataContextService {
                     listingOrder().compare(previous, next) <= 0 ? previous : next);
             if (Objects.equals(credential.id(), currentCredentialId)) currentGroups.add(group);
         }
-        return unique.entrySet().stream().map(entry -> {
+        // The dataset in use comes first, then datasets in the order they were connected.
+        Set<Long> currentContexts = new LinkedHashSet<>();
+        currentGroups.forEach(group -> currentContexts.add(group.contextId()));
+        Comparator<Map.Entry<CredentialGroup, CredentialListing>> displayOrder = Comparator
+                .comparingInt((Map.Entry<CredentialGroup, CredentialListing> entry) ->
+                        currentContexts.contains(entry.getValue().contextId()) ? 0 : 1)
+                .thenComparing(entry -> entry.getValue().linkedAt(), Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(entry -> entry.getValue().contextId());
+        return unique.entrySet().stream().sorted(displayOrder).map(entry -> {
             CredentialListing credential = entry.getValue();
             Representative representative = representatives.get(credential.contextId());
             return new DataContextResponse(credential.contextId(), credential.ownerId(), credential.id(),
-                    credential.suffix(), credential.status(), credential.verifiedAt(), currentGroups.contains(entry.getKey()),
+                    credential.suffix(), credential.status(), credential.verifiedAt(), credential.linkedAt(),
+                    currentGroups.contains(entry.getKey()),
                     representative == null ? null : representative.name(),
                     representative == null ? null : representative.characterClass(),
                     representative == null ? null : representative.worldName(),
@@ -532,6 +615,12 @@ public class DataContextService {
         return count;
     }
 
+    private void markUsed(Long identityId, Long contextId) {
+        jdbc.update("UPDATE user_data_contexts SET last_used_at = ?, updated_at = ? WHERE user_id = ? AND context_id = ?",
+                java.sql.Timestamp.valueOf(LocalDateTime.now(clock)), java.sql.Timestamp.valueOf(LocalDateTime.now(clock)),
+                identityId, contextId);
+    }
+
     private void link(Long identityId, Long contextId) {
         jdbc.update("INSERT INTO user_data_contexts(user_id,context_id) VALUES (?,?) ON CONFLICT DO NOTHING", identityId, contextId);
     }
@@ -548,15 +637,18 @@ public class DataContextService {
     private String firstName(NexonAccountCharacters response) { return response.characters().stream().map(c -> c.characterName()).findFirst().orElse(null); }
     private ApiException denied(String code, String message) { return new ApiException(HttpStatus.UNAUTHORIZED, code, message); }
     public record DeletedDataset(boolean wasCurrent, boolean identityRemoved, Set<Long> removedUserIds) { }
+    public enum PrecheckStatus { AVAILABLE, ALREADY_LINKED, LINKED_TO_OTHER_KAKAO, LIMIT_EXCEEDED }
+    public record Precheck(PrecheckStatus status, int connectedCount, int maxCount) { }
     public record Context(Long id, Long ownerUserId, Long kakaoUserId, Long canonicalId) { }
     public record Connection(JwtAuthentication principal, UserApiKey credential, NexonAccountCharacters verified) { }
     private record CredentialGroup(Long contextId, String fingerprint) { }
     private record CredentialListing(Long contextId, Long ownerId, Long id, String fingerprint,
-                                     boolean fingerprinted, String suffix, String status, LocalDateTime verifiedAt) { }
+                                     boolean fingerprinted, String suffix, String status, LocalDateTime verifiedAt,
+                                     LocalDateTime linkedAt) { }
     private record Representative(Long id, String ocid, String name, String characterClass, String worldName,
                                   Integer level, String image, boolean favorite, int sortOrder) { }
     public record DataContextResponse(Long contextId, Long ownerUserId, Long credentialId, String keySuffix,
-                                      String status, LocalDateTime lastVerifiedAt, boolean current,
+                                      String status, LocalDateTime lastVerifiedAt, LocalDateTime linkedAt, boolean current,
                                       String representativeCharacterName, String characterClass, String worldName,
                                       Integer characterLevel, String characterImage) { }
 }
