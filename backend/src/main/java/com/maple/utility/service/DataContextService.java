@@ -276,7 +276,8 @@ public class DataContextService {
         }, identityId);
         List<CredentialListing> credentials = jdbc.query("""
                 SELECT DISTINCT c.id, c.owner_user_id, k.id AS credential_id,
-                       k.encrypted_key, k.key_fingerprint, k.key_status, k.last_verified_at
+                       k.encrypted_key, k.key_fingerprint, k.key_status, k.last_verified_at,
+                       l.created_at AS linked_at
                 FROM user_data_contexts l
                 JOIN data_contexts c ON c.id = l.context_id
                 JOIN user_api_keys k ON k.context_id = c.id
@@ -289,7 +290,9 @@ public class DataContextService {
             return new CredentialListing(contextId, rs.getLong("owner_user_id"), credentialId,
                     ApiKeyFingerprint.of(normalizedKey), rs.getString("key_fingerprint") != null,
                     suffix(normalizedKey), rs.getString("key_status"),
-                    rs.getObject("last_verified_at", LocalDateTime.class));
+                    rs.getObject("last_verified_at", LocalDateTime.class),
+                    // user_data_contexts timestamps are TIMESTAMPTZ; read them in the JVM zone (Asia/Seoul).
+                    rs.getTimestamp("linked_at") == null ? null : rs.getTimestamp("linked_at").toLocalDateTime());
         }, identityId);
         Map<CredentialGroup, CredentialListing> unique = new LinkedHashMap<>();
         Set<CredentialGroup> currentGroups = new LinkedHashSet<>();
@@ -299,11 +302,20 @@ public class DataContextService {
                     listingOrder().compare(previous, next) <= 0 ? previous : next);
             if (Objects.equals(credential.id(), currentCredentialId)) currentGroups.add(group);
         }
-        return unique.entrySet().stream().map(entry -> {
+        // The dataset in use comes first, then datasets in the order they were connected.
+        Set<Long> currentContexts = new LinkedHashSet<>();
+        currentGroups.forEach(group -> currentContexts.add(group.contextId()));
+        Comparator<Map.Entry<CredentialGroup, CredentialListing>> displayOrder = Comparator
+                .comparingInt((Map.Entry<CredentialGroup, CredentialListing> entry) ->
+                        currentContexts.contains(entry.getValue().contextId()) ? 0 : 1)
+                .thenComparing(entry -> entry.getValue().linkedAt(), Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(entry -> entry.getValue().contextId());
+        return unique.entrySet().stream().sorted(displayOrder).map(entry -> {
             CredentialListing credential = entry.getValue();
             Representative representative = representatives.get(credential.contextId());
             return new DataContextResponse(credential.contextId(), credential.ownerId(), credential.id(),
-                    credential.suffix(), credential.status(), credential.verifiedAt(), currentGroups.contains(entry.getKey()),
+                    credential.suffix(), credential.status(), credential.verifiedAt(), credential.linkedAt(),
+                    currentGroups.contains(entry.getKey()),
                     representative == null ? null : representative.name(),
                     representative == null ? null : representative.characterClass(),
                     representative == null ? null : representative.worldName(),
@@ -369,11 +381,12 @@ public class DataContextService {
     public record Connection(JwtAuthentication principal, UserApiKey credential, NexonAccountCharacters verified) { }
     private record CredentialGroup(Long contextId, String fingerprint) { }
     private record CredentialListing(Long contextId, Long ownerId, Long id, String fingerprint,
-                                     boolean fingerprinted, String suffix, String status, LocalDateTime verifiedAt) { }
+                                     boolean fingerprinted, String suffix, String status, LocalDateTime verifiedAt,
+                                     LocalDateTime linkedAt) { }
     private record Representative(Long id, String ocid, String name, String characterClass, String worldName,
                                   Integer level, String image, boolean favorite, int sortOrder) { }
     public record DataContextResponse(Long contextId, Long ownerUserId, Long credentialId, String keySuffix,
-                                      String status, LocalDateTime lastVerifiedAt, boolean current,
+                                      String status, LocalDateTime lastVerifiedAt, LocalDateTime linkedAt, boolean current,
                                       String representativeCharacterName, String characterClass, String worldName,
                                       Integer characterLevel, String characterImage) { }
 }

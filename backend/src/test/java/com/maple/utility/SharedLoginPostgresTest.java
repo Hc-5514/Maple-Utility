@@ -89,7 +89,7 @@ class SharedLoginPostgresTest {
             String key=i.getArgument(1);
             if(key.equals("invalid"))throw new ApiException(org.springframework.http.HttpStatus.UNAUTHORIZED,"API_KEY_INVALID","무효 키");
             if(key.equals("missing"))throw new ApiException(org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,"NEXON_ACCOUNT_UNIDENTIFIABLE","계정 식별 불가");
-            String account=key.startsWith("account-b")?"B":"A";
+            String account=key.startsWith("account-b")?"B":key.startsWith("account-c")?"C":"A";
             return new NexonAccountCharacters(Set.of(account),List.of(new NexonCharacterSummary(account+"-ocid","캐릭터"+account,"루나","비숍",280)));
         });
     }
@@ -196,6 +196,22 @@ class SharedLoginPostgresTest {
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM characters",Long.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM user_api_keys",Long.class)).isEqualTo(2);
+    }
+    @Test void dataContextListShowsCurrentAccountFirstThenRegistrationOrderWithLinkedAt()throws Exception {
+        Session a=register(social("social-1"),"account-a-1");
+        Session b=register(a,"account-b-1");
+        Session c=register(b,"account-c-1");
+        long ctxA=principal(a).contextId(),ctxB=principal(b).contextId(),ctxC=principal(c).contextId();
+        var current=mvc.perform(get("/api/v1/auth/data-contexts").header("Authorization","Bearer "+c.access())).andExpect(status().isOk()).andReturn();
+        var rows=json.readTree(current.getResponse().getContentAsString());
+        assertThat(rows).hasSize(3);
+        assertThat(List.of(rows.get(0).path("contextId").asLong(),rows.get(1).path("contextId").asLong(),rows.get(2).path("contextId").asLong())).containsExactly(ctxC,ctxA,ctxB);
+        assertThat(rows.get(0).path("current").asBoolean()).isTrue();
+        for(var row:rows) assertThat(row.path("linkedAt").isNull()).isFalse();
+        var selected=mvc.perform(post("/api/v1/auth/data-context").header("Authorization","Bearer "+c.access()).cookie(new Cookie("refreshToken",c.refresh())).contentType(MediaType.APPLICATION_JSON).content("{\"credentialId\":"+principal(a).credentialId()+"}")).andExpect(status().isOk()).andReturn();
+        Session back=session(selected,false);
+        var again=json.readTree(mvc.perform(get("/api/v1/auth/data-contexts").header("Authorization","Bearer "+back.access())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(List.of(again.get(0).path("contextId").asLong(),again.get(1).path("contextId").asLong(),again.get(2).path("contextId").asLong())).containsExactly(ctxA,ctxB,ctxC);
     }
     @Test void reloginPrefersActiveCredentialOverOlderInvalidCredential()throws Exception {
         Session s=register(social("social-1"),"account-a-1");Session second=register(s,"account-a-2");
@@ -610,7 +626,7 @@ class SharedLoginPostgresTest {
         assertThat(row.path("status").asText()).isEqualTo("ACTIVE");
         assertThat(rows.toString()).doesNotContain("account-a-1", "account-b-1", storedCipher, ApiKeyFingerprint.of("account-a-1"));
         assertThat(row.properties()).extracting(Map.Entry::getKey).containsExactlyInAnyOrder(
-                "contextId", "ownerUserId", "credentialId", "keySuffix", "status", "lastVerifiedAt", "current",
+                "contextId", "ownerUserId", "credentialId", "keySuffix", "status", "lastVerifiedAt", "linkedAt", "current",
                 "representativeCharacterName", "characterClass", "worldName", "characterLevel", "characterImage");
     }
 
