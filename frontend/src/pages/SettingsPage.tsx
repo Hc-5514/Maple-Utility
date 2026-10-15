@@ -15,6 +15,8 @@ import { settingsAssets } from '../components/settings/assets'
 import { MAX_CHARACTER_FAVORITES } from '../constants/character'
 import { formatVerifiedAt } from '../components/settings/formatVerifiedAt'
 import DataContextSection from '../components/settings/DataContextSection'
+import { DeleteAccountDataDialog } from '../components/settings/NexonAccountDialogs'
+import { useDataContexts } from '../hooks/useDataContexts'
 import type { ApiKeyRegistrationResponse, ApiKeyStatusResponse, ApiResponse, Character, SyncJob } from '../types'
 
 export { formatVerifiedAt }
@@ -26,6 +28,11 @@ function ApiKeySection() {
   const [inputKey, setInputKey] = useState('')
   const [deleting, setDeleting] = useState(false)
   const closeDelete = useCallback(() => setDeleting(false), [])
+  // API Key 로그인: 현재 로그인한 계정(데이터셋)의 모든 키와 기록 데이터 삭제
+  const { groups } = useDataContexts()
+  const accountGroup = groups.find((group) => group.current) ?? groups[0]
+  const [deletingData, setDeletingData] = useState(false)
+  const closeDeleteData = useCallback(() => setDeletingData(false), [])
   const status = useQuery({
     queryKey: ['api-key/status'],
     queryFn: async () => {
@@ -90,17 +97,28 @@ function ApiKeySection() {
           )}
         </div>
         {registered && (
-          <button
-            type="button"
-            className="settings-button"
-            onClick={() => {
-              remove.reset()
-              setDeleting(true)
-            }}
-          >
-            <img src={assets.imgTrash2} alt="" />
-            삭제
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="settings-button"
+              onClick={() => {
+                remove.reset()
+                setDeleting(true)
+              }}
+            >
+              <img src={assets.imgTrash2} alt="" />
+              삭제
+            </button>
+            <button
+              type="button"
+              className="settings-button settings-danger"
+              disabled={!accountGroup}
+              onClick={() => setDeletingData(true)}
+            >
+              <img src={assets.imgTrash2} alt="" />
+              계정 데이터 삭제
+            </button>
+          </div>
         )}
       </div>
       {status.isLoading ? (
@@ -167,6 +185,13 @@ function ApiKeySection() {
             </form>
           )}
         </>
+      )}
+      {deletingData && accountGroup && (
+        <DeleteAccountDataDialog
+          group={accountGroup}
+          onClose={closeDeleteData}
+          loginNote="현재 로그인한 넥슨 계정의 모든 API Key와 캐릭터·보스·사냥 기록 데이터가 DB에서 영구 삭제되며, 삭제 후 로그아웃됩니다. 삭제한 데이터는 복구할 수 없습니다."
+        />
       )}
       {deleting && (
         <ThemedConfirmDialog
@@ -568,7 +593,7 @@ export default function SettingsPage() {
         </p>
       </div>
       {!kakao && <ApiKeySection key={`key-${sessionRevision}`} />}
-      <DataContextSection key={`contexts-${sessionRevision}`} />
+      {kakao && <DataContextSection key={`contexts-${sessionRevision}`} />}
       <CharacterSection key={`characters-${sessionRevision}`} />
     </div>
   )
