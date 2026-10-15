@@ -89,11 +89,11 @@ function failure(code: string) {
   } as AxiosResponse)
 }
 
-function setup(options: { switchError?: string; listError?: boolean } = {}) {
+function setup(options: { switchError?: string; listError?: boolean; rows?: DataContextItem[] } = {}) {
   const get = vi.spyOn(client, 'get').mockImplementation(async (url) => {
     if (url === '/auth/data-contexts') {
       if (options.listError) throw new Error('network')
-      return ok(contexts)
+      return ok(options.rows ?? contexts)
     }
     if (url === '/characters') return ok([character])
     if (url === '/characters/world-selection') return ok({ worldNames: ['엘리시움'] })
@@ -157,6 +157,39 @@ afterEach(() => {
 })
 
 describe('Settings connected Nexon accounts', () => {
+  it('renders three canonical keys in one account when a legacy alias session selects the representative', async () => {
+    // The server resolves alias credential 7 to representative 6 and omits the alias row.
+    const rows = [6, 8, 9].map((credentialId, index) => ({
+      ...contexts[0],
+      credentialId,
+      keySuffix: ['keyA', 'keyB', 'keyC'][index],
+      current: credentialId === 6,
+    }))
+    setup({ rows })
+
+    await card().findByText('● 현재 사용 중')
+
+    expect(card().getAllByTestId('data-context-group')).toHaveLength(1)
+    const keys = card().getAllByTestId('data-context-key')
+    expect(keys).toHaveLength(3)
+    expect(within(keys[0]).getByText('••••keyA')).toBeTruthy()
+    expect(within(keys[0]).getByText('현재 세션')).toBeTruthy()
+    expect(card().getByText(/API Key 3\/3개/)).toBeTruthy()
+    expect(card().queryByRole('button', { name: /계정으로 전환/ })).toBeNull()
+  })
+
+  it('keeps separately verified accounts apart even when their representative names match', async () => {
+    setup({ rows: contexts.map((row) => ({ ...row, representativeCharacterName: '동일 닉네임' })) })
+
+    await card().findByText('● 현재 사용 중')
+
+    const groups = card().getAllByTestId('data-context-group')
+    expect(groups).toHaveLength(2)
+    expect(within(groups[0]).getAllByTestId('data-context-key')).toHaveLength(2)
+    expect(within(groups[1]).getAllByTestId('data-context-key')).toHaveLength(1)
+    expect(within(groups[1]).getByRole('button', { name: '동일 닉네임 계정으로 전환' })).toBeTruthy()
+  })
+
   it('groups keys by account, marks the current session and shares a key limit note', async () => {
     setup()
     await card().findByText('● 현재 사용 중')

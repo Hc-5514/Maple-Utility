@@ -36,6 +36,59 @@ afterEach(() => {
 })
 
 describe('login and data context session installation', () => {
+  it('reloads shared favorites after key login, key switch, logout and Kakao login', async () => {
+    const savedFavorites = [{ id: 31, favorite: true, sortOrder: 2 }]
+    const get = vi.spyOn(client, 'get').mockImplementation(async (url) => {
+      if (url === '/auth/me') return response({
+        ...user,
+        oauthProvider: localStorage.getItem('accessToken') === 'kakao-token' ? 'KAKAO' : 'NEXON_APIKEY',
+      })
+      if (url === '/api-key/status') return response({ registered: true, keyStatus: 'ACTIVE' })
+      if (url === '/characters/favorites') return response(savedFavorites)
+      throw new Error(`Unexpected test GET: ${url}`)
+    })
+    const loadFavorites = () => queryClient.fetchQuery({
+      queryKey: ['characters/favorites'],
+      staleTime: Infinity,
+      queryFn: async () => (await client.get('/characters/favorites')).data.data,
+    })
+
+    await installAuthSession(queryClient, { ...auth, accessToken: 'key-a-token' }, 'NEXON_APIKEY')
+    expect(await loadFavorites()).toEqual(savedFavorites)
+    // A second key for the same verified account must refetch instead of retaining stale cache.
+    queryClient.setQueryData(['characters/favorites'], [{ id: 99, favorite: false }])
+    await installAuthSession(queryClient, { ...auth, accessToken: 'key-b-token' }, 'NEXON_APIKEY')
+    expect(await loadFavorites()).toEqual(savedFavorites)
+    await clearAuthSession(queryClient)
+    expect(queryClient.getQueryCache().getAll()).toEqual([])
+    expect(localStorage.getItem('accessToken')).toBeNull()
+    await installAuthSession(queryClient, { ...auth, accessToken: 'kakao-token' }, 'KAKAO')
+
+    expect(await loadFavorites()).toEqual(savedFavorites)
+    expect(get.mock.calls.filter(([url]) => url === '/characters/favorites')).toHaveLength(3)
+    expect(useAuthStore.getState()).toMatchObject({ user: { oauthProvider: 'KAKAO' }, hasApiKey: true })
+  })
+
+  it('does not restore active key state from a status response arriving after logout', async () => {
+    let completeStatus!: () => void
+    const get = vi.spyOn(client, 'get').mockImplementation(async (url) => {
+      if (url === '/auth/me') return response(user)
+      return new Promise<AxiosResponse>((resolve) => {
+        completeStatus = () => resolve(response({ registered: true, keyStatus: 'ACTIVE' }))
+      })
+    })
+    const pending = installAuthSession(queryClient, auth).catch((error: unknown) => error)
+    await vi.waitFor(() => expect(get).toHaveBeenCalledWith('/api-key/status'))
+
+    await clearAuthSession(queryClient)
+    completeStatus()
+
+    expect(isCancel(await pending)).toBe(true)
+    expect(useAuthStore.getState()).toMatchObject({ user: null, hasApiKey: false, isInitializing: false })
+    expect(localStorage.getItem('accessToken')).toBeNull()
+    expect(queryClient.getQueryCache().getAll()).toEqual([])
+  })
+
   it('clears all previous account caches before loading identity and key status', async () => {
     queryClient.setQueryData(['hunting', 3], ['old-record'])
     queryClient.setQueryData(['stats/crystal'], { income: 900 })
