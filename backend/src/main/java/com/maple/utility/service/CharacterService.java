@@ -33,6 +33,7 @@ public class CharacterService {
 	private final CharacterSyncService characterSyncService;
 	private final CacheManager cacheManager;
 	private final Clock clock;
+	private final DataPreferenceSourceService preferenceSources;
 
 	public CharacterService(
 			CharacterRepository characterRepository,
@@ -42,6 +43,14 @@ public class CharacterService {
 			CacheManager cacheManager,
 			Clock clock
 	) {
+		this(characterRepository, userRepository, nexonOpenApiClient, characterSyncService, cacheManager, clock, null);
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
+	public CharacterService(CharacterRepository characterRepository, UserRepository userRepository,
+			NexonOpenApiClient nexonOpenApiClient, CharacterSyncService characterSyncService,
+			CacheManager cacheManager, Clock clock, DataPreferenceSourceService preferenceSources) {
+		this.preferenceSources = preferenceSources;
 		this.characterRepository = characterRepository;
 		this.userRepository = userRepository;
 		this.nexonOpenApiClient = nexonOpenApiClient;
@@ -66,18 +75,29 @@ public class CharacterService {
 
 	@Transactional
 	public CharacterResponse toggleFavorite(Long userId, Long characterId) {
+		return toggleFavorite(userId, userId, characterId);
+	}
+
+	@Transactional
+	public CharacterResponse toggleFavorite(Long userId, Long identityUserId, Long characterId) {
 		lockUser(userId);
 		MapleCharacter character = findCharacter(userId, characterId);
 		if (!character.isFavorite() && characterRepository.countByUserIdAndFavoriteTrue(userId) >= MAX_FAVORITES) {
 			throw favoriteLimitExceeded();
 		}
 		character.toggleFavorite();
+		recordPreference(DataPreferenceSourceService.FAVORITE, characterId, identityUserId);
 		evictSchedulerAfterCommit();
 		return CharacterResponse.from(character);
 	}
 
 	@Transactional
 	public List<CharacterResponse> updateFavoriteSortOrder(Long userId, List<Long> characterIds) {
+		return updateFavoriteSortOrder(userId, userId, characterIds);
+	}
+
+	@Transactional
+	public List<CharacterResponse> updateFavoriteSortOrder(Long userId, Long identityUserId, List<Long> characterIds) {
 		lockUser(userId);
 		List<MapleCharacter> favorites = characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
 		if (characterIds == null || characterIds.stream().anyMatch(id -> id == null || id <= 0)
@@ -91,14 +111,21 @@ public class CharacterService {
 			byId.get(characterIds.get(index)).updateSortOrder(slots.get(index));
 		}
 		evictSchedulerAfterCommit();
+		recordPreference(DataPreferenceSourceService.SORT_ORDER, userId, identityUserId);
 		return characterIds.stream().map(id -> CharacterResponse.from(byId.get(id))).toList();
 	}
 
 	@Transactional
 	public CharacterResponse updateSortOrder(Long userId, Long characterId, int sortOrder) {
+		return updateSortOrder(userId, userId, characterId, sortOrder);
+	}
+
+	@Transactional
+	public CharacterResponse updateSortOrder(Long userId, Long identityUserId, Long characterId, int sortOrder) {
 		lockUser(userId);
 		MapleCharacter character = findCharacter(userId, characterId);
 		character.updateSortOrder(sortOrder);
+		recordPreference(DataPreferenceSourceService.SORT_ORDER, userId, identityUserId);
 		evictSchedulerAfterCommit();
 		return CharacterResponse.from(character);
 	}
@@ -114,6 +141,11 @@ public class CharacterService {
 
 	@Transactional
 	public List<CharacterResponse> updatePreferences(Long userId, List<Preference> preferences) {
+		return updatePreferences(userId, userId, preferences);
+	}
+
+	@Transactional
+	public List<CharacterResponse> updatePreferences(Long userId, Long identityUserId, List<Preference> preferences) {
 		if (preferences == null || preferences.stream().anyMatch(item -> item == null
 				|| item.characterId() == null || item.characterId() <= 0 || item.favorite() == null)
 				|| preferences.stream().map(Preference::characterId).distinct().count() != preferences.size()) {
@@ -134,9 +166,17 @@ public class CharacterService {
 		for (int index = 0; index < preferences.size(); index++) {
 			Preference preference = preferences.get(index);
 			byId.get(preference.characterId()).updatePreferences(preference.favorite(), index + 1);
+			recordPreference(DataPreferenceSourceService.FAVORITE, preference.characterId(), identityUserId);
 		}
 		evictSchedulerAfterCommit();
+		recordPreference(DataPreferenceSourceService.SORT_ORDER, userId, identityUserId);
 		return preferences.stream().map(item -> CharacterResponse.from(byId.get(item.characterId()))).toList();
+	}
+
+	private void recordPreference(String type, long recordId, long identityUserId) {
+		if (preferenceSources != null) {
+			preferenceSources.saveExplicit(type, recordId, identityUserId);
+		}
 	}
 
 	private ApiException invalidPreferences() {
