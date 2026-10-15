@@ -100,6 +100,7 @@ function setup(
     precheck?: string
     addError?: string
     removeError?: string
+    removeNoContent?: boolean
   } = {}
 ) {
   const get = vi.spyOn(client, 'get').mockImplementation(async (url) => {
@@ -125,6 +126,7 @@ function setup(
   })
   const del = vi.spyOn(client, 'delete').mockImplementation(async () => {
     if (options.removeError) throw failure(options.removeError)
+    if (options.removeNoContent) return { status: 204, data: '' } as AxiosResponse
     return ok(switched)
   })
   const router = createMemoryRouter(
@@ -391,6 +393,65 @@ describe('Settings multiple Nexon accounts', () => {
     const alert = await within(screen.getByRole('dialog')).findByText('데이터 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.')
     expect(alert).toBeTruthy()
     expect(card().getByText('꼬마별궁수')).toBeTruthy()
+  })
+})
+
+describe('Settings API key login', () => {
+  const asApiKeyLogin = () =>
+    useAuthStore.setState({
+      user: { id: 1, nickname: '테스트', email: null, oauthProvider: 'NEXON_APIKEY' },
+      hasApiKey: true,
+      isInitializing: false,
+    })
+
+  it('hides the connected Nexon accounts section and offers account data deletion', async () => {
+    asApiKeyLogin()
+    setup()
+    expect(await screen.findByTestId('api-key-card')).toBeTruthy()
+    expect(screen.queryByTestId('data-context-card')).toBeNull()
+    expect(screen.queryByText('연결된 넥슨 계정')).toBeNull()
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: '계정 데이터 삭제' }) as HTMLButtonElement).disabled
+      ).toBe(false)
+    )
+  })
+
+  it('deletes the account data after the irreversible warning and signs the user out', async () => {
+    asApiKeyLogin()
+    const { del } = setup({ removeNoContent: true })
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: '계정 데이터 삭제' }) as HTMLButtonElement).disabled
+      ).toBe(false)
+    )
+    fireEvent.click(screen.getByRole('button', { name: '계정 데이터 삭제' }))
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText(/삭제 후 로그아웃됩니다/)).toBeTruthy()
+    expect(dialog.getByText('이 작업은 되돌릴 수 없습니다.')).toBeTruthy()
+    expect(del).not.toHaveBeenCalled()
+    fireEvent.click(dialog.getByRole('button', { name: '영구 삭제' }))
+    await waitFor(() => expect(del).toHaveBeenCalledWith('/auth/data-contexts/1'))
+    await waitFor(() => expect(useAuthStore.getState().user).toBeNull())
+    expect(localStorage.getItem('accessToken')).toBeNull()
+  })
+
+  it('keeps the session and shows a retry when deleting fails', async () => {
+    asApiKeyLogin()
+    setup({ removeError: 'SOMETHING' })
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: '계정 데이터 삭제' }) as HTMLButtonElement).disabled
+      ).toBe(false)
+    )
+    fireEvent.click(screen.getByRole('button', { name: '계정 데이터 삭제' }))
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '영구 삭제' }))
+    expect(
+      await within(screen.getByRole('dialog')).findByText(
+        '데이터 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+      )
+    ).toBeTruthy()
+    expect(useAuthStore.getState().user).not.toBeNull()
   })
 })
 
