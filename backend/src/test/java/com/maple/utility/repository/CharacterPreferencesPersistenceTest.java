@@ -39,6 +39,8 @@ import com.maple.utility.service.CharacterSyncService;
 @Import({CharacterService.class, CharacterSyncService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class CharacterPreferencesPersistenceTest {
+	@org.springframework.test.context.bean.override.mockito.MockitoBean
+	com.maple.utility.service.DataPreferenceSourceService preferenceSources;
 	@Autowired EntityManager entityManager;
 	@Autowired CharacterService service;
 	@Autowired CharacterSyncService sync;

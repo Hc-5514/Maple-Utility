@@ -20,6 +20,8 @@ import com.maple.utility.service.WorldSelectionService;
 @DataJpaTest(properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create-drop"})
 @Import(WorldSelectionService.class)
 class WorldSelectionPersistenceTest {
+	@org.springframework.test.context.bean.override.mockito.MockitoBean
+	com.maple.utility.service.DataPreferenceSourceService preferenceSources;
 	@Autowired EntityManager entityManager;
 	@Autowired WorldSelectionService service;
 	@Autowired UserSelectedWorldRepository selections;
