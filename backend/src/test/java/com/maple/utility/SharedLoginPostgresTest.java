@@ -246,6 +246,81 @@ class SharedLoginPostgresTest {
         mvc.perform(delete("/api/v1/auth/data-contexts/"+principal(direct).contextId()+"/link").header("Authorization","Bearer "+kakao.access())).andExpect(status().isUnauthorized());
         assertThat(characters(direct)).contains("캐릭터A");
     }
+    org.springframework.test.web.servlet.ResultActions deleteData(Session s,long contextId)throws Exception {
+        return mvc.perform(delete("/api/v1/auth/data-contexts/"+contextId).header("Authorization","Bearer "+s.access()).cookie(new Cookie("refreshToken",s.refresh())));
+    }
+    long count(String sql,Object... args){return jdbc.queryForObject(sql,Long.class,args);}
+    @Test void deletingKakaoOwnedDatasetRemovesItsKeysAndRecordsButKeepsOtherDatasets()throws Exception {
+        Session a=register(social("social-1"),"account-a-1");selectWorld(a,"루나");
+        Session b=register(a,"account-b-1");
+        long contextA=principal(a).contextId(),contextB=principal(b).contextId();
+        long kakaoUser=principal(a).identityUserId();
+        var result=deleteData(b,contextA).andExpect(status().isOk()).andReturn();
+        Session after=session(result,false);
+        assertThat(principal(after).contextId()).isEqualTo(contextB);
+        assertThat(characters(after)).contains("캐릭터B").doesNotContain("캐릭터A");
+        assertThat(count("SELECT count(*) FROM characters WHERE character_name='캐릭터A'")).isZero();
+        assertThat(count("SELECT count(*) FROM data_context_accounts WHERE account_id='A'")).isZero();
+        assertThat(count("SELECT count(*) FROM user_selected_worlds")).isZero();
+        assertThat(count("SELECT count(*) FROM user_api_keys WHERE context_id=?",contextA)).isZero();
+        assertThat(count("SELECT count(*) FROM data_contexts WHERE id=?",contextA)).isZero();
+        assertThat(count("SELECT count(*) FROM users WHERE id=?",kakaoUser)).isEqualTo(1);
+        mvc.perform(get("/api/v1/auth/data-contexts").header("Authorization","Bearer "+after.access())).andExpect(jsonPath("$.length()").value(1));
+        // The same account can be registered again from scratch.
+        Session again=register(after,"account-a-1");
+        assertThat(characters(again)).contains("캐릭터A");
+    }
+    @Test void deletingKeyOwnedDatasetRemovesItsOwnerUserAndLeavesNoBlockingRows()throws Exception {
+        Session a=register(social("social-1"),"account-a-1");
+        Session b=register(a,"account-b-1");
+        long contextB=principal(b).contextId();
+        long ownerB=principal(b).userId();
+        assertThat(ownerB).isNotEqualTo(principal(b).identityUserId());
+        deleteData(b,contextB).andExpect(status().isOk());
+        assertThat(count("SELECT count(*) FROM users WHERE id=?",ownerB)).isZero();
+        assertThat(count("SELECT count(*) FROM characters WHERE user_id=?",ownerB)).isZero();
+        assertThat(count("SELECT count(*) FROM data_context_accounts WHERE account_id='B'")).isZero();
+        assertThat(count("SELECT count(*) FROM data_merge_provenance p WHERE p.source_user_id=?",ownerB)).isZero();
+        assertThat(count("SELECT count(*) FROM data_preference_sources WHERE source_user_id=?",ownerB)).isZero();
+        assertThat(count("SELECT count(*) FROM data_context_merge_audits WHERE target_user_id=? OR source_user_id=?",ownerB,ownerB)).isZero();
+        assertThat(count("SELECT count(*) FROM characters WHERE character_name='캐릭터A'")).isEqualTo(1);
+    }
+    @Test void deletingDatasetSharedWithDirectKeyLoginRemovesBothIdentitiesAndMergedRecords()throws Exception {
+        Session direct=direct("account-a-1");selectWorld(direct,"루나");
+        Session kakao=register(social("social-1"),"account-a-2");
+        assertThat(principal(kakao).userId()).isEqualTo(principal(direct).userId());
+        long directUser=principal(direct).identityUserId();
+        deleteData(kakao,principal(kakao).contextId()).andExpect(status().isOk());
+        assertThat(count("SELECT count(*) FROM users WHERE id=?",directUser)).isZero();
+        assertThat(count("SELECT count(*) FROM characters")).isZero();
+        assertThat(count("SELECT count(*) FROM user_api_keys")).isZero();
+        assertThat(count("SELECT count(*) FROM data_merge_provenance")).isZero();
+        assertThat(count("SELECT count(*) FROM data_preference_sources")).isZero();
+        assertThat(count("SELECT count(*) FROM data_context_accounts")).isZero();
+        mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refreshToken",direct.refresh()))).andExpect(status().isUnauthorized());
+    }
+    @Test void directKeyLoginDeletingItsOwnDatasetIsSignedOut()throws Exception {
+        Session direct=direct("account-a-1");
+        var result=deleteData(direct,principal(direct).contextId()).andExpect(status().isNoContent()).andReturn();
+        assertThat(Arrays.stream(result.getResponse().getCookies()).filter(c->c.getName().equals("refreshToken")).allMatch(c->c.getMaxAge()==0)).isTrue();
+        assertThat(count("SELECT count(*) FROM users")).isZero();
+        assertThat(count("SELECT count(*) FROM characters")).isZero();
+        mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refreshToken",direct.refresh()))).andExpect(status().isUnauthorized());
+    }
+    @Test void deletingAnotherAccountsDatasetIsDeniedWithoutChangingAnything()throws Exception {
+        Session owner=register(social("social-1"),"account-a-1");
+        Session intruder=register(social("social-2"),"account-b-1");
+        long characters=count("SELECT count(*) FROM characters");
+        deleteData(intruder,principal(owner).contextId()).andExpect(status().isUnauthorized());
+        assertThat(count("SELECT count(*) FROM characters")).isEqualTo(characters);
+        assertThat(characters(owner)).contains("캐릭터A");
+    }
+    @Test void deletingWhileSynchronizationIsRunningIsRejected()throws Exception {
+        Session a=register(social("social-1"),"account-a-1");
+        jdbc.update("INSERT INTO sync_jobs(user_id,job_type,status) VALUES (?, 'CHARACTER', 'STARTED')",principal(a).userId());
+        deleteData(a,principal(a).contextId()).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DATA_CONTEXT_SYNC_IN_PROGRESS"));
+        assertThat(count("SELECT count(*) FROM characters")).isEqualTo(1);
+    }
     @Test void reloginPrefersActiveCredentialOverOlderInvalidCredential()throws Exception {
         Session s=register(social("social-1"),"account-a-1");Session second=register(s,"account-a-2");
         jdbc.update("UPDATE user_api_keys SET key_status='INVALID' WHERE id=?",principal(s).credentialId());
