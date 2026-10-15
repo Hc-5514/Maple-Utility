@@ -81,6 +81,15 @@ public class AuthController {
         return contexts.list((JwtAuthentication) authentication.getPrincipal());
     }
 
+    /** Detaches a dataset from this Kakao account. Records are kept and can be connected again later. */
+    @org.springframework.web.bind.annotation.DeleteMapping("/data-contexts/{contextId}/link")
+    public ResponseEntity<AuthResponse> unlinkContext(
+            @org.springframework.web.bind.annotation.PathVariable Long contextId,
+            Authentication authentication, @CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        var result = authService.unlinkContext((JwtAuthentication) authentication.getPrincipal(), contextId, refreshToken);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, expireLegacyRefreshTokenCookie().toString(), refreshTokenCookie(result.refreshToken()).toString()).body(result.response());
+    }
+
     @PostMapping("/data-context")
     public ResponseEntity<AuthResponse> selectContext(
             @Valid @RequestBody com.maple.utility.dto.request.DataContextSelectRequest request,

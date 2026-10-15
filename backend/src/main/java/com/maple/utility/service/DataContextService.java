@@ -172,6 +172,96 @@ public class DataContextService {
         return new Connection(new JwtAuthentication(target.ownerUserId(), identity.getId(), target.id(), credential.getId()), credential, verified);
     }
 
+    /**
+     * Detaches a Nexon account dataset from a Kakao identity while keeping every record.
+     * Returns true when the detached dataset was the one the caller's session was using.
+     */
+    @Transactional
+    public boolean unlink(Long identityId, Long contextId, Long sessionContextId) {
+        lockConnections();
+        User identity = user(identityId);
+        if (identity.getOauthProvider() != OAuthProvider.KAKAO) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "DATA_CONTEXT_UNLINK_NOT_ALLOWED", "카카오 로그인에서만 연결 해제 가능");
+        }
+        Context target = canonical(contextId);
+        if (!member(identityId, target.id()) || (target.kakaoUserId() != null && !target.kakaoUserId().equals(identityId))) {
+            throw denied("DATA_CONTEXT_ACCESS_DENIED", "데이터셋 접근 권한 없음");
+        }
+        boolean wasCurrent = sessionContextId != null && canonical(sessionContextId).id().equals(target.id());
+        entityManager.flush();
+        if (target.ownerUserId().equals(identityId)) target = handOverOwnership(identity, target);
+        Set<Long> chain = mergedInto(target.id());
+        // The identity's own dataset was merged into this one; make it independent again, empty and reusable.
+        List<Long> own = jdbc.query("SELECT id FROM data_contexts WHERE owner_user_id = ?", (rs, row) -> rs.getLong(1), identityId);
+        for (Long ownId : own) {
+            if (chain.contains(ownId) && !ownId.equals(target.id())) {
+                jdbc.update("UPDATE data_contexts SET canonical_context_id = NULL WHERE id = ?", ownId);
+                link(identityId, ownId);
+            }
+        }
+        Set<Long> detach = new LinkedHashSet<>(chain);
+        detach.removeAll(own);
+        for (Long id : detach) {
+            jdbc.update("DELETE FROM user_data_contexts WHERE user_id = ? AND context_id = ?", identityId, id);
+            jdbc.update("UPDATE data_contexts SET kakao_user_id = NULL WHERE id = ? AND kakao_user_id = ?", id, identityId);
+            jdbc.update("DELETE FROM user_api_keys WHERE user_id = ? AND context_id = ?", identityId, id);
+        }
+        entityManager.clear();
+        clearCaches();
+        own(identity);
+        return wasCurrent;
+    }
+
+    /** A dataset owned by the Kakao identity itself moves its records to a dedicated key-owner user. */
+    private Context handOverOwnership(User identity, Context current) {
+        List<UserApiKey> credentials = keys.findByContextIdOrderByIdAsc(current.id());
+        String oauthId = credentials.stream().map(UserApiKey::getKeyFingerprint).filter(Objects::nonNull).findFirst()
+                .orElseGet(() -> credentials.isEmpty() ? null
+                        : ApiKeyFingerprint.of(normalize(crypto.decrypt(credentials.getFirst().getEncryptedKey()))));
+        // A fingerprint that already owns a dataset would have been merged on connect; never reuse it here.
+        if (oauthId == null || users.findByOauthProviderAndOauthId(OAuthProvider.NEXON_APIKEY, oauthId).isPresent()) {
+            oauthId = "detached-" + java.util.UUID.randomUUID();
+        }
+        User owner = users.save(User.create(OAuthProvider.NEXON_APIKEY, oauthId, null, identity.getNickname()));
+        Context fresh = own(owner);
+        entityManager.flush();
+        merger.merge(owner.getId(), identity.getId());
+        entityManager.clear();
+        jdbc.update("UPDATE user_api_keys SET context_id = ? WHERE context_id = ?", fresh.id(), current.id());
+        jdbc.update("UPDATE data_context_accounts SET context_id = ? WHERE context_id = ?", fresh.id(), current.id());
+        jdbc.update("UPDATE data_contexts SET canonical_context_id = ? WHERE canonical_context_id = ?", fresh.id(), current.id());
+        jdbc.update("UPDATE user_data_contexts SET context_id = ? WHERE context_id = ? AND user_id <> ?",
+                fresh.id(), current.id(), identity.getId());
+        jdbc.update("UPDATE data_contexts SET kakao_user_id = NULL WHERE id = ?", fresh.id());
+        // The identity keeps its now empty own dataset, so later logins and connections still resolve.
+        jdbc.update("UPDATE data_contexts SET kakao_user_id = ? WHERE id = ?", identity.getId(), current.id());
+        return canonical(fresh.id());
+    }
+
+    /** The dataset itself plus every dataset whose canonical pointer chain ends at it. */
+    private Set<Long> mergedInto(Long rootId) {
+        Map<Long, Long> parents = new HashMap<>();
+        jdbc.query("SELECT id, canonical_context_id FROM data_contexts WHERE canonical_context_id IS NOT NULL",
+                rs -> { parents.put(rs.getLong(1), rs.getLong(2)); });
+        Set<Long> chain = new LinkedHashSet<>();
+        chain.add(rootId);
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (Map.Entry<Long, Long> entry : parents.entrySet()) {
+                if (chain.contains(entry.getValue()) && chain.add(entry.getKey())) grew = true;
+            }
+        }
+        return chain;
+    }
+
+    private void clearCaches() {
+        for (String cacheName : caches.getCacheNames()) {
+            var cache = caches.getCache(cacheName);
+            if (cache != null) cache.clear();
+        }
+    }
+
     private void reconcileOwnLegacyKeys(User identity, String incomingKey) {
         Context context = own(identity);
         Long known = jdbc.queryForObject("SELECT COUNT(*) FROM data_context_accounts WHERE context_id=?", Long.class, context.id());

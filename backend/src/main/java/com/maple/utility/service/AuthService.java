@@ -147,6 +147,14 @@ public class AuthService {
         return switchSession(principal, previousRefreshToken);
     }
 
+    /** Detaches a dataset from the Kakao identity and re-issues the session on a still connected dataset. */
+    @Transactional
+    public LoginResult unlinkContext(com.maple.utility.security.JwtAuthentication principal, Long contextId, String previousRefreshToken) {
+        boolean wasCurrent = contexts.unlink(principal.identityUserId(), contextId, principal.contextId());
+        var next = wasCurrent ? contexts.defaultPrincipal(findUser(principal.identityUserId())) : contexts.resolve(principal);
+        return switchSession(next, previousRefreshToken);
+    }
+
     public LoginResult switchSession(com.maple.utility.security.JwtAuthentication principal, String previousRefreshToken) {
         JwtTokenProvider.RefreshTokenClaims previous = null;
         if (previousRefreshToken != null) {

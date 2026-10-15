@@ -197,6 +197,55 @@ class SharedLoginPostgresTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM characters",Long.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM user_api_keys",Long.class)).isEqualTo(2);
     }
+    Session unlink(Session s,long contextId)throws Exception {
+        return session(mvc.perform(delete("/api/v1/auth/data-contexts/"+contextId+"/link").header("Authorization","Bearer "+s.access()).cookie(new Cookie("refreshToken",s.refresh()))).andExpect(status().isOk()).andReturn(),false);
+    }
+    @Test void unlinkingDatasetOwnedByKakaoKeepsRecordsAndAllowsAnotherKakaoToConnect()throws Exception {
+        Session first=register(social("social-1"),"account-a-1");selectWorld(first,"루나");
+        long context=principal(first).contextId();
+        Session after=unlink(first,context);
+        // The Kakao identity keeps its own, now empty dataset; the records moved to a dedicated key owner.
+        assertThat(principal(after).userId()).isEqualTo(principal(first).identityUserId());
+        assertThat(characters(after)).doesNotContain("캐릭터A");
+        mvc.perform(get("/api/v1/auth/data-contexts").header("Authorization","Bearer "+after.access())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        // Records stay, now owned by a dedicated key-owner instead of the Kakao identity.
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM characters",Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM characters WHERE user_id=?",Long.class,principal(first).identityUserId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM user_api_keys WHERE user_id=?",Long.class,principal(first).identityUserId())).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM data_context_accounts a JOIN data_contexts c ON c.id=a.context_id WHERE c.kakao_user_id IS NOT NULL",Long.class)).isZero();
+        // The same Kakao login still works and a different Kakao account can now take the dataset with its data.
+        social("social-1");
+        Session other=register(social("social-2"),"account-a-1");
+        assertThat(characters(other)).contains("캐릭터A");
+        mvc.perform(get("/api/v1/characters/world-selection").header("Authorization","Bearer "+other.access())).andExpect(jsonPath("$.worldNames[0]").value("루나"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM characters",Long.class)).isEqualTo(1);
+    }
+    @Test void unlinkingCurrentKeyOwnedDatasetSwitchesToRemainingDataset()throws Exception {
+        Session a=register(social("social-1"),"account-a-1");
+        Session b=register(a,"account-b-1");
+        long contextA=principal(a).contextId(),contextB=principal(b).contextId();
+        Session after=unlink(b,contextB);
+        assertThat(principal(after).contextId()).isEqualTo(contextA);
+        mvc.perform(get("/api/v1/auth/data-contexts").header("Authorization","Bearer "+after.access())).andExpect(jsonPath("$.length()").value(1));
+        assertThat(characters(after)).contains("캐릭터A").doesNotContain("캐릭터B");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM characters",Long.class)).isEqualTo(2);
+        Session other=register(social("social-2"),"account-b-1");
+        assertThat(characters(other)).contains("캐릭터B");
+    }
+    @Test void unlinkingNonCurrentDatasetKeepsTheCurrentSessionDataset()throws Exception {
+        Session a=register(social("social-1"),"account-a-1");
+        Session b=register(a,"account-b-1");
+        Session after=unlink(b,principal(a).contextId());
+        assertThat(principal(after).contextId()).isEqualTo(principal(b).contextId());
+        mvc.perform(get("/api/v1/auth/data-contexts").header("Authorization","Bearer "+after.access())).andExpect(jsonPath("$.length()").value(1));
+    }
+    @Test void directKeyLoginCannotUnlinkAndForeignDatasetIsDenied()throws Exception {
+        Session direct=direct("account-a-1");
+        mvc.perform(delete("/api/v1/auth/data-contexts/"+principal(direct).contextId()+"/link").header("Authorization","Bearer "+direct.access())).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("DATA_CONTEXT_UNLINK_NOT_ALLOWED"));
+        Session kakao=register(social("social-1"),"account-b-1");
+        mvc.perform(delete("/api/v1/auth/data-contexts/"+principal(direct).contextId()+"/link").header("Authorization","Bearer "+kakao.access())).andExpect(status().isUnauthorized());
+        assertThat(characters(direct)).contains("캐릭터A");
+    }
     @Test void reloginPrefersActiveCredentialOverOlderInvalidCredential()throws Exception {
         Session s=register(social("social-1"),"account-a-1");Session second=register(s,"account-a-2");
         jdbc.update("UPDATE user_api_keys SET key_status='INVALID' WHERE id=?",principal(s).credentialId());
