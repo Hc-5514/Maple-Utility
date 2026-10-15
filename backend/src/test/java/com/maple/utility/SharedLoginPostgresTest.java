@@ -213,6 +213,27 @@ class SharedLoginPostgresTest {
         var again=json.readTree(mvc.perform(get("/api/v1/auth/data-contexts").header("Authorization","Bearer "+back.access())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         assertThat(List.of(again.get(0).path("contextId").asLong(),again.get(1).path("contextId").asLong(),again.get(2).path("contextId").asLong())).containsExactly(ctxA,ctxB,ctxC);
     }
+    @Test void kakaoLoginConnectsLastUsedNexonAccountAndFallsBackToRegistrationOrder()throws Exception {
+        Session first=register(social("social-1"),"account-a-1");
+        Session second=register(first,"account-b-1");
+        long contextA=principal(first).contextId(),contextB=principal(second).contextId();
+        assertThat(contextB).isNotEqualTo(contextA);
+        // B was registered last, so a new Kakao login lands on B.
+        assertThat(principal(social("social-1")).contextId()).isEqualTo(contextB);
+        // Switching back to A makes A the last used account.
+        var selected=mvc.perform(post("/api/v1/auth/data-context").header("Authorization","Bearer "+second.access()).cookie(new Cookie("refreshToken",second.refresh())).contentType(MediaType.APPLICATION_JSON).content("{\"credentialId\":"+principal(first).credentialId()+"}")).andExpect(status().isOk()).andReturn();
+        assertThat(principal(session(selected,false)).contextId()).isEqualTo(contextA);
+        assertThat(principal(social("social-1")).contextId()).isEqualTo(contextA);
+        // A without an ACTIVE credential falls back to the next dataset.
+        jdbc.update("UPDATE user_api_keys SET key_status='INVALID' WHERE context_id=?",contextA);
+        assertThat(principal(social("social-1")).contextId()).isEqualTo(contextB);
+    }
+    @Test void kakaoLoginWithoutUsageHistoryKeepsRegistrationOrder()throws Exception {
+        Session first=register(social("social-1"),"account-a-1");
+        register(first,"account-b-1");
+        jdbc.update("UPDATE user_data_contexts SET last_used_at=NULL");
+        assertThat(principal(social("social-1")).contextId()).isEqualTo(principal(first).contextId());
+    }
     @Test void reloginPrefersActiveCredentialOverOlderInvalidCredential()throws Exception {
         Session s=register(social("social-1"),"account-a-1");Session second=register(s,"account-a-2");
         jdbc.update("UPDATE user_api_keys SET key_status='INVALID' WHERE id=?",principal(s).credentialId());
