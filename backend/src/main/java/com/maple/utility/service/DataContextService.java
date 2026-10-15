@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -115,7 +116,7 @@ public class DataContextService {
         List<UserApiKey> matches = new ArrayList<>();
         keys.findByKeyFingerprint(fingerprint).ifPresent(matches::add);
         for (UserApiKey legacy : keys.findByKeyFingerprintIsNullOrderByIdAsc()) {
-            if (ApiKeyFingerprint.of(crypto.decrypt(legacy.getEncryptedKey())).equals(fingerprint)) matches.add(legacy);
+            if (ApiKeyFingerprint.of(normalize(crypto.decrypt(legacy.getEncryptedKey()))).equals(fingerprint)) matches.add(legacy);
         }
         Set<Long> ids = new LinkedHashSet<>();
         for (String accountId : verified.accountIds()) {
@@ -155,8 +156,11 @@ public class DataContextService {
             jdbc.update("INSERT INTO data_context_accounts(account_id,context_id) VALUES (?,?) ON CONFLICT(account_id) DO UPDATE SET context_id = EXCLUDED.context_id", accountId, target.id());
         }
         link(identity.getId(), target.id());
-        UserApiKey credential = matches.stream().filter(match -> fingerprint.equals(match.getKeyFingerprint())).findFirst()
-                .orElse(matches.isEmpty() ? null : matches.getFirst());
+        // A merge clears the persistence context after JDBC updates. Reload credentials so saving a
+        // detached pre-merge entity cannot restore an old context or lose duplicate assignments.
+        matches = keys.findAllById(matches.stream().map(UserApiKey::getId).toList()).stream()
+                .sorted(credentialOrder()).toList();
+        UserApiKey credential = matches.isEmpty() ? null : matches.getFirst();
         if (credential == null) credential = UserApiKey.create(identity, crypto.encrypt(key), LocalDateTime.now(clock));
         else credential.replaceKey(crypto.encrypt(key), LocalDateTime.now(clock));
         credential.assignContext(target.id(), fingerprint);
@@ -173,7 +177,7 @@ public class DataContextService {
         Long known = jdbc.queryForObject("SELECT COUNT(*) FROM data_context_accounts WHERE context_id=?", Long.class, context.id());
         if (known != null && known > 0) return;
         for (UserApiKey legacy : keys.findByContextIdOrderByIdAsc(context.id())) {
-            String legacyKey = crypto.decrypt(legacy.getEncryptedKey());
+            String legacyKey = normalize(crypto.decrypt(legacy.getEncryptedKey()));
             if (legacyKey.equals(incomingKey)) continue;
             try {
                 connectInternal(identity, legacyKey, false);
@@ -211,6 +215,8 @@ public class DataContextService {
         Context context = canonical(key.getContextId());
         if (!member(identityId, context.id())) throw denied("DATA_CONTEXT_ACCESS_DENIED", "데이터셋 접근 권한 없음");
         Connection connection = connect(user(identityId), crypto.decrypt(key.getEncryptedKey()));
+        // connect may merge contexts and clear managed entities; keep the refreshed fingerprint.
+        key = keys.findById(credentialId).orElseThrow(() -> denied("API_KEY_NOT_REGISTERED", "Nexon API Key 미등록"));
         // An existing selected key keeps its ID, including legacy duplicate credentials.
         key.replaceKey(key.getEncryptedKey(), LocalDateTime.now(clock));
         key.assignContext(connection.principal().contextId(), key.getKeyFingerprint());
@@ -268,9 +274,9 @@ public class DataContextService {
             representatives.merge(contextId, candidate,
                     (previous, next) -> representativeOrder(korean, previous, next) <= 0 ? previous : next);
         }, identityId);
-        return jdbc.query("""
+        List<CredentialListing> credentials = jdbc.query("""
                 SELECT DISTINCT c.id, c.owner_user_id, k.id AS credential_id,
-                       k.encrypted_key, k.key_status, k.last_verified_at
+                       k.encrypted_key, k.key_fingerprint, k.key_status, k.last_verified_at
                 FROM user_data_contexts l
                 JOIN data_contexts c ON c.id = l.context_id
                 JOIN user_api_keys k ON k.context_id = c.id
@@ -279,16 +285,41 @@ public class DataContextService {
                 """, (rs, row) -> {
             Long contextId = rs.getLong("id");
             Long credentialId = rs.getLong("credential_id");
-            Representative representative = representatives.get(contextId);
-            return new DataContextResponse(contextId, rs.getLong("owner_user_id"), credentialId,
-                    suffix(crypto.decrypt(rs.getString("encrypted_key"))), rs.getString("key_status"),
-                    rs.getObject("last_verified_at", LocalDateTime.class), Objects.equals(credentialId, currentCredentialId),
+            String normalizedKey = normalize(crypto.decrypt(rs.getString("encrypted_key")));
+            return new CredentialListing(contextId, rs.getLong("owner_user_id"), credentialId,
+                    ApiKeyFingerprint.of(normalizedKey), rs.getString("key_fingerprint") != null,
+                    suffix(normalizedKey), rs.getString("key_status"),
+                    rs.getObject("last_verified_at", LocalDateTime.class));
+        }, identityId);
+        Map<CredentialGroup, CredentialListing> unique = new LinkedHashMap<>();
+        Set<CredentialGroup> currentGroups = new LinkedHashSet<>();
+        for (CredentialListing credential : credentials) {
+            CredentialGroup group = new CredentialGroup(credential.contextId(), credential.fingerprint());
+            unique.merge(group, credential, (previous, next) ->
+                    listingOrder().compare(previous, next) <= 0 ? previous : next);
+            if (Objects.equals(credential.id(), currentCredentialId)) currentGroups.add(group);
+        }
+        return unique.entrySet().stream().map(entry -> {
+            CredentialListing credential = entry.getValue();
+            Representative representative = representatives.get(credential.contextId());
+            return new DataContextResponse(credential.contextId(), credential.ownerId(), credential.id(),
+                    credential.suffix(), credential.status(), credential.verifiedAt(), currentGroups.contains(entry.getKey()),
                     representative == null ? null : representative.name(),
                     representative == null ? null : representative.characterClass(),
                     representative == null ? null : representative.worldName(),
                     representative == null ? null : representative.level(),
                     representative == null ? null : representative.image());
-        }, identityId);
+        }).toList();
+    }
+
+    private Comparator<UserApiKey> credentialOrder() {
+        return Comparator.comparingInt((UserApiKey key) -> key.getKeyFingerprint() == null ? 1 : 0)
+                .thenComparing(UserApiKey::getId);
+    }
+
+    private Comparator<CredentialListing> listingOrder() {
+        return Comparator.comparingInt((CredentialListing key) -> key.fingerprinted() ? 0 : 1)
+                .thenComparing(CredentialListing::id);
     }
 
     private int representativeOrder(Collator korean, Representative left, Representative right) {
@@ -310,7 +341,7 @@ public class DataContextService {
         lockConnections();
         int count = 0;
         for (UserApiKey key : keys.findByKeyFingerprintIsNullOrderByIdAsc()) {
-            String fingerprint = ApiKeyFingerprint.of(crypto.decrypt(key.getEncryptedKey()));
+            String fingerprint = ApiKeyFingerprint.of(normalize(crypto.decrypt(key.getEncryptedKey())));
             if (keys.findByKeyFingerprint(fingerprint).isEmpty()) {
                 key.assignContext(key.getContextId(), fingerprint);
                 keys.saveAndFlush(key); count++;
@@ -336,6 +367,9 @@ public class DataContextService {
     private ApiException denied(String code, String message) { return new ApiException(HttpStatus.UNAUTHORIZED, code, message); }
     public record Context(Long id, Long ownerUserId, Long kakaoUserId, Long canonicalId) { }
     public record Connection(JwtAuthentication principal, UserApiKey credential, NexonAccountCharacters verified) { }
+    private record CredentialGroup(Long contextId, String fingerprint) { }
+    private record CredentialListing(Long contextId, Long ownerId, Long id, String fingerprint,
+                                     boolean fingerprinted, String suffix, String status, LocalDateTime verifiedAt) { }
     private record Representative(Long id, String ocid, String name, String characterClass, String worldName,
                                   Integer level, String image, boolean favorite, int sortOrder) { }
     public record DataContextResponse(Long contextId, Long ownerUserId, Long credentialId, String keySuffix,
