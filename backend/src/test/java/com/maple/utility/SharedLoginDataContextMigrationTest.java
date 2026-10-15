@@ -143,6 +143,55 @@ class SharedLoginDataContextMigrationTest {
 		}
 	}
 
+	@Test
+	void v19BackfillPreservesLegacyTrueAndWorldProvenanceWithoutGuessingSavedTime() throws Exception {
+		flyway("18").migrate();
+		try (Connection c=connection(); Statement st=c.createStatement()) {
+			st.execute("INSERT INTO users(id,oauth_provider,oauth_id) VALUES (101,'KAKAO','social'),(102,'NEXON_APIKEY','direct'),(103,'NEXON_APIKEY','empty')");
+			st.execute("INSERT INTO characters(id,user_id,ocid,character_name,is_favorite,updated_at) VALUES (301,102,'a','즐겨찾기',true,'2026-10-15'),(302,102,'b','기본값',false,'2026-10-15')");
+			st.execute("INSERT INTO user_selected_worlds(user_id,world_name) VALUES (102,'루나')");
+			st.execute("INSERT INTO data_merge_provenance(table_name,record_id,source_user_id) VALUES ('characters',301,101),('user_selected_world_sets',102,101)");
+		}
+
+		flyway(null).migrate();
+
+		try (Connection c=connection(); Statement st=c.createStatement()) {
+			assertThat(number(st,"SELECT count(*) FROM data_preference_sources WHERE setting_type='FAVORITE' AND record_id=301 AND state='LEGACY' AND source_user_id=101 AND saved_at IS NULL")).isEqualTo(1);
+			assertThat(number(st,"SELECT count(*) FROM data_preference_sources WHERE setting_type='FAVORITE' AND record_id=302 AND state='UNKNOWN' AND source_user_id=102 AND saved_at IS NULL")).isEqualTo(1);
+			assertThat(number(st,"SELECT count(*) FROM data_preference_sources WHERE setting_type='SORT_ORDER' AND state='UNKNOWN' AND saved_at IS NULL")).isEqualTo(3);
+			assertThat(number(st,"SELECT count(*) FROM data_preference_sources WHERE setting_type='WORLD_SELECTION' AND record_id=102 AND state='LEGACY' AND source_user_id=101 AND saved_at IS NULL")).isEqualTo(1);
+			assertThat(number(st,"SELECT count(*) FROM data_preference_sources WHERE setting_type='WORLD_SELECTION' AND record_id=103 AND state='UNKNOWN' AND saved_at IS NULL")).isEqualTo(1);
+			assertThat(number(st,"SELECT count(*) FROM data_context_merge_audits")).isZero();
+		}
+		assertThat(flyway(null).migrate().migrationsExecuted).isZero();
+	}
+
+	@Test
+	void v19ConstraintsRequireExplicitTimestampValidEnumsAndExistingSources() throws Exception {
+		flyway(null).migrate();
+		try (Connection c=connection(); Statement st=c.createStatement()) {
+			st.execute("INSERT INTO users(id,oauth_provider,oauth_id) VALUES (101,'KAKAO','social')");
+			assertThatThrownBy(() -> st.execute("INSERT INTO data_preference_sources(setting_type,record_id,source_user_id,state) VALUES ('FAVORITE',1,101,'EXPLICIT')")).isInstanceOf(SQLException.class).hasMessageContaining("explicit_saved_at");
+			assertThatThrownBy(() -> st.execute("INSERT INTO data_preference_sources(setting_type,record_id,source_user_id,state) VALUES ('OTHER',1,101,'UNKNOWN')")).isInstanceOf(SQLException.class).hasMessageContaining("setting_type");
+			assertThatThrownBy(() -> st.execute("INSERT INTO data_preference_sources(setting_type,record_id,source_user_id,state) VALUES ('FAVORITE',1,101,'OTHER')")).isInstanceOf(SQLException.class).hasMessageContaining("state");
+			assertThatThrownBy(() -> st.execute("INSERT INTO data_preference_sources(setting_type,record_id,source_user_id,state) VALUES ('FAVORITE',1,999,'UNKNOWN')")).isInstanceOf(SQLException.class).hasMessageContaining("source_user_id");
+			st.execute("INSERT INTO data_preference_sources(setting_type,record_id,source_user_id,state,saved_at) VALUES ('FAVORITE',1,101,'EXPLICIT',CURRENT_TIMESTAMP)");
+			assertThatThrownBy(() -> st.execute("INSERT INTO data_context_merge_audits(target_user_id,source_user_id,before_state,after_state) VALUES (101,999,'{}','{}')")).isInstanceOf(SQLException.class);
+			st.execute("INSERT INTO data_context_merge_audits(target_user_id,source_user_id,before_state,after_state) VALUES (101,101,'{}','{}')");
+			for(String table:new String[]{"data_preference_sources","data_context_merge_audits"}) {
+				st.execute("UPDATE "+table+" SET updated_at=TIMESTAMPTZ '2000-01-01 00:00:00+09'");
+				assertThat(number(st,"SELECT count(*) FROM "+table+" WHERE created_at IS NOT NULL AND updated_at>TIMESTAMPTZ '2000-01-02 00:00:00+09'")).isEqualTo(1);
+			}
+			assertThatThrownBy(() -> st.execute("DELETE FROM users WHERE id=101")).isInstanceOf(SQLException.class);
+			c.setAutoCommit(false);
+			st.execute("UPDATE data_preference_sources SET state='UNKNOWN',saved_at=NULL");
+			st.execute("INSERT INTO data_context_merge_audits(target_user_id,source_user_id,before_state,after_state) VALUES (101,101,'{}','{}')");
+			c.rollback();
+			assertThat(number(st,"SELECT count(*) FROM data_preference_sources WHERE state='EXPLICIT' AND saved_at IS NOT NULL")).isEqualTo(1);
+			assertThat(number(st,"SELECT count(*) FROM data_context_merge_audits")).isEqualTo(1);
+		}
+	}
+
 	@AfterEach
 	void dropTestSchema() throws Exception {
 		try (Connection connection = DriverManager.getConnection(System.getenv("FLYWAY_TEST_URL"),
