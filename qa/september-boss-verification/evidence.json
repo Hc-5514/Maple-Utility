@@ -1,0 +1,73 @@
+{
+  "source": "2026-10-14 읽기 전용 DB 조사 자료",
+  "disclaimer": "저장값과 사용자 확인의 대조 자료이며 9/30 당시 HTTP 원본이 아님",
+  "user_confirmation_date": "2026-10-15",
+  "september_records": [
+    {
+      "character_name": "말랑꼬농",
+      "difficulty": "HARD",
+      "record_date": "2026-09-30",
+      "is_completed": false,
+      "synced_at": "2026-10-13T02:00:08.40248",
+      "created_at": "2026-10-13T02:00:07.564875",
+      "user_confirmed_completed": true
+    },
+    {
+      "character_name": "꼬농",
+      "difficulty": "EXTREME",
+      "record_date": "2026-09-01",
+      "is_completed": true,
+      "synced_at": null,
+      "created_at": "2026-10-10T16:17:49.843145",
+      "user_confirmed_completed": true
+    },
+    {
+      "character_name": "꼬농",
+      "difficulty": "EXTREME",
+      "record_date": "2026-09-30",
+      "is_completed": false,
+      "synced_at": "2026-10-13T02:00:09.365277",
+      "created_at": "2026-10-13T02:00:08.577755",
+      "user_confirmed_completed": true
+    },
+    {
+      "character_name": "도구꼬농",
+      "difficulty": "HARD",
+      "record_date": "2026-09-30",
+      "is_completed": false,
+      "synced_at": "2026-10-13T02:00:11.333835",
+      "created_at": "2026-10-13T02:00:10.438035",
+      "user_confirmed_completed": false
+    }
+  ],
+  "source_receipts": [
+    {
+      "file": "database.json",
+      "sha256": "f1ff296657e21bbb9e9934202b75d0d8b28ad605e9d4ead21113e2e306f8f162"
+    },
+    {
+      "file": "derived-service-comparison.json",
+      "sha256": "3d8e728f7ad92157133a18939fdb7425fcd8893f5855541892191ad16719d45f"
+    },
+    {
+      "file": "responses.json",
+      "sha256": "b3c11ce9d07e31834c94cfb904fa1d4f565d0ac449be28a521f8bca1f0474d08"
+    },
+    {
+      "file": "boundary-2026-10-14.json",
+      "sha256": "be0c5eaf40fbdeefaf40f961344b0a27afae7f0114360c283cadc6fad0918a4e"
+    },
+    {
+      "file": "boundary-2026-10-15.json",
+      "sha256": "526901ba3c6e02a630874b51838bc16fd0510a292746f4f4a0999857fcbe05ae"
+    },
+    {
+      "file": "boundary-gate-2026-10-15.json",
+      "sha256": "cc057874f2e3024de1bbc55cf689eabccb3da183f23afa6a6fc02d3e4445b1e8"
+    },
+    {
+      "file": "report.md",
+      "sha256": "fd7784575bc94702a9f3e19dd9b5502427447a270a1aab489254f6a39483d0ca"
+    }
+  ]
+}
