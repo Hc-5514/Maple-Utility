@@ -36,10 +36,16 @@ BEGIN
  SELECT array_agg(c.relname::text ORDER BY c.relname) INTO actual FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','f');
  SELECT array_agg(name ORDER BY name) INTO expected FROM reset_expected_tables;
  IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'Public table inventory mismatch; manual review required'; END IF;
- IF (SELECT jsonb_agg(jsonb_build_array(version,type,script,checksum,success) ORDER BY installed_rank) FROM public.flyway_schema_history) IS DISTINCT FROM (SELECT payload->'migrations' FROM reset_catalog) THEN
+ IF (SELECT jsonb_agg(jsonb_build_array(version,type,script,checksum,success) ORDER BY version COLLATE "C", type COLLATE "C", script COLLATE "C") FROM public.flyway_schema_history) IS DISTINCT FROM (SELECT payload->'migrations' FROM reset_catalog) THEN
   RAISE EXCEPTION 'Flyway history differs from canonical database';
  END IF;
- IF EXISTS (SELECT 1 FROM public.flyway_schema_history WHERE NOT success) THEN RAISE EXCEPTION 'Failed migration history'; END IF;
+ IF EXISTS (SELECT 1 FROM public.flyway_schema_history WHERE success IS DISTINCT FROM true OR version IS NULL OR type <> 'SQL' OR checksum IS NULL) OR
+    EXISTS (SELECT version FROM public.flyway_schema_history GROUP BY version HAVING count(*) <> 1) THEN
+  RAISE EXCEPTION 'Invalid or duplicate migration history'; END IF;
+ IF EXISTS (SELECT 1 FROM reset_catalog c CROSS JOIN LATERAL jsonb_array_elements(c.payload->'migrations') m
+            WHERE jsonb_array_length(m) <> 5 OR m->>0 IS NULL OR m->>1 IS DISTINCT FROM 'SQL' OR m->>2 IS NULL OR m->>3 IS NULL OR m->4 IS DISTINCT FROM 'true'::jsonb) OR
+    EXISTS (SELECT m->>0 FROM reset_catalog c CROSS JOIN LATERAL jsonb_array_elements(c.payload->'migrations') m GROUP BY m->>0 HAVING count(*) <> 1) THEN
+  RAISE EXCEPTION 'Invalid or duplicate canonical migration history'; END IF;
 END $$;
 LOCK TABLE public.hunting_grounds, public.flyway_schema_history IN ACCESS EXCLUSIVE MODE;
 CREATE TEMP TABLE reset_preserved_grounds ON COMMIT DROP AS TABLE public.hunting_grounds;

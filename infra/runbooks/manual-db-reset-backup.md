@@ -22,7 +22,7 @@ bash infra/scripts/manual-backup.sh maple-postgres "$HOME/maple-manual-backups"
 bash infra/scripts/export-reset-catalog.sh maple-canonical "$HOME/Maple-Backups/reset-catalog.json"
 ```
 
-JSON 계약: `bosses`는 ID·생성/수정시각을 제외한 최종 보스 업무 필드 전체, `drops`는 활성 항목의 업무 필드와 보스명·난이도, `migrations`는 Flyway 버전·타입·스크립트·체크섬·성공 여부 배열. V2/V6/V7/V9/V17 등 최종 결과 반영. JSON은 신뢰할 수 있는 추출 결과만 사용하며 파일 해시와 검토 결과 기록. 운영 Flyway 이력과 다르면 실행 중단.
+JSON 계약: `bosses`는 ID·생성/수정시각을 제외한 최종 보스 업무 필드 전체, `drops`는 활성 항목의 업무 필드와 보스명·난이도, `migrations`는 Flyway 버전·타입·스크립트·체크섬·성공 여부 배열. V2/V6/V7/V9/V17 등 최종 결과 반영. JSON은 신뢰할 수 있는 추출 결과만 사용하며 파일 해시와 검토 결과 기록. 마이그레이션 비교는 버전·타입·스크립트의 C 정렬 기준이며 설치 순서 차이 허용. 버전 누락·중복·실패 또는 체크섬 차이 시 실행 중단. 실제 운영 Flyway 이력의 설치 순서·시각·ID는 원형 보존.
 
 ```bash
 RESET_CONFIRM=RESET-ALL-USER-DATA RESET_BACKUP_VERIFIED=yes RESET_WRITERS_STOPPED=yes \
