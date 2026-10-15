@@ -44,10 +44,10 @@ public class ApiKeyService {
     public void delete(JwtAuthentication principal) {
         contexts.lockConnections();
         selected(principal).ifPresent(selectedKey -> {
-            byte[] selectedValue = crypto.decrypt(selectedKey.getEncryptedKey()).getBytes(StandardCharsets.UTF_8);
-            var equivalentCredentials = keys.findByContextIdOrderByIdAsc(principal.contextId()).stream()
+            byte[] selectedValue = DataContextService.normalize(crypto.decrypt(selectedKey.getEncryptedKey())).getBytes(StandardCharsets.UTF_8);
+            var equivalentCredentials = keys.findByContextIdOrderByIdAsc(contexts.canonical(selectedKey.getContextId()).id()).stream()
                     .filter(candidate -> MessageDigest.isEqual(selectedValue,
-                            crypto.decrypt(candidate.getEncryptedKey()).getBytes(StandardCharsets.UTF_8)))
+                            DataContextService.normalize(crypto.decrypt(candidate.getEncryptedKey())).getBytes(StandardCharsets.UTF_8)))
                     .toList();
             // Legacy aliases must lose their ciphertext too; older sessions remain pinned to the removed IDs.
             keys.deleteAll(equivalentCredentials);
