@@ -49,7 +49,7 @@ public class CharacterController {
 			@Valid @RequestBody CharacterPreferencesRequest request,
 			Authentication authentication
 	) {
-		return characterService.updatePreferences(currentUserId(authentication), request.characters());
+		return characterService.updatePreferences(currentUserId(authentication), currentIdentityUserId(authentication), request.characters());
 	}
 
 	@PatchMapping("/favorites/sort-order")
@@ -57,7 +57,7 @@ public class CharacterController {
 			@Valid @RequestBody FavoriteSortOrderRequest request,
 			Authentication authentication
 	) {
-		return characterService.updateFavoriteSortOrder(currentUserId(authentication), request.characterIds());
+		return characterService.updateFavoriteSortOrder(currentUserId(authentication), currentIdentityUserId(authentication), request.characterIds());
 	}
 
 	@PatchMapping("/{id}/favorite")
@@ -65,7 +65,7 @@ public class CharacterController {
 			@PathVariable Long id,
 			Authentication authentication
 	) {
-		return characterService.toggleFavorite(currentUserId(authentication), id);
+		return characterService.toggleFavorite(currentUserId(authentication), currentIdentityUserId(authentication), id);
 	}
 
 	@PatchMapping("/{id}/sort-order")
@@ -74,7 +74,7 @@ public class CharacterController {
 			@Valid @RequestBody CharacterSortOrderRequest request,
 			Authentication authentication
 	) {
-		return characterService.updateSortOrder(currentUserId(authentication), id, request.sortOrder());
+		return characterService.updateSortOrder(currentUserId(authentication), currentIdentityUserId(authentication), id, request.sortOrder());
 	}
 
 	@PostMapping("/sync")
@@ -85,6 +85,11 @@ public class CharacterController {
 	@GetMapping("/sync-jobs/{jobId}")
 	public SyncJobResponse getSyncJob(@PathVariable Long jobId, Authentication authentication) {
 		return syncJobService.get(currentUserId(authentication), jobId);
+	}
+
+	private Long currentIdentityUserId(Authentication authentication) {
+		JwtAuthentication principal = (JwtAuthentication) authentication.getPrincipal();
+		return principal.identityUserId();
 	}
 
 	private Long currentUserId(Authentication authentication) {

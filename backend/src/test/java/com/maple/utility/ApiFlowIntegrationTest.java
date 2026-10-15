@@ -205,12 +205,12 @@ class ApiFlowIntegrationTest {
 	void 캐릭터_설정_일괄_저장_JWT_사용자_전달() throws Exception {
 		String token = jwtTokenProvider.createAccessToken(new com.maple.utility.security.JwtAuthentication(7L, 7L, 70L, 10L)).value();
 		var items = List.of(new com.maple.utility.dto.request.CharacterPreferencesRequest.Preference(10L, true));
-		Mockito.when(characterService.updatePreferences(7L, items)).thenReturn(List.of());
+		Mockito.when(characterService.updatePreferences(7L, 7L, items)).thenReturn(List.of());
 		mockMvc.perform(put("/api/v1/characters/preferences").header("Authorization", "Bearer " + token)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"characters\":[{\"characterId\":10,\"favorite\":true}]}"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$").isArray());
-		Mockito.verify(characterService).updatePreferences(7L, items);
+		Mockito.verify(characterService).updatePreferences(7L, 7L, items);
 	}
 
 	@Test
@@ -223,7 +223,7 @@ class ApiFlowIntegrationTest {
 	void 월드_선택_JWT_사용자별_조회_저장() throws Exception {
 		String token = jwtTokenProvider.createAccessToken(new com.maple.utility.security.JwtAuthentication(7L, 7L, 70L, 10L)).value();
 		Mockito.when(worldSelectionService.getSelection(7L)).thenReturn(new WorldSelectionResponse(List.of("루나")));
-		Mockito.when(worldSelectionService.saveSelection(7L, List.of("베라")))
+		Mockito.when(worldSelectionService.saveSelection(7L, 7L, List.of("베라")))
 				.thenReturn(new WorldSelectionResponse(List.of("베라")));
 		mockMvc.perform(get("/api/v1/characters/world-selection").header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.worldNames[0]").value("루나"));
@@ -231,7 +231,7 @@ class ApiFlowIntegrationTest {
 					.contentType(MediaType.APPLICATION_JSON).content("{\"worldNames\":[\"베라\"]}"))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.worldNames[0]").value("베라"));
 		Mockito.verify(worldSelectionService).getSelection(7L);
-		Mockito.verify(worldSelectionService).saveSelection(7L, List.of("베라"));
+		Mockito.verify(worldSelectionService).saveSelection(7L, 7L, List.of("베라"));
 	}
 
 	@Test
@@ -278,7 +278,7 @@ class ApiFlowIntegrationTest {
 	@Test
 	void 즐겨찾기_순서_저장_경로_200() throws Exception {
 		String token = jwtTokenProvider.createAccessToken(1L).value();
-		Mockito.when(characterService.updateFavoriteSortOrder(1L, List.of(3L, 2L)))
+		Mockito.when(characterService.updateFavoriteSortOrder(1L, 1L, List.of(3L, 2L)))
 				.thenReturn(Collections.emptyList());
 
 		mockMvc.perform(patch("/api/v1/characters/favorites/sort-order")
@@ -287,7 +287,7 @@ class ApiFlowIntegrationTest {
 					.header("Authorization", "Bearer " + token))
 				.andExpect(status().isOk());
 
-		Mockito.verify(characterService).updateFavoriteSortOrder(1L, List.of(3L, 2L));
+		Mockito.verify(characterService).updateFavoriteSortOrder(1L, 1L, List.of(3L, 2L));
 	}
 
 	@Test

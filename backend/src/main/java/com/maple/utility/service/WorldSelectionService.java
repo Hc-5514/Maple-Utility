@@ -21,8 +21,16 @@ public class WorldSelectionService {
 			"이노시스", "레드", "오로라", "아케인", "노바", "에오스", "헬리오스");
 	private final UserRepository users;
 	private final UserSelectedWorldRepository selections;
+	private final DataPreferenceSourceService preferenceSources;
 
 	public WorldSelectionService(UserRepository users, UserSelectedWorldRepository selections) {
+		this(users, selections, null);
+	}
+
+	@org.springframework.beans.factory.annotation.Autowired
+	public WorldSelectionService(UserRepository users, UserSelectedWorldRepository selections,
+			DataPreferenceSourceService preferenceSources) {
+		this.preferenceSources = preferenceSources;
 		this.users = users;
 		this.selections = selections;
 	}
@@ -37,6 +45,11 @@ public class WorldSelectionService {
 
 	@Transactional
 	public WorldSelectionResponse saveSelection(Long userId, List<String> worldNames) {
+		return saveSelection(userId, userId, worldNames);
+	}
+
+	@Transactional
+	public WorldSelectionResponse saveSelection(Long userId, Long identityUserId, List<String> worldNames) {
 		if (worldNames == null || worldNames.stream().anyMatch(name -> name == null || !WORLDS.contains(name))) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_WORLD_SELECTION", "월드 선택 값 오류");
 		}
@@ -48,6 +61,9 @@ public class WorldSelectionService {
 		List<String> ordered = WORLDS.stream().filter(worldNames::contains).toList();
 		selections.deleteAllByUserId(userId);
 		selections.saveAll(ordered.stream().map(name -> UserSelectedWorld.create(user, name)).toList());
+		if (preferenceSources != null) {
+			preferenceSources.saveExplicit(DataPreferenceSourceService.WORLD_SELECTION, userId, identityUserId);
+		}
 		return new WorldSelectionResponse(ordered);
 	}
 
