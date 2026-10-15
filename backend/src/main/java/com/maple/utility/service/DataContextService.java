@@ -270,6 +270,98 @@ public class DataContextService {
         }
     }
 
+    private static final List<String> CHARACTER_CHILD_TABLES = List.of(
+            "scheduler_daily_records", "scheduler_weekly_records", "scheduler_boss_records",
+            "boss_period_entries", "boss_period_selections", "boss_item_acquisitions",
+            "hunting_records", "scheduler_week_finalizations", "scheduler_monthly_finalizations");
+
+    /**
+     * Permanently deletes a dataset card: every credential, merged dataset and record behind it.
+     * Returns true when the deleted dataset was the one the caller's session was using.
+     */
+    @Transactional
+    public DeletedDataset deleteDataset(Long identityId, Long contextId, Long sessionContextId) {
+        lockConnections();
+        User identity = user(identityId);
+        Context target = canonical(contextId);
+        if (!member(identityId, target.id()) || (target.kakaoUserId() != null && !target.kakaoUserId().equals(identityId))) {
+            throw denied("DATA_CONTEXT_ACCESS_DENIED", "데이터셋 접근 권한 없음");
+        }
+        boolean wasCurrent = sessionContextId != null && canonical(sessionContextId).id().equals(target.id());
+        entityManager.flush();
+        Set<Long> chain = mergedInto(target.id());
+        List<Long> owners = distinct(jdbc.query("SELECT owner_user_id FROM data_contexts WHERE id = ANY (?)",
+                (rs, row) -> rs.getLong(1), (Object) chain.toArray(Long[]::new)));
+        if (Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM sync_jobs WHERE user_id = ANY (?) AND status = 'STARTED')
+                    OR EXISTS (SELECT 1 FROM data_sync_logs WHERE user_id = ANY (?) AND status = 'STARTED')
+                """, Boolean.class, owners.toArray(Long[]::new), owners.toArray(Long[]::new)))) {
+            throw new ApiException(HttpStatus.CONFLICT, "DATA_CONTEXT_SYNC_IN_PROGRESS", "동기화 진행 중에는 삭제할 수 없습니다");
+        }
+        // Identities that only exist to hold or reach this dataset are removed with it.
+        Set<Long> disposable = new LinkedHashSet<>();
+        List<Long> linked = jdbc.query("SELECT DISTINCT user_id FROM user_data_contexts WHERE context_id = ANY (?)",
+                (rs, row) -> rs.getLong(1), (Object) chain.toArray(Long[]::new));
+        for (Long userId : distinctAll(owners, linked)) {
+            User candidate = users.findById(userId).orElse(null);
+            if (candidate != null && candidate.getOauthProvider() == OAuthProvider.NEXON_APIKEY) disposable.add(userId);
+        }
+        Long[] ownerIds = owners.toArray(Long[]::new);
+        Long[] chainIds = chain.toArray(Long[]::new);
+        Set<Long> affected = new LinkedHashSet<>(owners);
+        affected.addAll(disposable);
+        Long[] affectedIds = affected.toArray(Long[]::new);
+
+        // Rows that block user deletion (RESTRICT) or point at records removed below.
+        jdbc.update("""
+                DELETE FROM data_preference_sources WHERE source_user_id = ANY (?)
+                OR (setting_type = 'FAVORITE' AND record_id IN (SELECT id FROM characters WHERE user_id = ANY (?)))
+                OR (setting_type <> 'FAVORITE' AND record_id = ANY (?))
+                """, affectedIds, ownerIds, ownerIds);
+        List<String> provenance = new java.util.ArrayList<>();
+        provenance.add("source_user_id = ANY (?)");
+        provenance.add("(table_name = 'characters' AND record_id IN (SELECT id FROM characters WHERE user_id = ANY (?)))");
+        provenance.add("(table_name = 'user_selected_worlds' AND record_id IN (SELECT id FROM user_selected_worlds WHERE user_id = ANY (?)))");
+        provenance.add("(table_name = 'user_selected_world_sets' AND record_id = ANY (?))");
+        List<Object> args = new java.util.ArrayList<>(List.of(affectedIds, ownerIds, ownerIds, ownerIds));
+        for (String table : CHARACTER_CHILD_TABLES) {
+            provenance.add("(table_name = '" + table + "' AND record_id IN (SELECT r.id FROM " + table
+                    + " r JOIN characters c ON c.id = r.character_id WHERE c.user_id = ANY (?)))");
+            args.add(ownerIds);
+        }
+        jdbc.update("DELETE FROM data_merge_provenance WHERE " + String.join(" OR ", provenance), args.toArray());
+        jdbc.update("DELETE FROM data_context_merge_audits WHERE target_user_id = ANY (?) OR source_user_id = ANY (?)",
+                affectedIds, affectedIds);
+
+        // Records. Character children cascade; owner-level tables are removed explicitly because a Kakao owner survives.
+        jdbc.update("DELETE FROM data_sync_logs WHERE user_id = ANY (?)", (Object) ownerIds);
+        jdbc.update("DELETE FROM sync_jobs WHERE user_id = ANY (?)", (Object) ownerIds);
+        jdbc.update("DELETE FROM characters WHERE user_id = ANY (?)", (Object) ownerIds);
+        jdbc.update("DELETE FROM scheduler_week_finalizations WHERE user_id = ANY (?)", (Object) ownerIds);
+        jdbc.update("DELETE FROM scheduler_monthly_finalizations WHERE user_id = ANY (?)", (Object) ownerIds);
+        jdbc.update("DELETE FROM user_selected_worlds WHERE user_id = ANY (?)", (Object) ownerIds);
+        jdbc.update("DELETE FROM user_hunting_ground_favorites WHERE user_id = ANY (?)", (Object) ownerIds);
+
+        // Credentials, account mapping and the datasets themselves.
+        jdbc.update("DELETE FROM user_api_keys WHERE context_id = ANY (?)", (Object) chainIds);
+        jdbc.update("DELETE FROM data_context_accounts WHERE context_id = ANY (?)", (Object) chainIds);
+        jdbc.update("UPDATE data_contexts SET canonical_context_id = NULL WHERE id = ANY (?)", (Object) chainIds);
+        jdbc.update("DELETE FROM data_contexts WHERE id = ANY (?)", (Object) chainIds);
+        if (!disposable.isEmpty()) jdbc.update("DELETE FROM users WHERE id = ANY (?)", (Object) disposable.toArray(Long[]::new));
+        entityManager.clear();
+        clearCaches();
+        boolean identityRemoved = disposable.contains(identityId);
+        if (!identityRemoved) own(identity);
+        return new DeletedDataset(wasCurrent, identityRemoved, disposable);
+    }
+
+    private static List<Long> distinct(List<Long> values) { return new java.util.ArrayList<>(new LinkedHashSet<>(values)); }
+    private static List<Long> distinctAll(List<Long> first, List<Long> second) {
+        Set<Long> all = new LinkedHashSet<>(first);
+        all.addAll(second);
+        return new java.util.ArrayList<>(all);
+    }
+
     /** Canonical datasets of the identity that hold at least one credential, the same set the list endpoint shows. */
     private Set<Long> connectedContextIds(Long identityId) {
         return new LinkedHashSet<>(jdbc.query("""
@@ -544,6 +636,7 @@ public class DataContextService {
     public static String suffix(String key) { return key.length() > 4 ? key.substring(key.length()-4) : null; }
     private String firstName(NexonAccountCharacters response) { return response.characters().stream().map(c -> c.characterName()).findFirst().orElse(null); }
     private ApiException denied(String code, String message) { return new ApiException(HttpStatus.UNAUTHORIZED, code, message); }
+    public record DeletedDataset(boolean wasCurrent, boolean identityRemoved, Set<Long> removedUserIds) { }
     public enum PrecheckStatus { AVAILABLE, ALREADY_LINKED, LINKED_TO_OTHER_KAKAO, LIMIT_EXCEEDED }
     public record Precheck(PrecheckStatus status, int connectedCount, int maxCount) { }
     public record Context(Long id, Long ownerUserId, Long kakaoUserId, Long canonicalId) { }

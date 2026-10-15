@@ -155,6 +155,23 @@ public class AuthService {
         return switchSession(next, previousRefreshToken);
     }
 
+    /**
+     * Permanently deletes a dataset. Returns null when the caller's own identity was removed
+     * (API Key login), otherwise a re-issued session on a still connected dataset.
+     */
+    @Transactional
+    public LoginResult deleteContextData(com.maple.utility.security.JwtAuthentication principal, Long contextId, String previousRefreshToken) {
+        var deleted = contexts.deleteDataset(principal.identityUserId(), contextId, principal.contextId());
+        if (deleted.identityRemoved()) {
+            if (previousRefreshToken != null) {
+                try { logout(previousRefreshToken); } catch (ApiException staleCookie) { /* identity is gone either way */ }
+            }
+            return null;
+        }
+        var next = deleted.wasCurrent() ? contexts.defaultPrincipal(findUser(principal.identityUserId())) : contexts.resolve(principal);
+        return switchSession(next, previousRefreshToken);
+    }
+
     public LoginResult switchSession(com.maple.utility.security.JwtAuthentication principal, String previousRefreshToken) {
         JwtTokenProvider.RefreshTokenClaims previous = null;
         if (previousRefreshToken != null) {

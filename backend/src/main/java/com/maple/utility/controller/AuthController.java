@@ -90,6 +90,18 @@ public class AuthController {
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, expireLegacyRefreshTokenCookie().toString(), refreshTokenCookie(result.refreshToken()).toString()).body(result.response());
     }
 
+    /** Permanently deletes the dataset and every key and record behind it. API Key logins are signed out (204). */
+    @org.springframework.web.bind.annotation.DeleteMapping("/data-contexts/{contextId}")
+    public ResponseEntity<AuthResponse> deleteContextData(
+            @org.springframework.web.bind.annotation.PathVariable Long contextId,
+            Authentication authentication, @CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        var result = authService.deleteContextData((JwtAuthentication) authentication.getPrincipal(), contextId, refreshToken);
+        if (result == null) {
+            return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, expireLegacyRefreshTokenCookie().toString(), expireRefreshTokenCookie().toString()).build();
+        }
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, expireLegacyRefreshTokenCookie().toString(), refreshTokenCookie(result.refreshToken()).toString()).body(result.response());
+    }
+
     /** Read-only: tells whether a Nexon API key can be added to this account, without changing anything. */
     @PostMapping("/data-contexts/precheck")
     public com.maple.utility.service.DataContextService.Precheck precheck(
