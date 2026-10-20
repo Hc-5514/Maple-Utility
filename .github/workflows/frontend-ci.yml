@@ -38,10 +38,20 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      - name: 린트
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        working-directory: frontend
+        run: pnpm run lint
+
       - name: 타입 검사
         if: ${{ hashFiles('frontend/package.json') != '' }}
         working-directory: frontend
         run: pnpm run type-check
+
+      - name: 테스트
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+        working-directory: frontend
+        run: pnpm test
 
       - name: 빌드
         if: ${{ hashFiles('frontend/package.json') != '' }}
