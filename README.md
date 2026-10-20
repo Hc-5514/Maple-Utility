@@ -31,3 +31,26 @@ PostgreSQL 연결 정보 없이 건너뛰는 다음 3개 테스트의 실제 실
 - `HuntingRecordPostgresTest`: PostgreSQL의 날짜 필터·사용자·즐겨찾기 조건 및 정렬 조회 (1개)
 
 검증 결과는 `backend/build/test-results/test/TEST-*.xml`과 `backend/build/reports/tests/test/index.html`에서 확인. 테스트 환경에서는 임의 스키마 생성·삭제가 발생하므로 테스트 전용 DB 사용 필수.
+
+## 브랜치 전략
+
+| 브랜치 | 역할 |
+|---|---|
+| `main` | 운영 배포. push 시 배포 workflow 실행 |
+| `develop` | 운영 반영 전 변경 통합 및 테스트. 기본 브랜치 |
+
+- 작업 흐름: feature 브랜치 → PR → `develop` → PR → `main`
+- `main`·`develop` 직접 push 및 force-push 금지 (ruleset 적용)
+- feature → `develop`: merge commit 또는 squash, `develop` → `main`: merge commit만 허용
+- 스테이징 서버 배포는 별도 이슈(#348)에서 진행
+
+## 릴리스
+
+- 버전 표기: SemVer `vMAJOR.MINOR.PATCH` (기능 추가 minor, 버그 수정 patch, 호환성 변경 major)
+- 절차: `develop` → `main` PR 머지 → `main` 최신 커밋에 태그 push → GitHub Release 자동 생성
+
+```bash
+git switch main && git pull
+git tag v1.0.0
+git push origin v1.0.0
+```
