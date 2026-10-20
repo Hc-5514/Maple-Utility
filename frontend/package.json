@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.80.7",
-    "axios": "^1.9.0",
+    "axios": "^1.20.0",
     "lucide-react": "^1.49.0",
     "msw": "^2.10.2",
     "react": "^19.3.0",
