@@ -46,11 +46,36 @@ PostgreSQL 연결 정보 없이 건너뛰는 다음 3개 테스트의 실제 실
 
 ## 릴리스
 
-- 버전 표기: SemVer `vMAJOR.MINOR.PATCH` (기능 추가 minor, 버그 수정 patch, 호환성 변경 major)
+- 버전 표기: SemVer `vMAJOR.MINOR.PATCH` (예: `v1.2.3`에서 a=1 MAJOR, b=2 MINOR, c=3 PATCH)
 - 절차: `develop` → `main` PR 머지 → `main` 최신 커밋에 태그 push → GitHub Release 자동 생성
 
 ```bash
 git switch main && git pull
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.2
+git push origin v1.0.2
 ```
+
+### 버전 증가 기준
+
+| 자리 | 이름 | 올리는 기준 | 예시 |
+|---|---|---|---|
+| a | MAJOR | 기존 사용자·운영 데이터·연동이 깨질 수 있는 변경. 되돌리기 어렵거나 FE·BE 동시 배포 필수 | API 계약 비호환 변경, 인증·세션 방식 변경(전원 재로그인), 되돌릴 수 없는 DB 스키마·데이터 변환, 서비스 전면 개편 |
+| b | MINOR | 하위 호환을 유지한 기능 추가·개선 | 신규 화면·API·콘텐츠 기능, 컬럼 추가 등 호환 마이그레이션, 사용자 체감 동작 개선 |
+| c | PATCH | 기능 변화 없는 수정 | 버그 수정, 보안 패치, 의존성 patch·minor 업데이트, CI·문서·설정 변경, 동작 불변 리팩토링 |
+
+공통 규칙:
+
+- 한 릴리스에 여러 종류가 섞이면 가장 높은 단계만 올림
+- 올린 자리의 오른쪽은 0으로 초기화 (`1.4.2` → MINOR `1.5.0`, → MAJOR `2.0.0`)
+- 판단이 애매하면 낮은 단계. 단 데이터 손실·재로그인·FE/BE 동시 배포가 필요하면 높은 단계
+- 의존성 major 업그레이드: 런타임 사용자 영향이 없으면 PATCH (예: v1.0.1의 eslint·vitest), 화면·동작이 바뀌면 MINOR 이상
+- 운영 DB 초기화·백업 같은 운영 작업은 코드 변경이 없으면 버전 변경 없음
+- 프리릴리스 접미사(`-rc` 등) 미사용. `v*.*.*` 태그는 Release workflow가 정식 Release로 생성
+- 공개한 태그는 삭제·재사용하지 않고 다음 PATCH로 정정
+
+### 릴리스 이력
+
+| 버전 | 내용 |
+|---|---|
+| v1.0.0 | 최초 릴리스 (develop 브랜치 전략·Release workflow 도입) |
+| v1.0.1 | 의존성 업데이트 및 프런트 CI lint·test 추가 |
