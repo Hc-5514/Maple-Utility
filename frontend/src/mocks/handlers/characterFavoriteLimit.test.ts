@@ -35,7 +35,7 @@ const save = (characters: Character[], favoriteCount: number) =>
   })
 const toggle = (id: number) => fetch(`${url}/${id}/favorite`, { method: 'PATCH' })
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterAll(() => server.close())
 
 describe('character favorite-limit mock contract', () => {
