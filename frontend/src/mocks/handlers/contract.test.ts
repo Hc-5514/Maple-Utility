@@ -14,7 +14,7 @@ const server = setupServer(
   ...schedulerHandlers, ...characterHandlers, ...statsHandlers,
 )
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => {
   server.resetHandlers()
   resetPreviewPeriods()

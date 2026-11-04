@@ -3,7 +3,7 @@ import { setupServer } from 'msw/node'
 import { characterHandlers } from './character'
 import type { Character } from '../../types'
 const server = setupServer(...characterHandlers)
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterAll(() => server.close())
 const url = 'http://localhost/api/v1/characters'
 async function characters(): Promise<Character[]> {
