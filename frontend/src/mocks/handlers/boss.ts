@@ -26,6 +26,7 @@ export const bossHandlers = [
       characterId: number
       periodStart: string
       partySize: number
+      crystalPrice?: number | null
       items: { bossDropItemId: number; acquired: boolean; quantity: number }[]
     }
     const previous = getPreviewPeriod(body.characterId, bossId, body.periodStart)
@@ -33,9 +34,15 @@ export const bossHandlers = [
       return HttpResponse.json({ success: false }, { status: 400 })
     }
     const changed = new Map(body.items.map((item) => [item.bossDropItemId, item]))
+    // 수정한 결정 가격(미전송이면 기존 적용 가격 유지)
+    const crystalPrice = body.crystalPrice ?? previous.crystalPrice
+    if (crystalPrice < 0 || crystalPrice > 100_000_000_000) {
+      return HttpResponse.json({ success: false }, { status: 400 })
+    }
     const saved: BossPeriod = {
       ...previous,
       partySize: body.partySize,
+      crystalPrice,
       items: previous.items.map((item) => {
         const edit = changed.get(item.dropItem.id)
         return edit ? {
@@ -43,8 +50,8 @@ export const bossHandlers = [
           acquired: edit.acquired,
           quantity: edit.quantity,
           // 결정 메소는 서버가 결정 가격 / 인원수로 계산
-          mesoAmount: item.dropItem.itemKind === 'CRYSTAL' && previous.crystalPrice > 0
-            ? Math.floor(previous.crystalPrice / body.partySize)
+          mesoAmount: item.dropItem.itemKind === 'CRYSTAL' && crystalPrice > 0
+            ? Math.floor(crystalPrice / body.partySize)
             : null,
         } : { ...item, acquired: false }
       }),
