@@ -66,7 +66,7 @@ class StatsDetailItemLabelTest {
 		entityManager.flush();
 		entityManager.clear();
 
-		var page = repository.findBossItemStats(List.of(character.getId()), null, null, null, 0, 10);
+		var page = repository.findBossItemStats(List.of(character.getId()), null, null, null, null, 0, 10);
 
 		assertThat(page.content()).extracting(StatsBossItemResponse::itemName).containsExactly(
 				"혼돈의 칠흑 장신구 상자 (마력이 깃든 안대)", "혼돈의 칠흑 장신구 상자", "생명의 연마석");
