@@ -5,7 +5,7 @@ import { huntingHandlers, resetHuntingRecords } from './hunting'
 const server = setupServer(...huntingHandlers)
 const get = (path: string) => fetch(`http://localhost/api/v1${path}`).then((response) => response.json())
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => resetHuntingRecords())
 afterAll(() => server.close())
 

@@ -4,7 +4,7 @@ import { schedulerHandlers } from './scheduler'
 
 const server = setupServer(...schedulerHandlers)
 const base = 'http://localhost/api/v1/scheduler/1'
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => { server.resetHandlers(); vi.useRealTimers() })
 afterAll(() => server.close())
 
