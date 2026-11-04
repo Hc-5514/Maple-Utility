@@ -33,6 +33,28 @@ describe('hunting mock handlers', () => {
     })
   })
 
+  it('allows several records for the same character and date', async () => {
+    const save = (mesoEarned: number) => fetch('http://localhost/api/v1/hunting', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterId: 1, recordDate: '2026-11-04', mesoEarned }),
+    })
+
+    const first = await save(100_000_000)
+    const second = await save(200_000_000)
+
+    expect(first.status).toBe(201)
+    expect(second.status).toBe(201)
+    const records = await get('/hunting?characterId=1&from=2026-11-04&to=2026-11-04')
+    expect(records.data).toHaveLength(2)
+    expect(records.data.map((record: { mesoEarned: number }) => record.mesoEarned).sort())
+      .toEqual([100_000_000, 200_000_000])
+    const moved = await fetch(`http://localhost/api/v1/hunting/${records.data[0].id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterId: 1, recordDate: '2026-11-04', mesoEarned: 300_000_000 }),
+    })
+    expect(moved.status).toBe(200)
+  })
+
   it('rejects unsupported page sizes', async () => {
     const response = await fetch('http://localhost/api/v1/hunting/page?page=0&size=15')
     expect(response.status).toBe(400)
