@@ -13,9 +13,9 @@ const period: BossPeriod = {
   items: [{
     dropItem: {
       id: 10, bossId: 5, itemName: '강렬한 힘의 결정', itemImage: null,
-      itemDescription: null, dropRateTier: 'HIGH', itemKind: 'CRYSTAL', defaultQuantity: 1,
+      itemDescription: null, dropRateTier: 'HIGH', itemKind: 'CRYSTAL', defaultQuantity: 1, detailOptions: [],
     },
-    acquired: false, quantity: 1, mesoAmount: 48_900_000,
+    acquired: false, quantity: 1, mesoAmount: 48_900_000, detailItem: null,
   }],
 }
 

@@ -87,6 +87,7 @@ public class SyncJobService {
 		if (!force && !batch) {
 			var recent = jobs.latestCompleted(userId, "SCHEDULER");
 			if (recent.isPresent() && recent.get().completedAt() != null
+					&& recent.get().failedCount() == 0
 					&& Duration.between(recent.get().completedAt(), LocalDateTime.now(clock)).compareTo(Duration.ofMinutes(5)) < 0
 					&& recent.get().completedAt().toLocalDate().equals(LocalDateTime.now(clock).toLocalDate())
 					&& !favoritesChanged(userId, recent.get())
@@ -155,31 +156,50 @@ public class SyncJobService {
 
 	private void runScheduler(Long userId, Long id, boolean batch, boolean force) {
 		try {
-			List<MapleCharacter> favorites = characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
-			var favoriteIds = favorites.stream().map(MapleCharacter::getId).collect(java.util.stream.Collectors.toSet());
-			Work historyTargets = batch ? Work.empty() : prepareHistory(userId).favorites(favoriteIds);
-			jobs.setTotal(id, favorites.size() + historyTargets.size());
-			for (MapleCharacter character : favorites) {
+			try {
+				syncSchedulerTargets(userId, id, batch, force);
+			} finally {
 				try {
-					schedulerSync.syncOneCharacter(userId, character, batch, force);
-					jobs.advance(id, false);
-				} catch (NexonApiException exception) {
-					if (!"OPENAPI00003".equals(exception.getNexonErrorName())) {
-						throw exception;
-					}
-					log.warn("Skipping Nexon scheduler sync. userId={}, ocid={}, nexonErrorName={}",
-							userId, character.getOcid(), exception.getNexonErrorName());
-					jobs.advance(id, true);
+					evictSchedulerCaches();
+				} catch (RuntimeException exception) {
+					log.warn("Scheduler cache eviction failed after sync job. jobId={}", id, exception);
 				}
 			}
-			if (historyTargets.size() > 0) {
-				// 고정한 주간·월간 대상별 결과를 진행률에 한 번 반영.
-				historyFinalization.finalizePrepared(userId, historyTargets, skipped -> jobs.advance(id, skipped));
-			}
+			// Publish the terminal state after eviction so polling clients can read fresh data.
 			jobs.complete(id, LocalDateTime.now(clock));
-			evictSchedulerCaches();
 		} catch (Exception exception) {
 			fail(id, exception);
+		}
+	}
+
+	private void syncSchedulerTargets(Long userId, Long id, boolean batch, boolean force) {
+		List<MapleCharacter> favorites = characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
+		var favoriteIds = favorites.stream().map(MapleCharacter::getId).collect(java.util.stream.Collectors.toSet());
+		Work historyTargets = batch ? Work.empty() : prepareHistory(userId).favorites(favoriteIds);
+		jobs.setTotal(id, favorites.size() + historyTargets.size());
+		for (MapleCharacter character : favorites) {
+			try {
+				schedulerSync.syncOneCharacter(userId, character, batch, force);
+				jobs.advance(id, false);
+			} catch (NexonApiException exception) {
+				if (!"OPENAPI00003".equals(exception.getNexonErrorName())) {
+					throw exception;
+				}
+				log.warn("Skipping Nexon scheduler sync. userId={}, ocid={}, nexonErrorName={}",
+						userId, character.getOcid(), exception.getNexonErrorName());
+				jobs.advance(id, true);
+			} catch (ApiException exception) {
+				if (!"NEXON_NETWORK_ERROR".equals(exception.getCode())) {
+					throw exception;
+				}
+				log.warn("Nexon scheduler character sync failed. jobId={}, characterId={}, code={}",
+						id, character.getId(), exception.getCode());
+				jobs.advanceFailed(id);
+			}
+		}
+		if (historyTargets.size() > 0) {
+			// 고정한 주간·월간 대상별 결과를 진행률에 한 번 반영.
+			historyFinalization.finalizePrepared(userId, historyTargets, skipped -> jobs.advance(id, skipped));
 		}
 	}
 

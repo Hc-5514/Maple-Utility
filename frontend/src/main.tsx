@@ -7,7 +7,7 @@ import ErrorBoundary from './components/common/ErrorBoundary'
 async function enableMocking() {
   if (import.meta.env.VITE_USE_MOCK !== 'true') return
   const { worker } = await import('./mocks/browser')
-  await worker.start({ onUnhandledRequest: 'warn' })
+  await worker.start({ onUnhandledFrame: 'warn' })
   localStorage.setItem('accessToken', 'mock-access-token-xyz')
 }
 

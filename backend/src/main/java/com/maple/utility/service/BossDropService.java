@@ -2,6 +2,7 @@ package com.maple.utility.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -23,6 +24,7 @@ import com.maple.utility.dto.response.BossItemAcquisitionResponse;
 import com.maple.utility.dto.response.BossPeriodResponse;
 import com.maple.utility.entity.BossDropItem;
 import com.maple.utility.entity.BossItemAcquisition;
+import com.maple.utility.entity.BossItemDetailOptions;
 import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.BossMaster;
 import com.maple.utility.entity.BossPeriodEntry;
@@ -61,8 +63,15 @@ public class BossDropService {
 	@Transactional(readOnly = true)
 	public List<BossDropItemResponse> getDropItems(Long bossId) {
 		findBoss(bossId);
-		return bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(bossId).stream()
+		return activeDropItems(bossId).stream()
 				.map(BossDropItemResponse::from)
+				.toList();
+	}
+
+	/** 결정 → 고정 아이템 → 랜덤 아이템 순서(BossItemKind 선언 순서), 같은 종류 안에서는 id 오름차순 */
+	private List<BossDropItem> activeDropItems(Long bossId) {
+		return bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(bossId).stream()
+				.sorted(Comparator.comparing(BossDropItem::getItemKind))
 				.toList();
 	}
 
@@ -74,7 +83,7 @@ public class BossDropService {
 	) {
 		findCharacter(userId, characterId);
 		findBoss(bossId);
-		List<BossDropItem> dropItems = bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(bossId);
+		List<BossDropItem> dropItems = activeDropItems(bossId);
 		if (dropItems.isEmpty()) {
 			return List.of();
 		}
@@ -127,12 +136,21 @@ public class BossDropService {
 					&& item.mesoAmount() != null) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_MESO_AMOUNT", "결정석 외 메소 금액 오류");
 			}
+			String detailItem = normalizeDetailItem(item.detailItem());
+			if (detailItem != null && !BossItemDetailOptions
+					.optionsFor(dropItemsById.get(item.bossDropItemId()).getItemName()).contains(detailItem)) {
+				throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DETAIL_ITEM", "상세 획득 아이템 오류");
+			}
 		}
 		BossPeriodEntry entry = bossPeriodEntryRepository
 				.findByCharacter_IdAndBoss_IdAndPeriodStart(character.getId(), bossId, request.periodStart())
 				.orElseGet(() -> bossPeriodEntryRepository.save(BossPeriodEntry.create(
 						character, boss, request.periodStart(), request.partySize())));
-		entry.save(request.partySize());
+		// 기본 가격과 같은 값은 수정하지 않은 것으로 보고 NULL로 저장
+		Long crystalPriceOverride = request.crystalPrice() == null
+				|| request.crystalPrice() == boss.getCrystalPrice() ? null : request.crystalPrice();
+		entry.save(request.partySize(), crystalPriceOverride);
+		long crystalPrice = entry.effectiveCrystalPrice(boss.getCrystalPrice());
 		Map<Long, BossItemAcquisition> existing = new HashMap<>();
 		for (BossItemAcquisition acquisition : bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(entry.getId())) {
 			BossItemAcquisition duplicate = existing.putIfAbsent(acquisition.getBossDropItem().getId(), acquisition);
@@ -151,13 +169,14 @@ public class BossDropService {
 			BossDropItem dropItem = dropItemsById.get(item.bossDropItemId());
 			// 결정 메소는 클라이언트 값을 무시하고 결정 가격 / 인원수로 서버에서 계산
 			Long mesoAmount = dropItem.getItemKind() == BossItemKind.CRYSTAL
-					? crystalMeso(boss, request.partySize())
+					? crystalMeso(crystalPrice, request.partySize())
 					: null;
+			String detailItem = normalizeDetailItem(item.detailItem());
 			if (acquisition == null) {
 				bossItemAcquisitionRepository.save(BossItemAcquisition.createForPeriod(
-						entry, dropItem, item.quantity(), mesoAmount));
+						entry, dropItem, item.quantity(), mesoAmount, detailItem));
 			} else {
-				acquisition.updateForPeriod(item.quantity(), mesoAmount);
+				acquisition.updateForPeriod(item.quantity(), mesoAmount, detailItem);
 			}
 		}
 		bossItemAcquisitionRepository.deleteAll(existing.values());
@@ -178,27 +197,33 @@ public class BossDropService {
 			latest.putIfAbsent(acquisition.getBossDropItem().getId(), acquisition);
 		}
 		int partySize = entry == null ? 1 : entry.getPartySize();
-		List<BossPeriodResponse.Item> items = bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(boss.getId())
+		long crystalPrice = entry == null ? boss.getCrystalPrice() : entry.effectiveCrystalPrice(boss.getCrystalPrice());
+		List<BossPeriodResponse.Item> items = activeDropItems(boss.getId())
 				.stream().map(dropItem -> {
 					BossItemAcquisition saved = current.get(dropItem.getId());
 					BossItemAcquisition previous = latest.get(dropItem.getId());
 					int quantity = saved != null ? saved.getQuantity()
 							: previous != null ? previous.getQuantity() : dropItem.getDefaultQuantity();
 					Long mesoAmount = dropItem.getItemKind() == BossItemKind.CRYSTAL
-							? crystalMeso(boss, partySize)
+							? crystalMeso(crystalPrice, partySize)
 							: null;
 					// 저장 이력이 없는 기간은 결정 아이템을 기본 획득 처리
 					boolean acquired = saved != null
 							|| (entry == null && dropItem.getItemKind() == BossItemKind.CRYSTAL);
-					return new BossPeriodResponse.Item(BossDropItemResponse.from(dropItem), acquired, quantity, mesoAmount);
+					return new BossPeriodResponse.Item(BossDropItemResponse.from(dropItem), acquired, quantity, mesoAmount,
+							saved == null ? null : saved.getDetailItem());
 				}).toList();
 		return new BossPeriodResponse(boss.getId(), characterId, periodStart, partySize, boss.getMaxPartySize(),
-				boss.getCrystalPrice(),
+				crystalPrice,
 				entry == null ? null : entry.getSavedAt(), items);
 	}
 
-	private Long crystalMeso(BossMaster boss, int partySize) {
-		return boss.getCrystalPrice() == 0 ? null : boss.getCrystalPrice() / partySize;
+	private String normalizeDetailItem(String detailItem) {
+		return detailItem == null || detailItem.isBlank() ? null : detailItem.strip();
+	}
+
+	private Long crystalMeso(long crystalPrice, int partySize) {
+		return crystalPrice == 0 ? null : crystalPrice / partySize;
 	}
 
 	private void validatePeriodStart(BossMaster boss, LocalDate periodStart) {

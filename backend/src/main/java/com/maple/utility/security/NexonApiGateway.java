@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 
@@ -38,6 +39,7 @@ public class NexonApiGateway {
 
 	private static final String NEXON_API_KEY_HEADER = "x-nxopen-api-key";
 	private static final String CACHE_KEY_PREFIX = "nexon:api:cache:";
+	private static final int MAX_ATTEMPTS = 3;
 
 	private final WebClient webClient;
 	private final ObjectMapper objectMapper;
@@ -208,39 +210,101 @@ public class NexonApiGateway {
 
 	private String callWithRetry(Long userId, String sharedBudget, NexonRequestMode mode, AtomicInteger callsUsed, String uri, String apiKey) {
 		int attempts = 0;
-		try {
-			while (true) {
-				throttleDispatch();
-				reserveAttempt(userId, sharedBudget, mode);
-				attempts++;
-				callsUsed.incrementAndGet();
-				GatewayResponse response = webClient.get()
+		while (true) {
+			checkInterrupted();
+			throttleDispatch();
+			reserveAttempt(userId, sharedBudget, mode);
+			attempts++;
+			callsUsed.incrementAndGet();
+			GatewayResponse response;
+			try {
+				response = webClient.get()
 						.uri(uri)
 						.header(NEXON_API_KEY_HEADER, apiKey)
-						.exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class)
-								.defaultIfEmpty("")
-								.map(body -> new GatewayResponse(clientResponse.statusCode().value(), body)))
+						.exchangeToMono(this::readResponse)
 						.switchIfEmpty(Mono.just(new GatewayResponse(502, "")))
 						.block();
-				if (response == null) {
-					throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_API_ERROR", "Nexon OpenAPI 응답 없음");
+			} catch (RuntimeException exception) {
+				if (hasCause(exception, InterruptedException.class)) {
+					Thread.currentThread().interrupt();
 				}
-				HttpStatus status = HttpStatus.resolve(response.status());
-				if (status != null && status.is2xxSuccessful()) {
-					return response.body() == null ? "{}" : response.body();
+				checkInterrupted();
+				if (exception instanceof WebClientRequestException && hasCause(exception, IllegalArgumentException.class)) {
+					throw new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_INVALID_FORMAT", "Nexon API Key 형식 오류");
 				}
-				ApiException mappedException = mapException(status, uri, response.body());
-				if (shouldRetry(status, attempts)) {
-					sleepBackoff(attempts);
-					continue;
+				if (!isNetworkFailure(exception)) {
+					throw exception;
 				}
-				throw mappedException;
+				// Request exceptions carry request headers; only log the safe cause type.
+				log.warn("Nexon API network request failed. userId={}, attempt={}, causeType={}",
+						userId, attempts, rootCauseType(exception));
+				if (attempts >= MAX_ATTEMPTS) {
+					throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_NETWORK_ERROR", "Nexon API 네트워크 오류");
+				}
+				sleepBackoff(attempts);
+				continue;
 			}
-		} catch (WebClientRequestException exception) {
-			if (exception.getCause() instanceof IllegalArgumentException) {
-				throw new ApiException(HttpStatus.BAD_REQUEST, "API_KEY_INVALID_FORMAT", "Nexon API Key 형식 오류");
+			if (response == null) {
+				throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_API_ERROR", "Nexon OpenAPI 응답 없음");
 			}
-			throw exception;
+			HttpStatus status = HttpStatus.resolve(response.status());
+			if (status != null && status.is2xxSuccessful()) {
+				return response.body() == null ? "{}" : response.body();
+			}
+			ApiException mappedException = mapException(status, uri, response.body());
+			if (shouldRetry(status, attempts)) {
+				sleepBackoff(attempts);
+				continue;
+			}
+			throw mappedException;
+		}
+	}
+
+	private Mono<GatewayResponse> readResponse(ClientResponse response) {
+		int status = response.statusCode().value();
+		return response.bodyToMono(String.class)
+				.defaultIfEmpty("")
+				.map(body -> new GatewayResponse(status, body))
+				.onErrorResume(exception -> {
+					// Preserve received credential errors even if their body times out.
+					if ((status == 401 || status == 403) && isNetworkFailure(exception)
+							&& !hasCause(exception, InterruptedException.class)
+							&& !Thread.currentThread().isInterrupted()) {
+						log.warn("Nexon API credential error body unavailable. status={}, causeType={}",
+								status, rootCauseType(exception));
+						return Mono.just(new GatewayResponse(status, ""));
+					}
+					return Mono.error(exception);
+				});
+	}
+
+	private boolean isNetworkFailure(Throwable exception) {
+		return exception instanceof WebClientRequestException
+				|| hasCause(exception, io.netty.handler.timeout.TimeoutException.class)
+				|| hasCause(exception, java.net.SocketTimeoutException.class)
+				|| hasCause(exception, java.util.concurrent.TimeoutException.class);
+	}
+
+	private boolean hasCause(Throwable exception, Class<? extends Throwable> type) {
+		for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+			if (type.isInstance(cause)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private String rootCauseType(Throwable exception) {
+		Throwable cause = exception;
+		while (cause.getCause() != null) {
+			cause = cause.getCause();
+		}
+		return cause.getClass().getSimpleName();
+	}
+
+	private void checkInterrupted() {
+		if (Thread.currentThread().isInterrupted()) {
+			throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "NEXON_RETRY_INTERRUPTED", "Nexon API 재시도 중단");
 		}
 	}
 
@@ -303,9 +367,9 @@ public class NexonApiGateway {
 
 	private boolean shouldRetry(HttpStatus status, int attempts) {
 		if (status == null) {
-			return attempts < 3;
+			return attempts < MAX_ATTEMPTS;
 		}
-		return attempts < 3 && (
+		return attempts < MAX_ATTEMPTS && (
 				status == HttpStatus.TOO_MANY_REQUESTS
 						|| status == HttpStatus.INTERNAL_SERVER_ERROR
 						|| status == HttpStatus.SERVICE_UNAVAILABLE

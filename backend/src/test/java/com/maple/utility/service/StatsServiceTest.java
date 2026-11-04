@@ -2,9 +2,14 @@ package com.maple.utility.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.maple.utility.dto.response.SchedulerBossResponse;
 import com.maple.utility.dto.response.StatsBossItemResponse;
 import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.dto.response.StatsCompletionDetailResponse;
@@ -22,9 +28,11 @@ import com.maple.utility.dto.response.StatsCompletionResponse;
 import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
 import com.maple.utility.dto.response.StatsHuntingDailyResponse;
 import com.maple.utility.dto.response.StatsHuntingSummaryResponse;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
+import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
@@ -40,11 +48,20 @@ class StatsServiceTest {
 	@Mock
 	private StatsQueryRepository statsQueryRepository;
 
+	@Mock
+	private SchedulerService schedulerService;
+
 	private StatsService statsService;
 
 	@BeforeEach
 	void setUp() {
-		statsService = new StatsService(characterRepository, statsQueryRepository);
+		Clock clock = Clock.fixed(Instant.parse("2026-07-15T03:00:00Z"), ZoneId.of("Asia/Seoul"));
+		statsService = new StatsService(characterRepository, statsQueryRepository, schedulerService, clock);
+	}
+
+	private SchedulerBossResponse bossResponse(String bossName, boolean completed, Long crystalMeso) {
+		return new SchedulerBossResponse(10L, "캐릭터", LocalDate.parse("2026-07-09"), 20L, bossName, "HARD", null,
+				crystalMeso, "WEEKLY", completed, null, crystalMeso);
 	}
 
 	@Test
@@ -100,20 +117,71 @@ class StatsServiceTest {
 	void getCrystalStatsGroupsRowsByWeekAndBoss() {
 		MapleCharacter character = character(user(), 10L);
 		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
-		when(statsQueryRepository.findCompletedBossCrystalRows(List.of(10L), null, null)).thenReturn(List.of(
-				new CrystalIncomeRow(LocalDate.parse("2026-07-14"), "스우", Difficulty.HARD, 100L),
-				new CrystalIncomeRow(LocalDate.parse("2026-07-15"), "스우", Difficulty.HARD, 100L),
-				new CrystalIncomeRow(LocalDate.parse("2026-07-21"), "윌", Difficulty.HARD, 300L)
+		when(schedulerService.getPeriodBosses(character, LocalDate.parse("2026-07-09"), ResetPeriod.WEEKLY)).thenReturn(List.of(
+				bossResponse("스우", true, 100L),
+				bossResponse("윌", true, 300L),
+				bossResponse("루시드", false, 0L)
+		));
+		when(schedulerService.getPeriodBosses(character, LocalDate.parse("2026-07-16"), ResetPeriod.WEEKLY)).thenReturn(List.of(
+				bossResponse("스우", true, 100L)
 		));
 
-		StatsCrystalSummaryResponse response = statsService.getCrystalStats(1L, null, null, null);
+		StatsCrystalSummaryResponse response = statsService.getCrystalStats(
+				1L, null, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-22"));
 
 		assertThat(response.totalCrystalIncome()).isEqualTo(500L);
 		assertThat(response.weeklyAverage()).isEqualTo(250L);
 		assertThat(response.weeklyRecords()).hasSize(2);
 		assertThat(response.weeklyRecords().getFirst().weekStart()).isEqualTo(LocalDate.parse("2026-07-09"));
-		assertThat(response.weeklyRecords().getFirst().totalIncome()).isEqualTo(200L);
-		assertThat(response.weeklyRecords().getFirst().bossDetails().getFirst().income()).isEqualTo(200L);
+		assertThat(response.weeklyRecords().getFirst().totalIncome()).isEqualTo(400L);
+		assertThat(response.weeklyRecords().getFirst().bossDetails()).hasSize(2);
+		assertThat(response.weeklyRecords().get(1).totalIncome()).isEqualTo(100L);
+	}
+
+	@Test
+	void getCrystalStatsAddsMonthlyBossToWeekContainingFirstOfMonth() {
+		MapleCharacter character = character(user(), 10L);
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		// 월간 기간 시작일 2026-11-01(일)은 목요일 시작 10-29 주에 합산
+		when(schedulerService.getPeriodBosses(character, LocalDate.parse("2026-10-29"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of(bossResponse("스우", true, 100L)));
+		when(schedulerService.getPeriodBosses(character, LocalDate.parse("2026-11-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of(bossResponse("검은 마법사", true, 700L)));
+
+		StatsCrystalSummaryResponse response = statsService.getCrystalStats(
+				1L, null, LocalDate.parse("2026-10-29"), LocalDate.parse("2026-11-04"));
+
+		assertThat(response.weeklyRecords()).singleElement().satisfies(week -> {
+			assertThat(week.weekStart()).isEqualTo(LocalDate.parse("2026-10-29"));
+			assertThat(week.totalIncome()).isEqualTo(800L);
+		});
+	}
+
+	@Test
+	void getCrystalStatsSkipsMonthlyBossWhenFirstOfMonthIsOutsideRange() {
+		MapleCharacter character = character(user(), 10L);
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(schedulerService.getPeriodBosses(character, LocalDate.parse("2026-11-05"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+
+		StatsCrystalSummaryResponse response = statsService.getCrystalStats(
+				1L, null, LocalDate.parse("2026-11-05"), LocalDate.parse("2026-11-11"));
+
+		assertThat(response.totalCrystalIncome()).isZero();
+		verify(schedulerService, never()).getPeriodBosses(
+				org.mockito.ArgumentMatchers.eq(character), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(ResetPeriod.MONTHLY));
+	}
+
+	@Test
+	void getCrystalStatsDefaultsToTwelveWeeksAndRejectsTooLongRange() {
+		MapleCharacter character = character(user(), 10L);
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+
+		assertThat(statsService.getCrystalStats(1L, null, null, null).totalCrystalIncome()).isZero();
+		assertThatThrownBy(() -> statsService.getCrystalStats(
+				1L, null, LocalDate.parse("2025-01-01"), LocalDate.parse("2026-07-15")))
+				.isInstanceOf(ApiException.class)
+				.hasMessageContaining("조회 기간 오류");
 	}
 
 	@Test
@@ -124,9 +192,9 @@ class StatsServiceTest {
 		);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		PageResponse<StatsBossItemResponse> expected = new PageResponse<>(rows, 21, 3, 1, 10);
-		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, 1, 10)).thenReturn(expected);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, null, 1, 10)).thenReturn(expected);
 
-		PageResponse<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null, null, 1, 10);
+		PageResponse<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null, null, null, 1, 10);
 
 		assertThat(response).isEqualTo(expected);
 	}
@@ -136,11 +204,11 @@ class StatsServiceTest {
 		MapleCharacter character = character(user(), 10L);
 		PageResponse<StatsBossItemResponse> empty = new PageResponse<>(List.of(), 0, 0, 0, 10);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(statsQueryRepository.findBossItemStats(List.of(10L), "스우", null, null, 0, 10)).thenReturn(empty);
-		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, 0, 10)).thenReturn(empty);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), "스우", null, null, null, 0, 10)).thenReturn(empty);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, null, 0, 10)).thenReturn(empty);
 
-		assertThat(statsService.getBossItemStats(1L, 10L, " 스우 ", null, null, 0, 10)).isEqualTo(empty);
-		assertThat(statsService.getBossItemStats(1L, 10L, "  ", null, null, 0, 10)).isEqualTo(empty);
+		assertThat(statsService.getBossItemStats(1L, 10L, " 스우 ", null, null, null, 0, 10)).isEqualTo(empty);
+		assertThat(statsService.getBossItemStats(1L, 10L, "  ", null, null, null, 0, 10)).isEqualTo(empty);
 	}
 
 	@Test
@@ -151,11 +219,27 @@ class StatsServiceTest {
 	}
 
 	@Test
+	void getBossItemStatsPassesRandomItemKindAndRejectsOthers() {
+		MapleCharacter character = character(user(), 10L);
+		PageResponse<StatsBossItemResponse> empty = new PageResponse<>(List.of(), 0, 0, 0, 10);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, BossItemKind.RANDOM, null, null, 0, 10))
+				.thenReturn(empty);
+
+		assertThat(statsService.getBossItemStats(1L, 10L, null, BossItemKind.RANDOM, null, null, 0, 10)).isEqualTo(empty);
+		for (BossItemKind rejected : List.of(BossItemKind.CRYSTAL, BossItemKind.FIXED)) {
+			assertThatThrownBy(() -> statsService.getBossItemStats(1L, 10L, null, rejected, null, null, 0, 10))
+					.isInstanceOf(ApiException.class)
+					.hasMessageContaining("아이템 종류 오류");
+		}
+	}
+
+	@Test
 	void getBossItemStatsRejectsInvalidPagination() {
-		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, -1, 10))
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, null, -1, 10))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("페이지 요청 오류");
-		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, 0, 11))
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, null, 0, 11))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("페이지 요청 오류");
 	}

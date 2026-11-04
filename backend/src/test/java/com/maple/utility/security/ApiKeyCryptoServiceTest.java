@@ -24,7 +24,9 @@ class ApiKeyCryptoServiceTest {
 						"http://localhost/character/scheduler",
 						500,
 						450,
-						Duration.ofSeconds(1)
+						Duration.ofSeconds(1),
+						Duration.ofSeconds(3),
+						Duration.ofSeconds(10)
 				),
 				new SecureRandom()
 		);
@@ -46,7 +48,9 @@ class ApiKeyCryptoServiceTest {
 						"http://localhost/character/scheduler",
 						500,
 						450,
-						Duration.ofSeconds(1)
+						Duration.ofSeconds(1),
+						Duration.ofSeconds(3),
+						Duration.ofSeconds(10)
 				),
 				new SecureRandom()
 		)).isInstanceOf(IllegalStateException.class)

@@ -114,7 +114,7 @@ class SchedulerServiceTest {
 		LocalDateTime completedAt = LocalDateTime.of(2026, 7, 14, 21, 0);
 		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
 		when(syncJobRepository.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(
-				new SyncJobResponse(1L, "SCHEDULER", "COMPLETED", 0, 0, 0, null,
+				new SyncJobResponse(1L, "SCHEDULER", "COMPLETED", 0, 0, 0, 0, null,
 						completedAt.minusSeconds(1), completedAt)));
 
 		SchedulerSummaryResponse response = schedulerService.getSummary(1L, LocalDate.of(2026, 7, 14));
@@ -272,7 +272,7 @@ class SchedulerServiceTest {
 		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 5);
 		ReflectionTestUtils.setField(entry, "id", 50L);
 		// 직접 수정된 것처럼 가격과 무관한 값이 저장돼 있어도 계산값을 사용
-		BossItemAcquisition stored = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L);
+		BossItemAcquisition stored = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L, null);
 
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
@@ -283,9 +283,9 @@ class SchedulerServiceTest {
 				.thenReturn(List.of());
 		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-06-01"), ResetPeriod.MONTHLY))
 				.thenReturn(List.of());
-		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L, LocalDate.parse("2026-07-09")))
-				.thenReturn(Optional.of(entry));
-		when(bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(50L)).thenReturn(List.of(stored));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndPeriodStart(10L, LocalDate.parse("2026-07-09")))
+				.thenReturn(List.of(entry));
+		when(bossItemAcquisitionRepository.findCrystalEntryIds(List.of(50L))).thenReturn(List.of(50L));
 
 		var response = schedulerService.getBoss(1L, 10L,
 				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
@@ -293,6 +293,75 @@ class SchedulerServiceTest {
 		// 25,000,000 / 5명
 		assertThat(response.weeklyBosses()).singleElement()
 				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isEqualTo(5_000_000L));
+	}
+
+	@Test
+	void getBossUsesEditedCrystalPriceFromPeriodEntry() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		SchedulerBossRecord cleared = SchedulerBossRecord.create(character, boss, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 3);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		entry.save(3, 30_000_000L);
+		stubBossPeriods(character, List.of(cleared));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndPeriodStart(10L, LocalDate.parse("2026-07-09")))
+				.thenReturn(List.of(entry));
+		when(bossItemAcquisitionRepository.findCrystalEntryIds(List.of(50L))).thenReturn(List.of(50L));
+
+		var response = schedulerService.getBoss(1L, 10L,
+				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
+
+		// 수정한 가격 30,000,000 / 3명 (기본 가격 25,000,000 무시)
+		assertThat(response.weeklyBosses()).singleElement()
+				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isEqualTo(10_000_000L));
+	}
+
+	@Test
+	void getBossUsesFullCrystalPriceForClearedBossWithoutPeriodEntry() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		SchedulerBossRecord cleared = SchedulerBossRecord.create(character, boss, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
+		stubBossPeriods(character, List.of(cleared));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndPeriodStart(10L, LocalDate.parse("2026-07-09")))
+				.thenReturn(List.of());
+
+		var response = schedulerService.getBoss(1L, 10L,
+				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
+
+		// 모달을 저장하지 않아도 클리어한 보스는 결정 1개(1인 기준) 획득
+		assertThat(response.weeklyBosses()).singleElement()
+				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isEqualTo(boss.getCrystalPrice()));
+	}
+
+	@Test
+	void getBossReturnsZeroCrystalMesoWhenCrystalAcquisitionWasUnchecked() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		SchedulerBossRecord cleared = SchedulerBossRecord.create(character, boss, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 1);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		stubBossPeriods(character, List.of(cleared));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndPeriodStart(10L, LocalDate.parse("2026-07-09")))
+				.thenReturn(List.of(entry));
+		when(bossItemAcquisitionRepository.findCrystalEntryIds(List.of(50L))).thenReturn(List.of());
+
+		var response = schedulerService.getBoss(1L, 10L,
+				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
+
+		assertThat(response.weeklyBosses()).singleElement()
+				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isZero());
+	}
+
+	private void stubBossPeriods(MapleCharacter character, List<SchedulerBossRecord> weekly) {
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
+				.thenReturn(weekly);
+		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-06-01"), LocalDate.parse("2026-06-30"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-07-09"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(bossPeriodSelectionRepository.findByCharacter_IdAndPeriodStartAndResetPeriod(10L, LocalDate.parse("2026-06-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of());
 	}
 
 	@Test

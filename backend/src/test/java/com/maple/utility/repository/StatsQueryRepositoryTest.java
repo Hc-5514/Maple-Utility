@@ -38,7 +38,7 @@ class StatsQueryRepositoryTest {
 	private StatsQueryRepository repository;
 
 	@Test
-	void itemPagesExcludeCrystalsButCrystalIncomeKeepsThem() {
+	void itemPagesExcludeCrystals() {
 		// Production Flyway owns timestamp defaults; Hibernate's test schema needs the same defaults.
 		for (String table : List.of("users", "characters", "boss_master", "boss_drop_items", "boss_item_acquisitions")) {
 			for (String column : List.of("created_at", "updated_at")) {
@@ -72,27 +72,62 @@ class StatsQueryRepositoryTest {
 		entityManager.clear();
 
 		PageResponse<StatsBossItemResponse> first = repository.findBossItemStats(
-				List.of(character.getId()), null, null, null, 0, 10);
+				List.of(character.getId()), null, null, null, null, 0, 10);
 		PageResponse<StatsBossItemResponse> second = repository.findBossItemStats(
-				List.of(character.getId()), null, null, null, 1, 10);
+				List.of(character.getId()), null, null, null, null, 1, 10);
 
 		assertThat(first.totalElements()).isEqualTo(11);
 		assertThat(first.totalPages()).isEqualTo(2);
 		assertThat(first.content()).hasSize(10).allSatisfy(item -> assertThat(item.itemName()).isEqualTo("일반 전리품"));
 		assertThat(second.content()).hasSize(1);
-		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), null,
+		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), null, null,
 				LocalDate.parse("2026-10-01"), null, 0, 20).totalElements()).isEqualTo(11);
-		assertThat(repository.findBossItemStats(List.of(other.getId()), null, null, null, 0, 10).totalElements())
+		assertThat(repository.findBossItemStats(List.of(other.getId()), null, null, null, null, 0, 10).totalElements())
 				.isEqualTo(1);
-		assertThat(repository.findBossItemStats(List.of(), null, null, null, 0, 10).totalElements())
+		assertThat(repository.findBossItemStats(List.of(), null, null, null, null, 0, 10).totalElements())
 				.isZero();
-		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), "스우", null, null, 0, 10)
+		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), "스우", null, null, null, 0, 10)
 				.totalElements()).isEqualTo(12);
-		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), "자쿰", null, null, 0, 10)
+		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), "자쿰", null, null, null, 0, 10)
 				.totalElements()).isZero();
-		assertThat(repository.findCompletedBossCrystalRows(List.of(character.getId()), null, null))
-				.extracting(StatsQueryRepository.CrystalIncomeRow::income)
-				.containsExactly(12_000L);
+	}
+
+	@Test
+	void randomItemKindFilterKeepsOnlyLuckyItems() {
+		for (String table : List.of("users", "characters", "boss_master", "boss_drop_items", "boss_item_acquisitions")) {
+			for (String column : List.of("created_at", "updated_at")) {
+				entityManager.createNativeQuery("ALTER TABLE " + table + " ALTER COLUMN " + column
+						+ " SET DEFAULT CURRENT_TIMESTAMP").executeUpdate();
+			}
+		}
+		User user = User.create(OAuthProvider.KAKAO, "lucky-user", null, "물욕");
+		entityManager.persist(user);
+		MapleCharacter character = MapleCharacter.create(user, "ocid-lucky", "꼬농", "엘리시움", "마법사", 294, 0);
+		entityManager.persist(character);
+		BossMaster boss = BeanUtils.instantiateClass(BossMaster.class);
+		ReflectionTestUtils.setField(boss, "bossName", "윌");
+		ReflectionTestUtils.setField(boss, "difficulty", Difficulty.HARD);
+		ReflectionTestUtils.setField(boss, "resetPeriod", ResetPeriod.WEEKLY);
+		entityManager.persist(boss);
+		BossDropItem random = dropItem(boss, "홍옥의 보스 반지 상자", BossItemKind.RANDOM);
+		BossDropItem fixed = dropItem(boss, "거울세계의 코어 젬스톤", BossItemKind.FIXED);
+		BossDropItem crystal = dropItem(boss, "강렬한 힘의 결정", BossItemKind.CRYSTAL);
+		entityManager.persist(BossItemAcquisition.create(character, random, LocalDate.parse("2026-10-08"), null));
+		entityManager.persist(BossItemAcquisition.create(character, random, LocalDate.parse("2026-10-15"), null));
+		entityManager.persist(BossItemAcquisition.create(character, fixed, LocalDate.parse("2026-10-08"), null));
+		entityManager.persist(BossItemAcquisition.create(character, crystal, LocalDate.parse("2026-10-08"), null));
+		entityManager.flush();
+		entityManager.clear();
+		List<Long> ids = List.of(character.getId());
+
+		assertThat(repository.findBossItemStats(ids, null, null, null, null, 0, 10).totalElements()).isEqualTo(3);
+		PageResponse<StatsBossItemResponse> lucky = repository.findBossItemStats(
+				ids, null, BossItemKind.RANDOM, null, null, 0, 10);
+		assertThat(lucky.totalElements()).isEqualTo(2);
+		assertThat(lucky.content()).extracting(StatsBossItemResponse::itemName)
+				.containsOnly("홍옥의 보스 반지 상자");
+		assertThat(repository.findBossItemStats(ids, "자쿰", BossItemKind.RANDOM, null, null, 0, 10).totalElements())
+				.isZero();
 	}
 
 	@Test

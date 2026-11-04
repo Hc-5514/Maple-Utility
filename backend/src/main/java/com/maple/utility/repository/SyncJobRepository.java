@@ -57,8 +57,23 @@ public class SyncJobRepository {
 				skipped ? 1 : 0, id);
 	}
 
+	public void advanceFailed(Long id) {
+		jdbcTemplate.update("UPDATE sync_jobs SET completed_count = completed_count + 1, failed_count = failed_count + 1 WHERE id = ? AND status = 'STARTED'", id);
+	}
+
 	public void complete(Long id, LocalDateTime time) {
-		jdbcTemplate.update("UPDATE sync_jobs SET status = 'COMPLETED', completed_at = ? WHERE id = ? AND status = 'STARTED'", time, id);
+		jdbcTemplate.update("""
+				UPDATE sync_jobs
+				SET status = CASE
+				        WHEN failed_count > 0 AND completed_count = skipped_count + failed_count THEN 'FAILED'
+				        ELSE 'COMPLETED' END,
+				    error_message = CASE
+				        WHEN failed_count = 0 THEN NULL
+				        WHEN completed_count = skipped_count + failed_count THEN 'NEXON_NETWORK_ERROR'
+				        ELSE 'SCHEDULER_PARTIAL_FAILURE' END,
+				    completed_at = ?
+				WHERE id = ? AND status = 'STARTED'
+				""", time, id);
 	}
 
 	public void fail(Long id, String message, LocalDateTime time) {
@@ -77,7 +92,7 @@ public class SyncJobRepository {
 	private static SyncJobResponse mapJob(ResultSet rs) throws SQLException {
 		return new SyncJobResponse(
 				rs.getLong("id"), rs.getString("job_type"), rs.getString("status"),
-				rs.getInt("total_count"), rs.getInt("completed_count"), rs.getInt("skipped_count"),
+				rs.getInt("total_count"), rs.getInt("completed_count"), rs.getInt("skipped_count"), rs.getInt("failed_count"),
 				rs.getString("error_message"), rs.getTimestamp("started_at").toLocalDateTime(),
 				rs.getTimestamp("completed_at") == null ? null : rs.getTimestamp("completed_at").toLocalDateTime());
 	}

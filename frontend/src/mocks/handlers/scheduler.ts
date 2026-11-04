@@ -102,7 +102,7 @@ export const schedulerHandlers = [
     success: true,
     data: {
       id: 2, jobType: 'SCHEDULER', status: 'COMPLETED', totalCount: 2,
-      completedCount: 2, skippedCount: 0, errorMessage: null, startedAt: syncedAt, completedAt: syncedAt,
+      completedCount: 2, skippedCount: 0, failedCount: 0, errorMessage: null, startedAt: syncedAt, completedAt: syncedAt,
     },
   })),
 
@@ -110,7 +110,7 @@ export const schedulerHandlers = [
     success: true,
     data: {
       id: 2, jobType: 'SCHEDULER', status: 'COMPLETED', totalCount: 2,
-      completedCount: 2, skippedCount: 0, errorMessage: null, startedAt: syncedAt, completedAt: syncedAt,
+      completedCount: 2, skippedCount: 0, failedCount: 0, errorMessage: null, startedAt: syncedAt, completedAt: syncedAt,
     },
   })),
 

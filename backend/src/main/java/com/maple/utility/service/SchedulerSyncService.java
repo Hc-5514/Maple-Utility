@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,8 @@ import com.maple.utility.security.NexonSchedulerResponse;
 
 @Service
 public class SchedulerSyncService {
+
+	private static final Logger log = LoggerFactory.getLogger(SchedulerSyncService.class);
 
 	private final NexonOpenApiClient nexonOpenApiClient;
 	private final BossMasterRepository bossMasterRepository;
@@ -199,9 +203,10 @@ public class SchedulerSyncService {
 				continue;
 			}
 			BossMaster boss = bossMasterRepository
-					.findByBossNameAndDifficulty(source.bossName(), source.difficulty())
+					.findByBossNameAndDifficulty(BossNames.canonical(source.bossName()), source.difficulty())
 					.orElse(null);
 			if (boss == null) {
+				log.warn("Unmatched Nexon scheduler boss. name={}, difficulty={}", source.bossName(), source.difficulty());
 				continue;
 			}
 			registeredBossIds.add(boss.getId());

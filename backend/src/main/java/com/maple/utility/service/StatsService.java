@@ -1,9 +1,12 @@
 package com.maple.utility.service;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.maple.utility.dto.response.SchedulerBossResponse;
 import com.maple.utility.dto.response.StatsBossItemResponse;
 import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.dto.response.StatsCompletionResponse;
@@ -20,8 +24,10 @@ import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
 import com.maple.utility.dto.response.StatsCrystalWeeklyResponse;
 import com.maple.utility.dto.response.StatsHuntingDailyResponse;
 import com.maple.utility.dto.response.StatsHuntingSummaryResponse;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
+import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.StatsQueryRepository;
@@ -30,15 +36,24 @@ import com.maple.utility.repository.StatsQueryRepository.CrystalIncomeRow;
 @Service
 public class StatsService {
 
+	private static final int DEFAULT_CRYSTAL_WEEKS = 12;
+	private static final int MAX_CRYSTAL_WEEKS = 53;
+
 	private final CharacterRepository characterRepository;
 	private final StatsQueryRepository statsQueryRepository;
+	private final SchedulerService schedulerService;
+	private final Clock clock;
 
 	public StatsService(
 			CharacterRepository characterRepository,
-			StatsQueryRepository statsQueryRepository
+			StatsQueryRepository statsQueryRepository,
+			SchedulerService schedulerService,
+			Clock clock
 	) {
 		this.characterRepository = characterRepository;
 		this.statsQueryRepository = statsQueryRepository;
+		this.schedulerService = schedulerService;
+		this.clock = clock;
 	}
 
 	@Transactional(readOnly = true)
@@ -79,12 +94,12 @@ public class StatsService {
 			LocalDate dateTo
 	) {
 		validateDateRange(dateFrom, dateTo);
-		List<Long> characterIds = characterIds(userId, characterId);
-		List<CrystalIncomeRow> rows = statsQueryRepository.findCompletedBossCrystalRows(
-				characterIds,
-				dateFrom,
-				dateTo
-		);
+		LocalDate to = dateTo != null ? dateTo : LocalDate.now(clock);
+		LocalDate from = dateFrom != null ? dateFrom : to.minusWeeks(DEFAULT_CRYSTAL_WEEKS);
+		if (from.isAfter(to) || ChronoUnit.WEEKS.between(from, to) > MAX_CRYSTAL_WEEKS) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE", "조회 기간 오류");
+		}
+		List<CrystalIncomeRow> rows = crystalIncomeRows(favoriteCharacters(userId, characterId), from, to);
 		Map<LocalDate, WeeklyCrystalAccumulator> weekly = new LinkedHashMap<>();
 		for (CrystalIncomeRow row : rows) {
 			LocalDate weekStart = weekStartDate(row.recordDate());
@@ -115,6 +130,7 @@ public class StatsService {
 			Long userId,
 			Long characterId,
 			String bossName,
+			BossItemKind itemKind,
 			LocalDate dateFrom,
 			LocalDate dateTo,
 			int page,
@@ -124,9 +140,13 @@ public class StatsService {
 		if (page < 0 || (size != 10 && size != 20 && size != 30)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAGE_REQUEST", "페이지 요청 오류");
 		}
+		// 결정은 결정석 수익, 고정 아이템은 전체 목록에서만 다루므로 물욕템(RANDOM)만 별도 필터 허용
+		if (itemKind != null && itemKind != BossItemKind.RANDOM) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ITEM_KIND", "아이템 종류 오류");
+		}
 		String normalizedBossName = bossName == null || bossName.isBlank() ? null : bossName.strip();
 		return statsQueryRepository.findBossItemStats(
-				characterIds(userId, characterId), normalizedBossName, dateFrom, dateTo, page, size);
+				characterIds(userId, characterId), normalizedBossName, itemKind, dateFrom, dateTo, page, size);
 	}
 
 	@Transactional(readOnly = true)
@@ -150,17 +170,52 @@ public class StatsService {
 	}
 
 	private List<Long> characterIds(Long userId, Long characterId) {
+		return favoriteCharacters(userId, characterId).stream()
+				.map(MapleCharacter::getId)
+				.toList();
+	}
+
+	private List<MapleCharacter> favoriteCharacters(Long userId, Long characterId) {
 		if (characterId != null) {
 			MapleCharacter character = characterRepository.findByIdAndUserId(characterId, userId)
 					.orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CHARACTER_NOT_FOUND", "캐릭터 없음"));
 			if (!character.isFavorite()) {
 				throw new ApiException(HttpStatus.BAD_REQUEST, "CHARACTER_NOT_FAVORITE", "즐겨찾기 캐릭터 아님");
 			}
-			return List.of(character.getId());
+			return List.of(character);
 		}
-		return characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId).stream()
-				.map(MapleCharacter::getId)
-				.toList();
+		return characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(userId);
+	}
+
+	/**
+	 * 클리어한 보스의 결정 수익. 보스 카드와 같은 규칙(미클리어 0, 기록 없음 1인 가격, 기록 있음 가격 / 인원, 획득 해제 0).
+	 * 주간은 목요일 시작일, 월간은 1일이 조회 기간에 포함된 기간만 대상.
+	 */
+	private List<CrystalIncomeRow> crystalIncomeRows(List<MapleCharacter> characters, LocalDate from, LocalDate to) {
+		List<CrystalIncomeRow> rows = new ArrayList<>();
+		for (MapleCharacter character : characters) {
+			for (LocalDate start = weekStartDate(from); !start.isAfter(to); start = start.plusWeeks(1)) {
+				if (!start.isBefore(from)) {
+					addCrystalRows(rows, character, start, ResetPeriod.WEEKLY);
+				}
+			}
+			for (LocalDate start = from.withDayOfMonth(1); !start.isAfter(to); start = start.plusMonths(1)) {
+				if (!start.isBefore(from)) {
+					addCrystalRows(rows, character, start, ResetPeriod.MONTHLY);
+				}
+			}
+		}
+		rows.sort(Comparator.comparing(CrystalIncomeRow::recordDate));
+		return rows;
+	}
+
+	private void addCrystalRows(List<CrystalIncomeRow> rows, MapleCharacter character, LocalDate start, ResetPeriod resetPeriod) {
+		for (SchedulerBossResponse boss : schedulerService.getPeriodBosses(character, start, resetPeriod)) {
+			long income = boss.acquiredCrystalMeso() == null ? 0 : boss.acquiredCrystalMeso();
+			if (boss.isCompleted() && income > 0) {
+				rows.add(new CrystalIncomeRow(start, boss.bossName(), Difficulty.valueOf(boss.difficulty()), income));
+			}
+		}
 	}
 
 	private void validateDateRange(LocalDate dateFrom, LocalDate dateTo) {

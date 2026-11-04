@@ -62,38 +62,10 @@ public class StatsQueryRepository {
 				.toList();
 	}
 
-	public List<CrystalIncomeRow> findCompletedBossCrystalRows(
-			List<Long> characterIds,
-			LocalDate dateFrom,
-			LocalDate dateTo
-	) {
-		if (characterIds.isEmpty()) {
-			return List.of();
-		}
-
-		QBossItemAcquisition record = QBossItemAcquisition.bossItemAcquisition;
-		return queryFactory
-				.select(record.acquiredDate, record.bossDropItem.boss.bossName,
-						record.bossDropItem.boss.difficulty, record.mesoAmount)
-				.from(record)
-				.where(bossItemCondition(record, characterIds, dateFrom, dateTo)
-						.and(record.bossDropItem.itemKind.eq(BossItemKind.CRYSTAL))
-						.and(record.mesoAmount.isNotNull()))
-				.orderBy(record.acquiredDate.asc(), record.bossDropItem.boss.sortOrder.asc(), record.id.asc())
-				.fetch()
-				.stream()
-				.map(tuple -> new CrystalIncomeRow(
-						tuple.get(record.acquiredDate),
-						tuple.get(record.bossDropItem.boss.bossName),
-						tuple.get(record.bossDropItem.boss.difficulty),
-						valueOrZero(tuple.get(record.mesoAmount))
-				))
-				.toList();
-	}
-
 	public PageResponse<StatsBossItemResponse> findBossItemStats(
 			List<Long> characterIds,
 			String bossName,
+			BossItemKind itemKind,
 			LocalDate dateFrom,
 			LocalDate dateTo,
 			int page,
@@ -109,6 +81,9 @@ public class StatsQueryRepository {
 		if (bossName != null) {
 			condition.and(acquisition.bossDropItem.boss.bossName.eq(bossName));
 		}
+		if (itemKind != null) {
+			condition.and(acquisition.bossDropItem.itemKind.eq(itemKind));
+		}
 		Long count = queryFactory.select(acquisition.id.count())
 				.from(acquisition)
 				.where(condition)
@@ -120,7 +95,8 @@ public class StatsQueryRepository {
 						acquisition.character.characterName,
 						acquisition.bossDropItem.boss.bossName,
 						acquisition.bossDropItem.boss.difficulty,
-						acquisition.bossDropItem.itemName
+						acquisition.bossDropItem.itemName,
+						acquisition.detailItem
 				)
 				.from(acquisition)
 				.where(condition)
@@ -134,11 +110,16 @@ public class StatsQueryRepository {
 						tuple.get(acquisition.character.characterName),
 						tuple.get(acquisition.bossDropItem.boss.bossName),
 						tuple.get(acquisition.bossDropItem.boss.difficulty),
-						tuple.get(acquisition.bossDropItem.itemName)
+						itemLabel(tuple.get(acquisition.bossDropItem.itemName), tuple.get(acquisition.detailItem))
 				))
 				.toList();
 		return new PageResponse<>(content, totalElements,
 				Math.toIntExact((totalElements + size - 1) / size), page, size);
+	}
+
+	/** 상세 획득 아이템이 있으면 `상자명 (상세)` 형식 */
+	private String itemLabel(String itemName, String detailItem) {
+		return detailItem == null || detailItem.isBlank() ? itemName : itemName + " (" + detailItem + ")";
 	}
 
 	public List<String> findActiveBossNames() {

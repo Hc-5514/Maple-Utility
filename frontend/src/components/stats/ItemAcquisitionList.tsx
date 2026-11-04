@@ -17,6 +17,8 @@ interface Props {
   page: PageResponse<StatsBossItem>
   bossName: string | null
   bosses: string[]
+  luckyOnly: boolean
+  onLuckyOnlyChange: (luckyOnly: boolean) => void
   onBossChange: (bossName: string | null) => void
   onPageChange: (page: number) => void
   onPageSizeChange: (size: BossItemPageSize) => void
@@ -26,6 +28,8 @@ export default function ItemAcquisitionList({
   page,
   bossName,
   bosses,
+  luckyOnly,
+  onLuckyOnlyChange,
   onBossChange,
   onPageChange,
   onPageSizeChange,
@@ -49,6 +53,23 @@ export default function ItemAcquisitionList({
       <div className="flex items-center justify-between px-6 pt-[11px] pb-3">
         <span className="text-[12px] leading-[1.2] text-[var(--dash-muted)]">총 {page.totalElements.toLocaleString('ko-KR')}개</span>
         <div className="flex gap-[10px]">
+          <div
+            role="group"
+            aria-label="아이템 종류"
+            className="flex h-[38px] items-center gap-1 rounded-[10px] border border-[var(--dash-border)] bg-[var(--dash-card)] p-1"
+          >
+            {([[false, '전체'], [true, '물욕템']] as const).map(([value, label]) => (
+              <button
+                key={label}
+                type="button"
+                aria-pressed={luckyOnly === value}
+                onClick={() => onLuckyOnlyChange(value)}
+                className={`flex h-7 items-center rounded-[10px] px-4 text-[14px] leading-[1.2] ${luckyOnly === value ? 'bg-[var(--dash-accent)]/9 text-[var(--dash-accent)]' : 'text-[var(--dash-muted)]'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <GlassSelect
             label="보스 필터"
             value={bossName}

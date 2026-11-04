@@ -8,7 +8,7 @@ import { resetDataContextStore } from './dataContextStore'
 const server = setupServer(...authHandlers, ...apiKeyHandlers, ...dataContextHandlers)
 const base = 'http://localhost/api/v1'
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 beforeEach(() => resetDataContextStore('multi'))
 afterAll(() => server.close())
 

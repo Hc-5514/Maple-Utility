@@ -14,7 +14,7 @@ const server = setupServer(
   ...schedulerHandlers, ...characterHandlers, ...statsHandlers,
 )
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
 afterEach(() => {
   server.resetHandlers()
   resetPreviewPeriods()
@@ -81,6 +81,60 @@ describe('Nexon preview contracts', () => {
     expect(totalAfter).toBe(totalBefore - crystal.mesoAmount)
   })
 
+  it('applies an edited crystal price to the saved meso and the crystal stats', async () => {
+    const bossId = previewBossRecords(1)[0].bossId
+    const periodUrl = `http://localhost/api/v1/boss/${bossId}/period?characterId=1&periodStart=2026-10-01`
+    const before = (await (await fetch(periodUrl)).json()).data
+    const crystal = before.items.find((item: { dropItem: { itemKind: string } }) => item.dropItem.itemKind === 'CRYSTAL')
+    const statsUrl = 'http://localhost/api/v1/stats/crystal?dateFrom=2026-10-01&dateTo=2026-10-07'
+    const totalBefore = (await (await fetch(statsUrl)).json()).data.totalCrystalIncome
+
+    const edited = before.crystalPrice * 2
+    const response = await fetch(`http://localhost/api/v1/boss/${bossId}/period`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterId: 1, periodStart: '2026-10-01', partySize: before.partySize, crystalPrice: edited,
+        items: [{ bossDropItemId: crystal.dropItem.id, acquired: true, quantity: 1 }],
+      }),
+    })
+    const saved = (await response.json()).data
+    const savedCrystal = saved.items.find((item: { dropItem: { itemKind: string } }) => item.dropItem.itemKind === 'CRYSTAL')
+    expect(saved.crystalPrice).toBe(edited)
+    expect(savedCrystal.mesoAmount).toBe(Math.floor(edited / before.partySize))
+    const totalAfter = (await (await fetch(statsUrl)).json()).data.totalCrystalIncome
+    expect(totalAfter).toBe(totalBefore - crystal.mesoAmount + savedCrystal.mesoAmount)
+    expect((await fetch(`http://localhost/api/v1/boss/${bossId}/period`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterId: 1, periodStart: '2026-10-01', partySize: before.partySize, crystalPrice: -1, items: [] }),
+    })).status).toBe(400)
+  })
+
+  it('stores a box detail item and shows it in the item history', async () => {
+    let target: { bossId: number; boxId: number; boxName: string; options: string[]; partySize: number } | null = null
+    for (const boss of previewBossRecords(1)) {
+      const period = (await (await fetch(`http://localhost/api/v1/boss/${boss.bossId}/period?characterId=1&periodStart=2026-10-01`)).json()).data
+      const box = period.items.find((item: { dropItem: { detailOptions: string[] } }) => item.dropItem.detailOptions.length > 0)
+      if (box) {
+        target = { bossId: boss.bossId ?? 0, boxId: box.dropItem.id, boxName: box.dropItem.itemName, options: box.dropItem.detailOptions, partySize: period.partySize }
+        break
+      }
+    }
+    expect(target).not.toBeNull()
+    const { bossId, boxId, boxName, options, partySize } = target!
+    const put = (detailItem: string) => fetch(`http://localhost/api/v1/boss/${bossId}/period`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ characterId: 1, periodStart: '2026-10-01', partySize, items: [{ bossDropItemId: boxId, acquired: true, quantity: 1, detailItem }] }),
+    })
+
+    const saved = (await (await put(options[1])).json()).data
+    expect(saved.items.find((item: { dropItem: { id: number } }) => item.dropItem.id === boxId).detailItem).toBe(options[1])
+    const history = (await (await fetch('http://localhost/api/v1/stats/boss-items?characterId=1&size=30')).json()).data
+    expect(history.content.some((item: { itemName: string }) => item.itemName === `${boxName} (${options[1]})`)).toBe(true)
+
+    const rejected = (await (await put('옵션에 없는 값')).json()).data
+    expect(rejected.items.find((item: { dropItem: { id: number } }) => item.dropItem.id === boxId).detailItem).toBeNull()
+  })
+
   it('separates each character crystal total', async () => {
     const base = 'http://localhost/api/v1/stats/crystal?dateFrom=2026-10-01&dateTo=2026-10-07'
     const all = (await (await fetch(base)).json()).data.totalCrystalIncome
@@ -106,6 +160,16 @@ describe('Nexon preview contracts', () => {
     expect(thirty.content).toHaveLength(10)
     expect(first.content.every((item: { itemName: string }) => !item.itemName.includes('결정'))).toBe(true)
     expect((await (await fetch(`${base}&page=4&size=10`)).json()).data.content).toEqual([])
+  })
+
+  it('keeps only lucky items for itemKind=RANDOM and rejects other kinds', async () => {
+    const base = 'http://localhost/api/v1/stats/boss-items?dateFrom=2026-10-01&dateTo=2026-10-07&size=30'
+    const all = (await (await fetch(base)).json()).data
+    const lucky = (await (await fetch(`${base}&itemKind=RANDOM`)).json()).data
+
+    expect(lucky.totalElements).toBeGreaterThan(0)
+    expect(lucky.totalElements).toBeLessThanOrEqual(all.totalElements)
+    expect((await fetch(`${base}&itemKind=CRYSTAL`)).status).toBe(400)
   })
 
   it('filters dummy history by character and date before counting pages', async () => {
