@@ -162,6 +162,16 @@ describe('Nexon preview contracts', () => {
     expect((await (await fetch(`${base}&page=4&size=10`)).json()).data.content).toEqual([])
   })
 
+  it('keeps only lucky items for itemKind=RANDOM and rejects other kinds', async () => {
+    const base = 'http://localhost/api/v1/stats/boss-items?dateFrom=2026-10-01&dateTo=2026-10-07&size=30'
+    const all = (await (await fetch(base)).json()).data
+    const lucky = (await (await fetch(`${base}&itemKind=RANDOM`)).json()).data
+
+    expect(lucky.totalElements).toBeGreaterThan(0)
+    expect(lucky.totalElements).toBeLessThanOrEqual(all.totalElements)
+    expect((await fetch(`${base}&itemKind=CRYSTAL`)).status).toBe(400)
+  })
+
   it('filters dummy history by character and date before counting pages', async () => {
     const base = 'http://localhost/api/v1/stats/boss-items?dateFrom=2026-10-01&dateTo=2026-10-07'
     const first = (await (await fetch(`${base}&characterId=1&size=10`)).json()).data

@@ -91,4 +91,19 @@ describe('StatsPage', () => {
     const [from, to] = last(get, '/stats/crystal').match(/dateFrom=([\d-]+)&dateTo=([\d-]+)/)!.slice(1)
     expect((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000).toBe(83)
   })
+
+  it('sends itemKind=RANDOM for lucky items only and resets the item page', async () => {
+    const get = renderPage()
+    const nav = await screen.findByRole('navigation', { name: '보스 아이템 획득 이력 페이지' })
+    fireEvent.click(await within(nav).findByRole('button', { name: '3' }))
+    await waitFor(() => expect(last(get, '/stats/boss-items')).toMatch(/page=2&size=10$/))
+    expect(last(get, '/stats/boss-items')).not.toContain('itemKind')
+
+    fireEvent.click(screen.getByRole('button', { name: '물욕템' }))
+    await waitFor(() => expect(last(get, '/stats/boss-items')).toMatch(/itemKind=RANDOM.*page=0&size=10$/))
+    expect(calls(get, '/stats/hunting').some((url) => url.includes('itemKind'))).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: '전체' }))
+    await waitFor(() => expect(last(get, '/stats/boss-items')).not.toContain('itemKind'))
+  })
 })

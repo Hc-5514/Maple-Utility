@@ -1,9 +1,15 @@
 import { http, HttpResponse } from 'msw'
 import { previewBoss, previewCharacter, previewDate, previewPeriods } from '../fixtures/nexonPreview'
+import catalog from '../fixtures/nexonPreviewCatalog.json'
 import { previewHistory } from '../fixtures/nexonPreviewHistory'
 import { previewBossNames, previewCrystalWeeks, septemberBossItems } from '../fixtures/statsPreview'
 import { currentHuntingRecords, isFavoriteCharacter } from './hunting'
 import type { BossDifficulty, StatsBossItem, StatsCrystalWeekly } from '../../types'
+
+// 물욕템 필터(itemKind=RANDOM)는 고정 아이템을 제외한 아이템만 남김
+const fixedItemNames = new Set(catalog.flatMap((boss) => boss.dropItems
+  .filter((item) => item.itemKind === 'FIXED')
+  .map((item) => item.itemName)))
 
 const inRange = (date: string, from: string | null, to: string | null) =>
   (!from || date >= from) && (!to || date <= to)
@@ -88,6 +94,10 @@ export const statsHandlers = [
 
     const characterId = params.has('characterId') ? Number(params.get('characterId')) : null
     const bossName = params.get('bossName')?.trim() || null
+    const itemKind = params.get('itemKind')
+    if (itemKind !== null && itemKind !== 'RANDOM') {
+      return HttpResponse.json({ code: 'INVALID_ITEM_KIND', message: '아이템 종류 오류' }, { status: 400 })
+    }
     const from = params.get('dateFrom')
     const to = params.get('dateTo')
     const september = septemberBossItems({
@@ -107,6 +117,7 @@ export const statsHandlers = [
       (characterId === null || item.characterName === previewCharacter(characterId)?.characterName)
       && inRange(item.acquiredDate, from, to)), ...savedItems]
       .filter((item) => bossName === null || item.bossName === bossName)
+      .filter((item) => itemKind === null || !fixedItemNames.has(item.itemName))
       .sort((a, b) => b.acquiredDate.localeCompare(a.acquiredDate))
 
     return HttpResponse.json({ success: true, data: {

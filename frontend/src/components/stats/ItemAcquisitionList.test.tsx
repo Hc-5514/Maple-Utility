@@ -19,10 +19,12 @@ const firstPage: PageResponse<StatsBossItem> = {
 afterEach(cleanup)
 
 function renderList(page: PageResponse<StatsBossItem>, handlers = {
-  onBossChange: vi.fn(), onPageChange: vi.fn(), onPageSizeChange: vi.fn(),
-}) {
+  onBossChange: vi.fn(), onPageChange: vi.fn(), onPageSizeChange: vi.fn(), onLuckyOnlyChange: vi.fn(),
+}, luckyOnly = false) {
   const view = render(
-    <ItemAcquisitionList page={page} bossName={null} bosses={['자쿰', '스우']} {...handlers} />,
+    <ItemAcquisitionList
+      page={page} bossName={null} bosses={['자쿰', '스우']} luckyOnly={luckyOnly} {...handlers}
+    />,
   )
   return { ...handlers, view }
 }
@@ -44,6 +46,27 @@ describe('ItemAcquisitionList', () => {
     expect(onPageSizeChange).toHaveBeenCalledWith(20)
   })
 
+  it('shows the item kind toggle before the boss filter and reports the choice', () => {
+    const { onLuckyOnlyChange } = renderList(firstPage)
+    const group = screen.getByRole('group', { name: '아이템 종류' })
+    const all = within(group).getByRole('button', { name: '전체' })
+    const lucky = within(group).getByRole('button', { name: '물욕템' })
+    expect(all.getAttribute('aria-pressed')).toBe('true')
+    expect(lucky.getAttribute('aria-pressed')).toBe('false')
+    const bossFilter = screen.getByRole('button', { name: '보스 필터: 전체 보스' })
+    expect(group.compareDocumentPosition(bossFilter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    fireEvent.click(lucky)
+    expect(onLuckyOnlyChange).toHaveBeenCalledWith(true)
+  })
+
+  it('marks the lucky item toggle as pressed when only lucky items are shown', () => {
+    renderList(firstPage, undefined, true)
+    const group = screen.getByRole('group', { name: '아이템 종류' })
+    expect(within(group).getByRole('button', { name: '물욕템' }).getAttribute('aria-pressed')).toBe('true')
+    expect(within(group).getByRole('button', { name: '전체' }).getAttribute('aria-pressed')).toBe('false')
+  })
+
   it('lists all bosses in the boss filter and reports the choice', () => {
     const { onBossChange } = renderList(firstPage)
 
@@ -63,6 +86,7 @@ describe('ItemAcquisitionList', () => {
         page={{ content: [], totalElements: 0, totalPages: 0, page: 0, size: 10 }}
         bossName={null}
         bosses={[]}
+        luckyOnly={false}
         {...handlers}
       />,
     )
