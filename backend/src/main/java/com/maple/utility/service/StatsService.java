@@ -24,6 +24,7 @@ import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
 import com.maple.utility.dto.response.StatsCrystalWeeklyResponse;
 import com.maple.utility.dto.response.StatsHuntingDailyResponse;
 import com.maple.utility.dto.response.StatsHuntingSummaryResponse;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.ResetPeriod;
@@ -129,6 +130,7 @@ public class StatsService {
 			Long userId,
 			Long characterId,
 			String bossName,
+			BossItemKind itemKind,
 			LocalDate dateFrom,
 			LocalDate dateTo,
 			int page,
@@ -138,9 +140,13 @@ public class StatsService {
 		if (page < 0 || (size != 10 && size != 20 && size != 30)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAGE_REQUEST", "페이지 요청 오류");
 		}
+		// 결정은 결정석 수익, 고정 아이템은 전체 목록에서만 다루므로 물욕템(RANDOM)만 별도 필터 허용
+		if (itemKind != null && itemKind != BossItemKind.RANDOM) {
+			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ITEM_KIND", "아이템 종류 오류");
+		}
 		String normalizedBossName = bossName == null || bossName.isBlank() ? null : bossName.strip();
 		return statsQueryRepository.findBossItemStats(
-				characterIds(userId, characterId), normalizedBossName, dateFrom, dateTo, page, size);
+				characterIds(userId, characterId), normalizedBossName, itemKind, dateFrom, dateTo, page, size);
 	}
 
 	@Transactional(readOnly = true)
