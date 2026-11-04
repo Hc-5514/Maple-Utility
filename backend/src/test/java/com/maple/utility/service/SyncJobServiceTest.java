@@ -31,6 +31,7 @@ import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
 import com.maple.utility.entity.User;
 import com.maple.utility.exception.NexonApiException;
+import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.SyncJobRepository;
 import com.maple.utility.repository.UserRepository;
@@ -216,6 +217,154 @@ class SyncJobServiceTest {
 		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(49L, "SCHEDULER", "STARTED", 0, 0, null), true));
 		midnightService.startScheduler(1L, false, false);
 		verify(jobs).start(1L, "SCHEDULER");
+	}
+
+	@Test
+	void networkFailureBetweenSuccessfulCharactersDoesNotStopTheRemainingCharacters() {
+		var first = character(10L);
+		var failed = character(11L);
+		var last = character(12L);
+		prepareSchedulerJob(List.of(first, failed, last));
+		org.mockito.Mockito.doAnswer(invocation -> {
+			if (invocation.getArgument(1) == failed) {
+				throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_NETWORK_ERROR", "네트워크 오류");
+			}
+			return null;
+		}).when(schedulerSync).syncOneCharacter(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any(MapleCharacter.class),
+				org.mockito.ArgumentMatchers.eq(false), org.mockito.ArgumentMatchers.eq(true));
+
+		service.startScheduler(1L, true, false);
+
+		var order = org.mockito.Mockito.inOrder(schedulerSync, jobs);
+		order.verify(jobs).setTotal(61L, 3);
+		order.verify(schedulerSync).syncOneCharacter(1L, first, false, true);
+		order.verify(jobs).advance(61L, false);
+		order.verify(schedulerSync).syncOneCharacter(1L, failed, false, true);
+		order.verify(jobs).advanceFailed(61L);
+		order.verify(schedulerSync).syncOneCharacter(1L, last, false, true);
+		order.verify(jobs).advance(61L, false);
+		order.verify(jobs).complete(61L, LocalDateTime.now(CLOCK));
+		verify(jobs, never()).fail(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void allNetworkFailuresAreCountedBeforeRepositoryDecidesTerminalStatus() {
+		var first = character(10L);
+		var second = character(11L);
+		prepareSchedulerJob(List.of(first, second));
+		doThrow(new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_NETWORK_ERROR", "네트워크 오류"))
+				.when(schedulerSync).syncOneCharacter(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any(),
+						org.mockito.ArgumentMatchers.eq(false), org.mockito.ArgumentMatchers.eq(true));
+
+		service.startScheduler(1L, true, false);
+
+		verify(schedulerSync).syncOneCharacter(1L, first, false, true);
+		verify(schedulerSync).syncOneCharacter(1L, second, false, true);
+		verify(jobs, org.mockito.Mockito.times(2)).advanceFailed(61L);
+		verify(jobs).complete(61L, LocalDateTime.now(CLOCK));
+	}
+
+	@Test
+	void invalidCharacterRemainsSkippedAndDoesNotBecomeNetworkFailure() {
+		var skipped = character(10L);
+		var last = character(11L);
+		prepareSchedulerJob(List.of(skipped, last));
+		doThrow(new NexonApiException(HttpStatus.BAD_REQUEST, "NEXON_PARAMETER_ERROR", "잘못된 캐릭터", "OPENAPI00003", "invalid id"))
+				.when(schedulerSync).syncOneCharacter(1L, skipped, false, true);
+
+		service.startScheduler(1L, true, false);
+
+		verify(jobs).advance(61L, true);
+		verify(jobs).advance(61L, false);
+		verify(jobs, never()).advanceFailed(61L);
+		verify(schedulerSync).syncOneCharacter(1L, last, false, true);
+		verify(jobs).complete(61L, LocalDateTime.now(CLOCK));
+	}
+
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.MethodSource("fatalFailures")
+	void fatalFailureStopsRemainingCharactersAndEvictsCommittedDataBeforePublishingFailure(RuntimeException failure) {
+		var first = character(10L);
+		var fatal = character(11L);
+		var last = character(12L);
+		prepareSchedulerJob(List.of(first, fatal, last));
+		Cache cache = org.mockito.Mockito.mock(Cache.class);
+		when(cacheManager.getCache(RedisCacheNames.SCHEDULER)).thenReturn(cache);
+		org.mockito.Mockito.doAnswer(invocation -> {
+			if (invocation.getArgument(1) == fatal) {
+				throw failure;
+			}
+			return null;
+		}).when(schedulerSync).syncOneCharacter(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any(MapleCharacter.class),
+				org.mockito.ArgumentMatchers.eq(false), org.mockito.ArgumentMatchers.eq(true));
+
+		service.startScheduler(1L, true, false);
+
+		var order = org.mockito.Mockito.inOrder(schedulerSync, cache, jobs);
+		order.verify(schedulerSync).syncOneCharacter(1L, first, false, true);
+		order.verify(jobs).advance(61L, false);
+		order.verify(schedulerSync).syncOneCharacter(1L, fatal, false, true);
+		order.verify(cache).clear();
+		order.verify(jobs).fail(61L, failure instanceof ApiException api ? api.getCode() : "SYNC_FAILED", LocalDateTime.now(CLOCK));
+		verify(schedulerSync, never()).syncOneCharacter(1L, last, false, true);
+		verify(jobs, never()).advanceFailed(61L);
+		verify(jobs, never()).complete(61L, LocalDateTime.now(CLOCK));
+	}
+
+	@Test
+	void partialCompletionIsNotReusedWithinFiveMinutes() {
+		var recent = new SyncJobResponse(22L, "SCHEDULER", "COMPLETED", 3, 3, 0, 1,
+				"SCHEDULER_PARTIAL_FAILURE", LocalDateTime.now(CLOCK).minusMinutes(3), LocalDateTime.now(CLOCK).minusMinutes(2));
+		when(jobs.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(recent));
+		prepareSchedulerJob(List.of());
+
+		service.startScheduler(1L, false, false);
+
+		verify(jobs).start(1L, "SCHEDULER");
+	}
+
+	@Test
+	void successfulJobEvictsCacheBeforePublishingCompletion() {
+		prepareSchedulerJob(List.of(character()));
+		Cache cache = org.mockito.Mockito.mock(Cache.class);
+		when(cacheManager.getCache(RedisCacheNames.SCHEDULER)).thenReturn(cache);
+
+		service.startScheduler(1L, true, false);
+
+		var order = org.mockito.Mockito.inOrder(cache, jobs);
+		order.verify(cache).clear();
+		order.verify(jobs).complete(61L, LocalDateTime.now(CLOCK));
+	}
+
+	@Test
+	void cacheEvictionFailureDoesNotPreventTerminalCompletion() {
+		prepareSchedulerJob(List.of(character()));
+		Cache cache = org.mockito.Mockito.mock(Cache.class);
+		when(cacheManager.getCache(RedisCacheNames.SCHEDULER)).thenReturn(cache);
+		doThrow(new IllegalStateException("cache unavailable")).when(cache).clear();
+
+		service.startScheduler(1L, true, false);
+
+		verify(jobs).complete(61L, LocalDateTime.now(CLOCK));
+		verify(jobs, never()).fail(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any());
+	}
+
+	private static java.util.stream.Stream<RuntimeException> fatalFailures() {
+		return java.util.stream.Stream.of(
+				new ApiException(HttpStatus.UNAUTHORIZED, "API_KEY_INVALID", "잘못된 키"),
+				new ApiException(HttpStatus.TOO_MANY_REQUESTS, "NEXON_REALTIME_LIMIT_REACHED", "호출 예산 소진"),
+				new org.springframework.dao.DataAccessResourceFailureException("database unavailable"));
+	}
+
+	private void prepareSchedulerJob(List<MapleCharacter> favorites) {
+		when(jobs.start(1L, "SCHEDULER")).thenReturn(new SyncJobRepository.StartResult(job(61L, "SCHEDULER", "STARTED", 0, 0, null), true));
+		when(characters.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(favorites);
+	}
+
+	private MapleCharacter character(Long id) {
+		var character = character();
+		ReflectionTestUtils.setField(character, "id", id);
+		return character;
 	}
 
 	private MapleCharacter character() {
