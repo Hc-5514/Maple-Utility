@@ -213,7 +213,7 @@ class BossDropServiceTest {
 			ReflectionTestUtils.setField(saved, "id", 50L);
 			return saved;
 		});
-		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2,
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2, null,
 				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, null)));
 
 		bossDropService.savePeriod(1L, 20L, request);
@@ -238,7 +238,7 @@ class BossDropServiceTest {
 		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
 				LocalDate.parse("2026-10-08"))).thenReturn(Optional.of(entry));
 		when(bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(50L)).thenReturn(List.of(existing));
-		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2,
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2, null,
 				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, 1L)));
 
 		bossDropService.savePeriod(1L, 20L, request);
@@ -276,7 +276,7 @@ class BossDropServiceTest {
 		ReflectionTestUtils.setField(boss, "maxPartySize", 2);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
-		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 3, List.of());
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 3, null, List.of());
 
 		assertThatThrownBy(() -> bossDropService.savePeriod(1L, 20L, request))
 				.isInstanceOf(ApiException.class)
@@ -352,6 +352,108 @@ class BossDropServiceTest {
 		assertThat(bossDropService.getAcquisitionStatus(1L, 20L, 10L))
 				.extracting(status -> status.dropItem().id())
 				.containsExactly(101L, 102L, 100L);
+	}
+
+	@Test
+	void savePeriodUsesEditedCrystalPriceAndStoresOverride() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 48_900_000L);
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		java.util.concurrent.atomic.AtomicReference<BossPeriodEntry> saved = new java.util.concurrent.atomic.AtomicReference<>();
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.empty());
+		when(bossPeriodEntryRepository.save(any(BossPeriodEntry.class))).thenAnswer(invocation -> {
+			BossPeriodEntry entry = invocation.getArgument(0);
+			ReflectionTestUtils.setField(entry, "id", 50L);
+			saved.set(entry);
+			return entry;
+		});
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 3, 30_000_000L,
+				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, null)));
+
+		var response = bossDropService.savePeriod(1L, 20L, request);
+
+		assertThat(saved.get().getCrystalPrice()).isEqualTo(30_000_000L);
+		verify(bossItemAcquisitionRepository).save(org.mockito.ArgumentMatchers.argThat(
+				acquisition -> acquisition.getMesoAmount() == 10_000_000L));
+		assertThat(response.crystalPrice()).isEqualTo(30_000_000L);
+		assertThat(response.items()).singleElement()
+				.satisfies(item -> assertThat(item.mesoAmount()).isEqualTo(10_000_000L));
+	}
+
+	@Test
+	void savePeriodTreatsBaseCrystalPriceAsNoOverride() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 48_900_000L);
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-10-08"), 1);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		entry.save(1, 30_000_000L);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.of(entry));
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 2, 48_900_000L,
+				List.of(new BossPeriodSaveRequest.Item(100L, true, 1, null)));
+
+		var response = bossDropService.savePeriod(1L, 20L, request);
+
+		// 기본 가격과 같으면 수정 가격을 해제
+		assertThat(entry.getCrystalPrice()).isNull();
+		assertThat(response.crystalPrice()).isEqualTo(48_900_000L);
+		assertThat(response.items()).singleElement()
+				.satisfies(item -> assertThat(item.mesoAmount()).isEqualTo(24_450_000L));
+	}
+
+	@Test
+	void savePeriodWithoutCrystalPriceKeepsBasePrice() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 48_900_000L);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-10-08"), 1);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.of(entry));
+		BossPeriodSaveRequest request = new BossPeriodSaveRequest(10L, LocalDate.parse("2026-10-08"), 1, null, List.of());
+
+		var response = bossDropService.savePeriod(1L, 20L, request);
+
+		assertThat(entry.getCrystalPrice()).isNull();
+		assertThat(response.crystalPrice()).isEqualTo(48_900_000L);
+	}
+
+	@Test
+	void getPeriodReturnsEditedCrystalPriceAndMeso() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		ReflectionTestUtils.setField(boss, "crystalPrice", 0L);
+		BossDropItem crystal = dropItem(100L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-10-08"), 2);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		entry.save(2, 30_000_000L);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L)).thenReturn(List.of(crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.of(entry));
+
+		var response = bossDropService.getPeriod(1L, 20L, 10L, LocalDate.parse("2026-10-08"));
+
+		// 가격 미확인(0) 보스도 수정한 가격으로 계산
+		assertThat(response.crystalPrice()).isEqualTo(30_000_000L);
+		assertThat(response.items()).singleElement()
+				.satisfies(item -> assertThat(item.mesoAmount()).isEqualTo(15_000_000L));
 	}
 
 	private User user() {

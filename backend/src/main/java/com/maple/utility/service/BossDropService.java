@@ -140,7 +140,11 @@ public class BossDropService {
 				.findByCharacter_IdAndBoss_IdAndPeriodStart(character.getId(), bossId, request.periodStart())
 				.orElseGet(() -> bossPeriodEntryRepository.save(BossPeriodEntry.create(
 						character, boss, request.periodStart(), request.partySize())));
-		entry.save(request.partySize());
+		// 기본 가격과 같은 값은 수정하지 않은 것으로 보고 NULL로 저장
+		Long crystalPriceOverride = request.crystalPrice() == null
+				|| request.crystalPrice() == boss.getCrystalPrice() ? null : request.crystalPrice();
+		entry.save(request.partySize(), crystalPriceOverride);
+		long crystalPrice = entry.effectiveCrystalPrice(boss.getCrystalPrice());
 		Map<Long, BossItemAcquisition> existing = new HashMap<>();
 		for (BossItemAcquisition acquisition : bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(entry.getId())) {
 			BossItemAcquisition duplicate = existing.putIfAbsent(acquisition.getBossDropItem().getId(), acquisition);
@@ -159,7 +163,7 @@ public class BossDropService {
 			BossDropItem dropItem = dropItemsById.get(item.bossDropItemId());
 			// 결정 메소는 클라이언트 값을 무시하고 결정 가격 / 인원수로 서버에서 계산
 			Long mesoAmount = dropItem.getItemKind() == BossItemKind.CRYSTAL
-					? crystalMeso(boss, request.partySize())
+					? crystalMeso(crystalPrice, request.partySize())
 					: null;
 			if (acquisition == null) {
 				bossItemAcquisitionRepository.save(BossItemAcquisition.createForPeriod(
@@ -186,6 +190,7 @@ public class BossDropService {
 			latest.putIfAbsent(acquisition.getBossDropItem().getId(), acquisition);
 		}
 		int partySize = entry == null ? 1 : entry.getPartySize();
+		long crystalPrice = entry == null ? boss.getCrystalPrice() : entry.effectiveCrystalPrice(boss.getCrystalPrice());
 		List<BossPeriodResponse.Item> items = activeDropItems(boss.getId())
 				.stream().map(dropItem -> {
 					BossItemAcquisition saved = current.get(dropItem.getId());
@@ -193,7 +198,7 @@ public class BossDropService {
 					int quantity = saved != null ? saved.getQuantity()
 							: previous != null ? previous.getQuantity() : dropItem.getDefaultQuantity();
 					Long mesoAmount = dropItem.getItemKind() == BossItemKind.CRYSTAL
-							? crystalMeso(boss, partySize)
+							? crystalMeso(crystalPrice, partySize)
 							: null;
 					// 저장 이력이 없는 기간은 결정 아이템을 기본 획득 처리
 					boolean acquired = saved != null
@@ -201,12 +206,12 @@ public class BossDropService {
 					return new BossPeriodResponse.Item(BossDropItemResponse.from(dropItem), acquired, quantity, mesoAmount);
 				}).toList();
 		return new BossPeriodResponse(boss.getId(), characterId, periodStart, partySize, boss.getMaxPartySize(),
-				boss.getCrystalPrice(),
+				crystalPrice,
 				entry == null ? null : entry.getSavedAt(), items);
 	}
 
-	private Long crystalMeso(BossMaster boss, int partySize) {
-		return boss.getCrystalPrice() == 0 ? null : boss.getCrystalPrice() / partySize;
+	private Long crystalMeso(long crystalPrice, int partySize) {
+		return crystalPrice == 0 ? null : crystalPrice / partySize;
 	}
 
 	private void validatePeriodStart(BossMaster boss, LocalDate periodStart) {

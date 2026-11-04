@@ -46,6 +46,9 @@ public class BossPeriodEntry extends BaseTimeEntity {
 	@Column(name = "party_size", nullable = false)
 	private int partySize;
 
+	@Column(name = "crystal_price")
+	private Long crystalPrice;
+
 	@Column(name = "saved_at", nullable = false)
 	private LocalDateTime savedAt;
 
@@ -60,8 +63,14 @@ public class BossPeriodEntry extends BaseTimeEntity {
 		return entry;
 	}
 
-	public void save(int partySize) {
+	public void save(int partySize, Long crystalPrice) {
 		this.partySize = partySize;
+		this.crystalPrice = crystalPrice;
 		this.savedAt = LocalDateTime.now();
+	}
+
+	/** 기록에 수정한 결정 가격이 있으면 그 값, 없으면 보스 기본 가격 */
+	public long effectiveCrystalPrice(long basePrice) {
+		return crystalPrice != null ? crystalPrice : basePrice;
 	}
 }
