@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ThemedDialog, { dialogCancel, dialogConfirm } from '../common/ThemedDialog'
 import ThemedCheckbox from '../common/ThemedCheckbox'
 import DifficultyBadge from '../common/DifficultyBadge'
@@ -28,6 +28,21 @@ export default function BossDropModal({
   }, [data, onLoaded])
 
   const period = draft ?? (data ? { ...data, dirty: false } : undefined)
+
+  // 목록이 스크롤될 때만 스크롤바와 내용 사이에 여백을 둔다
+  const list = useRef<HTMLUListElement>(null)
+  const [scrolls, setScrolls] = useState(false)
+  const itemCount = period?.items.length ?? 0
+  useEffect(() => {
+    const element = list.current
+    if (!element) return
+    const update = () => setScrolls(element.scrollHeight > element.clientHeight)
+    update()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [itemCount, isLoading])
 
   const cancel = () => {
     const original = snapshot.current ?? (data ? { ...data, dirty: false } : undefined)
@@ -98,10 +113,13 @@ export default function BossDropModal({
       ) : !period || period.items.length === 0 ? (
         <p className="text-[14px] text-[var(--dash-muted)]">드랍 아이템 정보 없음</p>
       ) : (
-        // 첫 행 위 구분선은 리스트 상단 border, 마지막 행 아래는 다이얼로그 공용 구분선(음수 마진으로 행 간격과 동일하게 보정)
-        <ul className="dialog-scroll -mb-[9px] max-h-[512px] overflow-y-auto border-t border-[var(--dash-border)]">
+        // 첫 행 위 구분선은 첫 행의 border-t(스크롤 여백과 같은 폭), 마지막 행 아래는 다이얼로그 공용 구분선(음수 마진으로 행 간격과 동일하게 보정)
+        <ul
+          ref={list}
+          className={`dialog-scroll -mb-[9px] max-h-[512px] overflow-y-auto ${scrolls ? 'pr-[14px]' : ''}`}
+        >
           {period.items.map((item) => (
-            <li key={item.dropItem.id} className="flex h-[57px] items-center gap-3 border-b border-[var(--dash-border)] last:h-14 last:border-0">
+            <li key={item.dropItem.id} className="flex h-[57px] items-center gap-3 border-b border-[var(--dash-border)] first:border-t last:h-14 last:border-0">
               <CatalogImage src={item.dropItem.itemImage} alt={item.dropItem.itemName} kind="item" />
               <div className="flex min-w-0 flex-col gap-[2px]">
                 <p className="truncate text-[14px]">{item.dropItem.itemName}</p>
