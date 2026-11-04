@@ -62,10 +62,10 @@ class BossCrystalEntryQueryTest {
 		entityManager.persist(unchecked);
 		entityManager.persist(previousWeek);
 		entityManager.persist(BossItemAcquisition.createForPeriod(
-				checked, dropItem(withCrystal, "강렬한 힘의 결정", BossItemKind.CRYSTAL), 1, 100L));
+				checked, dropItem(withCrystal, "강렬한 힘의 결정", BossItemKind.CRYSTAL), 1, 100L, null));
 		// 결정이 아닌 획득만 있는 기록은 결정 획득으로 보지 않음
 		entityManager.persist(BossItemAcquisition.createForPeriod(
-				unchecked, dropItem(withoutCrystal, "홍옥의 보스 반지 상자", BossItemKind.RANDOM), 1, null));
+				unchecked, dropItem(withoutCrystal, "홍옥의 보스 반지 상자", BossItemKind.RANDOM), 1, null, null));
 		entityManager.flush();
 		entityManager.clear();
 

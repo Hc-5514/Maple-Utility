@@ -483,7 +483,9 @@ public class SchedulerService {
 			return boss.getCrystalPrice();
 		}
 		// 저장된 메소 값과 무관하게 결정 가격 / 인원수로 계산, 결정 획득을 해제한 기록은 0
-		return crystalEntryIds.contains(entry.getId()) ? boss.getCrystalPrice() / entry.getPartySize() : 0L;
+		return crystalEntryIds.contains(entry.getId())
+				? entry.effectiveCrystalPrice(boss.getCrystalPrice()) / entry.getPartySize()
+				: 0L;
 	}
 
 	/** 통계용: 해당 기간의 보스 목록(카드와 동일 규칙, 결정 금액 `acquiredCrystalMeso` 포함) */
