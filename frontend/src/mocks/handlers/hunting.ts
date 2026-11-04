@@ -174,12 +174,6 @@ export const huntingHandlers = [
     const body = (await request.json()) as Partial<HuntingRecord>
     if (!isFavorite(body.characterId ?? 0)) return badRequest('CHARACTER_NOT_FAVORITE', '즐겨찾기 캐릭터 아님')
     const recordDate = body.recordDate ?? new Date().toISOString().split('T')[0]
-    if (huntingRecords.some(record => record.characterId === body.characterId && record.recordDate === recordDate)) {
-      return HttpResponse.json(
-        { success: false, code: 'HUNTING_RECORD_ALREADY_EXISTS', message: '해당 날짜 기록 존재' },
-        { status: 409 },
-      )
-    }
     const newRecord: HuntingRecord = {
       id: nextId++,
       characterId: body.characterId ?? 1,
