@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -191,8 +192,6 @@ class HuntingServiceTest {
 		MapleCharacter character = character(user);
 		HuntingRecordRequest request = request(LocalDate.parse("2026-07-14"), 10_000_000L, 12);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(huntingRecordRepository.existsByCharacter_IdAndRecordDate(10L, LocalDate.parse("2026-07-14")))
-				.thenReturn(false);
 		when(huntingRecordRepository.save(any(HuntingRecord.class))).thenAnswer(invocation -> {
 			HuntingRecord saved = invocation.getArgument(0);
 			ReflectionTestUtils.setField(saved, "id", 100L);
@@ -223,17 +222,19 @@ class HuntingServiceTest {
 	}
 
 	@Test
-	void createRecordRejectsDuplicateDate() {
+	void createRecordAllowsMultipleRecordsOnSameDate() {
 		User user = user();
 		MapleCharacter character = character(user);
 		HuntingRecordRequest request = request(LocalDate.parse("2026-07-14"), 10_000_000L, null);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(huntingRecordRepository.existsByCharacter_IdAndRecordDate(10L, LocalDate.parse("2026-07-14")))
-				.thenReturn(true);
+		when(huntingRecordRepository.save(any(HuntingRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-		assertThatThrownBy(() -> huntingService.createRecord(1L, request))
-				.isInstanceOf(ApiException.class)
-				.hasMessageContaining("사냥 기록 중복");
+		HuntingRecordResponse first = huntingService.createRecord(1L, request);
+		HuntingRecordResponse second = huntingService.createRecord(1L, request);
+
+		assertThat(first.recordDate()).isEqualTo(LocalDate.parse("2026-07-14"));
+		assertThat(second.recordDate()).isEqualTo(LocalDate.parse("2026-07-14"));
+		verify(huntingRecordRepository, times(2)).save(any(HuntingRecord.class));
 	}
 
 	@Test
@@ -244,8 +245,6 @@ class HuntingServiceTest {
 		HuntingRecordRequest request = request(LocalDate.parse("2026-07-15"), 20_000_000L, 3);
 		when(huntingRecordRepository.findByIdAndCharacter_User_Id(100L, 1L)).thenReturn(Optional.of(record));
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(huntingRecordRepository.existsByCharacter_IdAndRecordDateAndIdNot(10L, LocalDate.parse("2026-07-15"), 100L))
-				.thenReturn(false);
 
 		HuntingRecordResponse response = huntingService.updateRecord(1L, 100L, request);
 
@@ -255,19 +254,17 @@ class HuntingServiceTest {
 	}
 
 	@Test
-	void updateRecordRejectsDuplicateDate() {
+	void updateRecordAllowsDateSharedWithAnotherRecord() {
 		User user = user();
 		MapleCharacter character = character(user);
 		HuntingRecord record = huntingRecord(100L, character, LocalDate.parse("2026-07-14"));
 		HuntingRecordRequest request = request(LocalDate.parse("2026-07-15"), 20_000_000L, 3);
 		when(huntingRecordRepository.findByIdAndCharacter_User_Id(100L, 1L)).thenReturn(Optional.of(record));
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(huntingRecordRepository.existsByCharacter_IdAndRecordDateAndIdNot(10L, LocalDate.parse("2026-07-15"), 100L))
-				.thenReturn(true);
 
-		assertThatThrownBy(() -> huntingService.updateRecord(1L, 100L, request))
-				.isInstanceOf(ApiException.class)
-				.hasMessageContaining("사냥 기록 중복");
+		HuntingRecordResponse response = huntingService.updateRecord(1L, 100L, request);
+
+		assertThat(response.recordDate()).isEqualTo(LocalDate.parse("2026-07-15"));
 	}
 
 	@Test

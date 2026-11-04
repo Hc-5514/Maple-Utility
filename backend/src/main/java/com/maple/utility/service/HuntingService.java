@@ -123,7 +123,6 @@ public class HuntingService {
 		long mesoEarned = mesoEarned(request);
 		int solErdaEarned = solErdaEarned(request);
 		validateReward(mesoEarned, solErdaEarned);
-		validateDuplicate(character.getId(), request.recordDate());
 		HuntingGround ground = findGround(request.huntingGroundId());
 
 		HuntingRecord record = HuntingRecord.create(
@@ -150,7 +149,6 @@ public class HuntingService {
 		long mesoEarned = mesoEarned(request);
 		int solErdaEarned = solErdaEarned(request);
 		validateReward(mesoEarned, solErdaEarned);
-		validateDuplicateForUpdate(character.getId(), request.recordDate(), record.getId());
 		HuntingGround ground = findGround(request.huntingGroundId());
 
 		record.update(
@@ -242,18 +240,6 @@ public class HuntingService {
 	private void validateReward(long mesoEarned, int solErdaEarned) {
 		if (mesoEarned == 0 && solErdaEarned == 0) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "HUNTING_REWARD_REQUIRED", "사냥 보상 필요");
-		}
-	}
-
-	private void validateDuplicate(Long characterId, LocalDate recordDate) {
-		if (huntingRecordRepository.existsByCharacter_IdAndRecordDate(characterId, recordDate)) {
-			throw new ApiException(HttpStatus.CONFLICT, "HUNTING_RECORD_ALREADY_EXISTS", "사냥 기록 중복");
-		}
-	}
-
-	private void validateDuplicateForUpdate(Long characterId, LocalDate recordDate, Long recordId) {
-		if (huntingRecordRepository.existsByCharacter_IdAndRecordDateAndIdNot(characterId, recordDate, recordId)) {
-			throw new ApiException(HttpStatus.CONFLICT, "HUNTING_RECORD_ALREADY_EXISTS", "사냥 기록 중복");
 		}
 	}
 

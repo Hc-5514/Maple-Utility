@@ -91,9 +91,11 @@ class SharedLoginMergePostgresTest {
 		assertThat(jdbc.queryForObject("SELECT character_name FROM characters WHERE id=302", String.class))
 				.isEqualTo("직접 캐릭터");
 		assertThat(jdbc.queryForObject("SELECT is_favorite FROM characters WHERE id=302", Boolean.class)).isTrue();
-		assertThat(number("SELECT count(*) FROM hunting_records")).isEqualTo(3);
-		assertThat(number("SELECT meso_earned FROM hunting_records WHERE character_id=302 AND record_date='2026-10-12'"))
-				.isEqualTo(200);
+		// 같은 날짜라도 내용이 다른 기록은 모두 보존
+		assertThat(number("SELECT count(*) FROM hunting_records")).isEqualTo(4);
+		assertThat(number("SELECT count(*) FROM hunting_records WHERE character_id=302 AND record_date='2026-10-12'"))
+				.isEqualTo(2);
+		assertThat(number("SELECT character_id FROM hunting_records WHERE id=401")).isEqualTo(302);
 		assertThat(number("SELECT character_id FROM hunting_records WHERE id=403")).isEqualTo(302);
 		assertThat(number("SELECT character_id FROM hunting_records WHERE id=404")).isEqualTo(303);
 		assertThat(jdbc.queryForList("SELECT world_name FROM user_selected_worlds WHERE user_id=102", String.class))
@@ -109,15 +111,16 @@ class SharedLoginMergePostgresTest {
 		user(102, "NEXON_APIKEY", equalCreationTime ? "2025-01-01" : "2026-01-01");
 		character(301, 101, "same", "우선 캐릭터", true);
 		character(302, 102, "same", "후순위 캐릭터", false);
-		hunting(401, 301, "2026-10-12", 100);
-		hunting(402, 302, "2026-10-12", 200);
+		hunting(401, 301, "2026-10-12", 100, "2026-10-12 10:00:00");
+		hunting(402, 302, "2026-10-12", 100, "2026-10-12 10:00:00");
 
 		// Exercise preferred-source replacement rather than assuming the caller has picked the winner.
 		merge(102, 101);
 
 		assertThat(jdbc.queryForObject("SELECT character_name FROM characters WHERE id=302", String.class))
 				.isEqualTo("우선 캐릭터");
-		assertThat(number("SELECT meso_earned FROM hunting_records WHERE character_id=302")).isEqualTo(100);
+		assertThat(number("SELECT count(*) FROM hunting_records WHERE character_id=302")).isEqualTo(1);
+		assertThat(number("SELECT id FROM hunting_records WHERE character_id=302")).isEqualTo(401);
 		assertThat(number("SELECT source_user_id FROM data_merge_provenance WHERE table_name='characters' AND record_id=302"))
 				.isEqualTo(101);
 	}
@@ -130,8 +133,8 @@ class SharedLoginMergePostgresTest {
 		character(301, 101, "same", "사회", false);
 		character(302, 102, "same", "최초 직접", true);
 		character(303, 103, "same", "추가 직접", false);
-		hunting(401, 301, "2026-10-12", 100);
-		hunting(403, 303, "2026-10-12", 300);
+		hunting(401, 301, "2026-10-12", 100, "2026-10-12 10:00:00");
+		hunting(403, 303, "2026-10-12", 100, "2026-10-12 10:00:00");
 
 		merge(102, 101);
 		assertThat(number("SELECT source_user_id FROM data_merge_provenance WHERE table_name='hunting_records' AND record_id=401"))
@@ -139,7 +142,7 @@ class SharedLoginMergePostgresTest {
 		merge(102, 103);
 
 		assertThat(number("SELECT count(*) FROM hunting_records")).isEqualTo(1);
-		assertThat(number("SELECT meso_earned FROM hunting_records WHERE character_id=302")).isEqualTo(300);
+		assertThat(number("SELECT id FROM hunting_records WHERE character_id=302")).isEqualTo(403);
 		assertThat(number("SELECT source_user_id FROM data_merge_provenance WHERE table_name='hunting_records' AND record_id=403"))
 				.isEqualTo(103);
 		assertThat(jdbc.queryForObject("SELECT character_name FROM characters WHERE id=302", String.class))
@@ -451,6 +454,12 @@ class SharedLoginMergePostgresTest {
 	private void hunting(long id, long character, String date, long meso) {
 		jdbc.update("INSERT INTO hunting_records(id,character_id,record_date,meso_earned) VALUES (?,?,?::date,?)",
 				id, character, date, meso);
+	}
+
+	/** 병합 시 완전히 같은 기록으로 판정되도록 생성 시각까지 고정한 기록 */
+	private void hunting(long id, long character, String date, long meso, String createdAt) {
+		jdbc.update("INSERT INTO hunting_records(id,character_id,record_date,meso_earned,created_at) VALUES (?,?,?::date,?,?::timestamp)",
+				id, character, date, meso, createdAt);
 	}
 
 	private void acquisition(long id, long character, long period, String memo, int quantity, String createdAt) {
