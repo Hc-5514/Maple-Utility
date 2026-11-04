@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 
@@ -220,9 +221,7 @@ public class NexonApiGateway {
 				response = webClient.get()
 						.uri(uri)
 						.header(NEXON_API_KEY_HEADER, apiKey)
-						.exchangeToMono(clientResponse -> clientResponse.bodyToMono(String.class)
-								.defaultIfEmpty("")
-								.map(body -> new GatewayResponse(clientResponse.statusCode().value(), body)))
+						.exchangeToMono(this::readResponse)
 						.switchIfEmpty(Mono.just(new GatewayResponse(502, "")))
 						.block();
 			} catch (RuntimeException exception) {
@@ -261,7 +260,25 @@ public class NexonApiGateway {
 		}
 	}
 
-	private boolean isNetworkFailure(RuntimeException exception) {
+	private Mono<GatewayResponse> readResponse(ClientResponse response) {
+		int status = response.statusCode().value();
+		return response.bodyToMono(String.class)
+				.defaultIfEmpty("")
+				.map(body -> new GatewayResponse(status, body))
+				.onErrorResume(exception -> {
+					// Preserve received credential errors even if their body times out.
+					if ((status == 401 || status == 403) && isNetworkFailure(exception)
+							&& !hasCause(exception, InterruptedException.class)
+							&& !Thread.currentThread().isInterrupted()) {
+						log.warn("Nexon API credential error body unavailable. status={}, causeType={}",
+								status, rootCauseType(exception));
+						return Mono.just(new GatewayResponse(status, ""));
+					}
+					return Mono.error(exception);
+				});
+	}
+
+	private boolean isNetworkFailure(Throwable exception) {
 		return exception instanceof WebClientRequestException
 				|| hasCause(exception, io.netty.handler.timeout.TimeoutException.class)
 				|| hasCause(exception, java.net.SocketTimeoutException.class)
