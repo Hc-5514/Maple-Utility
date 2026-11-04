@@ -117,6 +117,8 @@ export interface BossDropItem {
   dropRateTier: DropRateTier | null
   itemKind: BossItemKind
   defaultQuantity: number
+  /** 선택 상자의 상세 획득 아이템 옵션 (없으면 빈 배열) */
+  detailOptions: string[]
 }
 
 export interface BossPeriodItem {
@@ -124,6 +126,8 @@ export interface BossPeriodItem {
   acquired: boolean
   quantity: number
   mesoAmount: number | null
+  /** 선택한 상세 획득 아이템 (상자류, 미선택 시 null) */
+  detailItem: string | null
 }
 
 export interface BossPeriod {

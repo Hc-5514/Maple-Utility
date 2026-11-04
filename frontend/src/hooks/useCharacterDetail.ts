@@ -189,6 +189,7 @@ export async function saveBossPeriod(period: BossPeriod): Promise<BossPeriod> {
       bossDropItemId: item.dropItem.id,
       acquired: item.acquired,
       quantity: item.quantity,
+      detailItem: item.acquired ? item.detailItem : null,
     })),
   })
   return data.data
