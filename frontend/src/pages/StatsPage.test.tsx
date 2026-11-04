@@ -77,6 +77,11 @@ describe('StatsPage', () => {
     expect(calls(get, '/stats/hunting').some((url) => url.includes('bossName'))).toBe(false)
   })
 
+  it('explains how monthly boss income is counted in the crystal card', async () => {
+    renderPage()
+    expect(await screen.findByText('월간 보스 수익은 매월 1일이 속한 주(목요일 시작)에 합산됩니다.')).toBeTruthy()
+  })
+
   it('switches the crystal window between four weekly and three four-week bars', async () => {
     const get = renderPage()
     expect(await screen.findByText('최근 4주 총 수익')).toBeTruthy()
