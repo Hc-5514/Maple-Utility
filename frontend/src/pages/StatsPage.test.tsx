@@ -77,6 +77,16 @@ describe('StatsPage', () => {
     expect(calls(get, '/stats/hunting').some((url) => url.includes('bossName'))).toBe(false)
   })
 
+  it('switches the crystal window between four weekly and three four-week bars', async () => {
+    const get = renderPage()
+    expect(await screen.findByText('최근 4주 총 수익')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '최근 12주' }))
+    expect(await screen.findByText('최근 12주 총 수익')).toBeTruthy()
+    expect(screen.getByText('4주 평균')).toBeTruthy()
+    const [from, to] = last(get, '/stats/crystal').match(/dateFrom=([\d-]+)&dateTo=([\d-]+)/)!.slice(1)
+    expect((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000).toBe(83)
+  })
+
   it('sends itemKind=RANDOM for lucky items only and resets the item page', async () => {
     const get = renderPage()
     const nav = await screen.findByRole('navigation', { name: '보스 아이템 획득 이력 페이지' })
@@ -90,15 +100,5 @@ describe('StatsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '전체' }))
     await waitFor(() => expect(last(get, '/stats/boss-items')).not.toContain('itemKind'))
-  })
-
-  it('switches the crystal window between four weekly and three four-week bars', async () => {
-    const get = renderPage()
-    expect(await screen.findByText('최근 4주 총 수익')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '최근 12주' }))
-    expect(await screen.findByText('최근 12주 총 수익')).toBeTruthy()
-    expect(screen.getByText('4주 평균')).toBeTruthy()
-    const [from, to] = last(get, '/stats/crystal').match(/dateFrom=([\d-]+)&dateTo=([\d-]+)/)!.slice(1)
-    expect((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000).toBe(83)
   })
 })
