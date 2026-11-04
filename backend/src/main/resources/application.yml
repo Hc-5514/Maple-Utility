@@ -40,6 +40,8 @@ nexon:
   daily-call-limit: 500
   realtime-call-threshold: 450
   dispatch-interval: 1s
+  connect-timeout: 3s
+  response-timeout: 10s
 
 app:
   cors:

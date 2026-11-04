@@ -73,7 +73,9 @@ class NexonApiGatewayTest {
 			"https://example.test/character/scheduler",
 			500,
 			450,
-			Duration.ofSeconds(1)
+			Duration.ofSeconds(1),
+			Duration.ofSeconds(3),
+			Duration.ofSeconds(10)
 	);
 
 	@BeforeEach

@@ -279,6 +279,7 @@ export interface SyncJob {
   totalCount: number
   completedCount: number
   skippedCount: number
+  failedCount: number
   errorMessage: string | null
   startedAt: string
   completedAt: string | null

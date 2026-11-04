@@ -213,7 +213,7 @@ public class DataContextMergeService {
 				FROM data_sync_logs WHERE user_id IN (?, ?)
 				"""));
 		parts.add(auditPart("sync_jobs", """
-				SELECT id, user_id, job_type, status, total_count, completed_count, skipped_count, started_at, completed_at
+				SELECT id, user_id, job_type, status, total_count, completed_count, skipped_count, failed_count, started_at, completed_at
 				FROM sync_jobs WHERE user_id IN (?, ?)
 				"""));
 		String sql = "SELECT jsonb_build_object(" + String.join(",", parts) + ")::text";

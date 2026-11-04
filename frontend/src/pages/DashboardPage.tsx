@@ -47,9 +47,9 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   useEffect(() => {
-    if (syncJob?.status === 'COMPLETED')
+    if (syncJob?.status === 'COMPLETED' || syncJob?.status === 'FAILED')
       void queryClient.invalidateQueries({ queryKey: ['scheduler/summary'] })
-  }, [syncJob?.status, queryClient])
+  }, [syncJob?.id, syncJob?.status, queryClient])
   const selectedWorlds = worlds.data?.worldNames ?? []
   const characters = (data?.characters ?? []).filter(
     (character) => character.worldName && selectedWorlds.includes(character.worldName)
@@ -119,6 +119,12 @@ export default function DashboardPage() {
       {(syncMutation.isError || syncJob?.status === 'FAILED') && (
         <p role="alert" className="text-sm text-red-500">
           동기화에 실패했습니다.
+        </p>
+      )}
+      {syncJob?.status === 'COMPLETED' && (syncJob.failedCount ?? 0) > 0 && (
+        <p role="alert" className="text-sm text-[var(--dash-muted)]">
+          일부 캐릭터의 동기화에 실패했습니다. 실패 {syncJob.failedCount}명. 지금 동기화를 눌러 다시
+          시도해 주세요.
         </p>
       )}
       {isLoading || worlds.isLoading ? (
