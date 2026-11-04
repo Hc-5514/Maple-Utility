@@ -1,3 +1,4 @@
+import { detailOptionsFor } from './bossDetailOptions'
 import snapshot from './nexonPreview.json'
 import catalog from './nexonPreviewCatalog.json'
 import type { BossDifficulty, BossItemKind, BossPeriod, Character, ResetPeriod, SchedulerBossRecord } from '../../types'
@@ -98,10 +99,12 @@ export function getPreviewPeriod(characterId: number, bossId: number, periodStar
         itemImage: null,
         itemDescription: null,
         dropRateTier: null,
+        detailOptions: detailOptionsFor(dropItem.itemName),
       },
       acquired: dropItem.itemKind === 'CRYSTAL',
       quantity: dropItem.defaultQuantity,
       mesoAmount: dropItem.itemKind === 'CRYSTAL' ? Math.floor(boss.crystalPrice / partySize) : null,
+      detailItem: null,
     })),
   }
 }

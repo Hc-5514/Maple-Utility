@@ -272,7 +272,7 @@ class SchedulerServiceTest {
 		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 5);
 		ReflectionTestUtils.setField(entry, "id", 50L);
 		// 직접 수정된 것처럼 가격과 무관한 값이 저장돼 있어도 계산값을 사용
-		BossItemAcquisition stored = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L);
+		BossItemAcquisition stored = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L, null);
 
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
@@ -293,6 +293,27 @@ class SchedulerServiceTest {
 		// 25,000,000 / 5명
 		assertThat(response.weeklyBosses()).singleElement()
 				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isEqualTo(5_000_000L));
+	}
+
+	@Test
+	void getBossUsesEditedCrystalPriceFromPeriodEntry() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L, ResetPeriod.WEEKLY);
+		SchedulerBossRecord cleared = SchedulerBossRecord.create(character, boss, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
+		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 3);
+		ReflectionTestUtils.setField(entry, "id", 50L);
+		entry.save(3, 30_000_000L);
+		stubBossPeriods(character, List.of(cleared));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndPeriodStart(10L, LocalDate.parse("2026-07-09")))
+				.thenReturn(List.of(entry));
+		when(bossItemAcquisitionRepository.findCrystalEntryIds(List.of(50L))).thenReturn(List.of(50L));
+
+		var response = schedulerService.getBoss(1L, 10L,
+				LocalDate.parse("2026-07-14"), LocalDate.parse("2026-06-15"), null);
+
+		// 수정한 가격 30,000,000 / 3명 (기본 가격 25,000,000 무시)
+		assertThat(response.weeklyBosses()).singleElement()
+				.satisfies(record -> assertThat(record.acquiredCrystalMeso()).isEqualTo(10_000_000L));
 	}
 
 	@Test

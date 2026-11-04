@@ -28,6 +28,7 @@ import com.maple.utility.dto.response.StatsCompletionResponse;
 import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
 import com.maple.utility.dto.response.StatsHuntingDailyResponse;
 import com.maple.utility.dto.response.StatsHuntingSummaryResponse;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.Difficulty;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.OAuthProvider;
@@ -191,9 +192,9 @@ class StatsServiceTest {
 		);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		PageResponse<StatsBossItemResponse> expected = new PageResponse<>(rows, 21, 3, 1, 10);
-		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, 1, 10)).thenReturn(expected);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, null, 1, 10)).thenReturn(expected);
 
-		PageResponse<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null, null, 1, 10);
+		PageResponse<StatsBossItemResponse> response = statsService.getBossItemStats(1L, 10L, null, null, null, null, 1, 10);
 
 		assertThat(response).isEqualTo(expected);
 	}
@@ -203,11 +204,11 @@ class StatsServiceTest {
 		MapleCharacter character = character(user(), 10L);
 		PageResponse<StatsBossItemResponse> empty = new PageResponse<>(List.of(), 0, 0, 0, 10);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
-		when(statsQueryRepository.findBossItemStats(List.of(10L), "스우", null, null, 0, 10)).thenReturn(empty);
-		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, 0, 10)).thenReturn(empty);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), "스우", null, null, null, 0, 10)).thenReturn(empty);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, null, null, null, 0, 10)).thenReturn(empty);
 
-		assertThat(statsService.getBossItemStats(1L, 10L, " 스우 ", null, null, 0, 10)).isEqualTo(empty);
-		assertThat(statsService.getBossItemStats(1L, 10L, "  ", null, null, 0, 10)).isEqualTo(empty);
+		assertThat(statsService.getBossItemStats(1L, 10L, " 스우 ", null, null, null, 0, 10)).isEqualTo(empty);
+		assertThat(statsService.getBossItemStats(1L, 10L, "  ", null, null, null, 0, 10)).isEqualTo(empty);
 	}
 
 	@Test
@@ -218,11 +219,27 @@ class StatsServiceTest {
 	}
 
 	@Test
+	void getBossItemStatsPassesRandomItemKindAndRejectsOthers() {
+		MapleCharacter character = character(user(), 10L);
+		PageResponse<StatsBossItemResponse> empty = new PageResponse<>(List.of(), 0, 0, 0, 10);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, BossItemKind.RANDOM, null, null, 0, 10))
+				.thenReturn(empty);
+
+		assertThat(statsService.getBossItemStats(1L, 10L, null, BossItemKind.RANDOM, null, null, 0, 10)).isEqualTo(empty);
+		for (BossItemKind rejected : List.of(BossItemKind.CRYSTAL, BossItemKind.FIXED)) {
+			assertThatThrownBy(() -> statsService.getBossItemStats(1L, 10L, null, rejected, null, null, 0, 10))
+					.isInstanceOf(ApiException.class)
+					.hasMessageContaining("아이템 종류 오류");
+		}
+	}
+
+	@Test
 	void getBossItemStatsRejectsInvalidPagination() {
-		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, -1, 10))
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, null, -1, 10))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("페이지 요청 오류");
-		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, 0, 11))
+		assertThatThrownBy(() -> statsService.getBossItemStats(1L, null, null, null, null, null, 0, 11))
 				.isInstanceOf(ApiException.class)
 				.hasMessageContaining("페이지 요청 오류");
 	}

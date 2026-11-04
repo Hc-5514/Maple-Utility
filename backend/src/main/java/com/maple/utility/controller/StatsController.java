@@ -15,6 +15,7 @@ import com.maple.utility.dto.response.PageResponse;
 import com.maple.utility.dto.response.StatsCompletionResponse;
 import com.maple.utility.dto.response.StatsCrystalSummaryResponse;
 import com.maple.utility.dto.response.StatsHuntingSummaryResponse;
+import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.security.JwtAuthentication;
 import com.maple.utility.service.StatsService;
 
@@ -52,6 +53,7 @@ public class StatsController {
 	public PageResponse<StatsBossItemResponse> getBossItemStats(
 			@RequestParam(required = false) Long characterId,
 			@RequestParam(required = false) String bossName,
+			@RequestParam(required = false) BossItemKind itemKind,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
 			@RequestParam(defaultValue = "0") int page,
@@ -59,7 +61,7 @@ public class StatsController {
 			Authentication authentication
 	) {
 		return statsService.getBossItemStats(
-				currentUserId(authentication), characterId, bossName, dateFrom, dateTo, page, size);
+				currentUserId(authentication), characterId, bossName, itemKind, dateFrom, dateTo, page, size);
 	}
 
 	@GetMapping("/bosses")

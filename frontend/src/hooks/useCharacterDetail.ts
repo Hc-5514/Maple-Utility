@@ -184,10 +184,12 @@ export async function saveBossPeriod(period: BossPeriod): Promise<BossPeriod> {
     characterId: period.characterId,
     periodStart: period.periodStart,
     partySize: period.partySize,
+    crystalPrice: period.crystalPrice,
     items: period.items.map((item) => ({
       bossDropItemId: item.dropItem.id,
       acquired: item.acquired,
       quantity: item.quantity,
+      detailItem: item.acquired ? item.detailItem : null,
     })),
   })
   return data.data

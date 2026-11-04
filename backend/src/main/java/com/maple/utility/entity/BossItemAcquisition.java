@@ -49,6 +49,9 @@ public class BossItemAcquisition extends BaseTimeEntity {
 	@Column(name = "meso_amount")
 	private Long mesoAmount;
 
+	@Column(name = "detail_item", length = 100)
+	private String detailItem;
+
 	public static BossItemAcquisition create(
 			MapleCharacter character,
 			BossDropItem bossDropItem,
@@ -64,17 +67,19 @@ public class BossItemAcquisition extends BaseTimeEntity {
 	}
 
 	public static BossItemAcquisition createForPeriod(
-			BossPeriodEntry periodEntry, BossDropItem dropItem, int quantity, Long mesoAmount
+			BossPeriodEntry periodEntry, BossDropItem dropItem, int quantity, Long mesoAmount, String detailItem
 	) {
 		BossItemAcquisition acquisition = create(periodEntry.getCharacter(), dropItem, periodEntry.getPeriodStart(), null);
 		acquisition.periodEntry = periodEntry;
 		acquisition.quantity = quantity;
 		acquisition.mesoAmount = mesoAmount;
+		acquisition.detailItem = detailItem;
 		return acquisition;
 	}
 
-	public void updateForPeriod(int quantity, Long mesoAmount) {
+	public void updateForPeriod(int quantity, Long mesoAmount, String detailItem) {
 		this.quantity = quantity;
 		this.mesoAmount = mesoAmount;
+		this.detailItem = detailItem;
 	}
 }
