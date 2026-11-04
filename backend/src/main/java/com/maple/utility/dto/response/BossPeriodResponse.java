@@ -18,7 +18,8 @@ public record BossPeriodResponse(
 			BossDropItemResponse dropItem,
 			boolean acquired,
 			int quantity,
-			Long mesoAmount
+			Long mesoAmount,
+			String detailItem
 	) {
 	}
 }

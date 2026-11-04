@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public record BossPeriodSaveRequest(
 		@NotNull Long characterId,
@@ -22,7 +23,8 @@ public record BossPeriodSaveRequest(
 			@NotNull Long bossDropItemId,
 			boolean acquired,
 			@Min(1) int quantity,
-			@Min(0) Long mesoAmount
+			@Min(0) Long mesoAmount,
+			@Size(max = 100) String detailItem
 	) {
 	}
 }

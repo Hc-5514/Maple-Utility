@@ -272,7 +272,7 @@ class SchedulerServiceTest {
 		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 5);
 		ReflectionTestUtils.setField(entry, "id", 50L);
 		// 직접 수정된 것처럼 가격과 무관한 값이 저장돼 있어도 계산값을 사용
-		BossItemAcquisition stored = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L);
+		BossItemAcquisition stored = BossItemAcquisition.createForPeriod(entry, crystal, 1, 1L, null);
 
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		when(bossRecordRepository.findLatestByCharacterIdAndRecordDateBetweenAndResetPeriod(10L, LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), ResetPeriod.WEEKLY))
