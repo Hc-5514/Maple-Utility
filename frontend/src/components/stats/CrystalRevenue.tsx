@@ -44,15 +44,15 @@ export default function CrystalRevenue({
         </div>
       </div>
       <div className="flex flex-col gap-[14px]">
-        <div className="flex flex-wrap items-center gap-12 lg:flex-nowrap">
-          <div className="flex w-[265px] shrink-0 flex-col gap-[22px] whitespace-nowrap">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:gap-12">
+          <div className="flex w-full shrink-0 flex-col gap-[22px] whitespace-nowrap lg:w-[265px]">
             <span className="text-[13px] leading-[1.2] text-[var(--dash-muted)]">최근 {window}주 총 수익</span>
             <span className="text-[36px] leading-[44px] font-semibold [font-family:Inter,sans-serif]">{formatEok(total)}억 메소</span>
             <span className="h-px bg-[var(--dash-border)]" />
             <span className="text-[13px] leading-[1.2] text-[var(--dash-muted)]">{window === 4 ? '주간 평균' : '4주 평균'}</span>
             <span className="text-[28px] leading-[34px] font-semibold [font-family:Inter,sans-serif]">{formatEok(average)}억 메소</span>
           </div>
-          <div className="flex min-w-0 flex-1 gap-5" role="img" aria-label={`최근 ${window}주 결정석 수익 막대 차트`}>
+          <div className="flex w-full min-w-0 gap-3 sm:gap-5 lg:flex-1" role="img" aria-label={`최근 ${window}주 결정석 수익 막대 차트`}>
             <div className="flex h-[204px] w-[35px] shrink-0 flex-col justify-between text-[11px] leading-[normal] text-[var(--dash-muted)] [font-family:Inter,sans-serif]">
               {ticks.map((tick) => (
                 <span key={tick}>{tick === 0 ? '0' : `${Number(tick.toFixed(2))}억`}</span>
@@ -72,10 +72,10 @@ export default function CrystalRevenue({
                     const last = index === periods.length - 1
                     const height = Math.round((period.totalIncome / 100_000_000 / axisMax) * PLOT_HEIGHT)
                     return (
-                      <div key={period.weekStart} className="flex h-full flex-1 items-end justify-center">
+                      <div key={period.weekStart} className="flex h-full min-w-0 flex-1 items-end justify-center px-1">
                         <div
                           title={`${period.weekStart} · ${formatEok(period.totalIncome)}억 메소`}
-                          className={`relative rounded-t-lg bg-gradient-to-r ${window === 4 ? 'w-[150px]' : 'w-[200px]'} ${last ? 'from-[var(--dash-accent)] to-[var(--dash-meso)]' : 'from-[var(--dash-accent)]/75 to-[var(--dash-accent)]/38'}`}
+                          className={`relative rounded-t-lg bg-gradient-to-r w-full ${window === 4 ? 'max-w-[150px]' : 'max-w-[200px]'} ${last ? 'from-[var(--dash-accent)] to-[var(--dash-meso)]' : 'from-[var(--dash-accent)]/75 to-[var(--dash-accent)]/38'}`}
                           style={{ height }}
                         />
                       </div>
@@ -83,9 +83,9 @@ export default function CrystalRevenue({
                   })}
                 </div>
               </div>
-              <div className="flex text-center text-[12px] leading-[normal] text-[var(--dash-muted)] [font-family:Inter,sans-serif]">
+              <div className="flex text-center leading-[1.3] text-[var(--dash-muted)] [font-family:Inter,sans-serif]">
                 {periods.map((period) => (
-                  <span key={period.weekStart} className="flex-1 whitespace-nowrap">
+                  <span key={period.weekStart} className="min-w-0 flex-1 px-1 text-[11px] break-keep sm:text-[12px]">
                     {period.weekStart}
                   </span>
                 ))}
