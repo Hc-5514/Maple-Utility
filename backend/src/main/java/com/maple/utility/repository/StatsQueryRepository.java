@@ -65,6 +65,7 @@ public class StatsQueryRepository {
 	public PageResponse<StatsBossItemResponse> findBossItemStats(
 			List<Long> characterIds,
 			String bossName,
+			BossItemKind itemKind,
 			LocalDate dateFrom,
 			LocalDate dateTo,
 			int page,
@@ -79,6 +80,9 @@ public class StatsQueryRepository {
 				.and(acquisition.bossDropItem.itemKind.ne(BossItemKind.CRYSTAL));
 		if (bossName != null) {
 			condition.and(acquisition.bossDropItem.boss.bossName.eq(bossName));
+		}
+		if (itemKind != null) {
+			condition.and(acquisition.bossDropItem.itemKind.eq(itemKind));
 		}
 		Long count = queryFactory.select(acquisition.id.count())
 				.from(acquisition)
