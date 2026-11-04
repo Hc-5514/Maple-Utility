@@ -77,6 +77,21 @@ describe('StatsPage', () => {
     expect(calls(get, '/stats/hunting').some((url) => url.includes('bossName'))).toBe(false)
   })
 
+  it('sends itemKind=RANDOM for lucky items only and resets the item page', async () => {
+    const get = renderPage()
+    const nav = await screen.findByRole('navigation', { name: '보스 아이템 획득 이력 페이지' })
+    fireEvent.click(await within(nav).findByRole('button', { name: '3' }))
+    await waitFor(() => expect(last(get, '/stats/boss-items')).toMatch(/page=2&size=10$/))
+    expect(last(get, '/stats/boss-items')).not.toContain('itemKind')
+
+    fireEvent.click(screen.getByRole('button', { name: '물욕템' }))
+    await waitFor(() => expect(last(get, '/stats/boss-items')).toMatch(/itemKind=RANDOM.*page=0&size=10$/))
+    expect(calls(get, '/stats/hunting').some((url) => url.includes('itemKind'))).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: '전체' }))
+    await waitFor(() => expect(last(get, '/stats/boss-items')).not.toContain('itemKind'))
+  })
+
   it('switches the crystal window between four weekly and three four-week bars', async () => {
     const get = renderPage()
     expect(await screen.findByText('최근 4주 총 수익')).toBeTruthy()

@@ -53,6 +53,7 @@ export default function StatsPage() {
   const [dateTo, setDateTo] = useState(today)
   const [characterId, setCharacterId] = useState<number | null>(null)
   const [bossName, setBossName] = useState<string | null>(null)
+  const [luckyOnly, setLuckyOnly] = useState(false)
   const [bossPage, setBossPage] = useState(0)
   const [bossPageSize, setBossPageSize] = useState<BossItemPageSize>(10)
   const [crystalWindow, setCrystalWindow] = useState<CrystalWindow>(4)
@@ -68,7 +69,7 @@ export default function StatsPage() {
   const crystal = useStatsCrystal({ characterId, ...crystalRange })
   const bosses = useStatsBosses()
   const bossItems = useStatsBossItems({
-    characterId, bossName, dateFrom, dateTo, page: bossPage, size: bossPageSize,
+    characterId, bossName, itemKind: luckyOnly ? 'RANDOM' : null, dateFrom, dateTo, page: bossPage, size: bossPageSize,
   })
   const crystalPeriods = crystalChartPeriods(crystal.data?.weeklyRecords ?? [], crystalRange.dateFrom, crystalWindow)
 
@@ -116,6 +117,11 @@ export default function StatsPage() {
             page={bossItems.data}
             bossName={bossName}
             bosses={bosses.data ?? []}
+            luckyOnly={luckyOnly}
+            onLuckyOnlyChange={(value) => {
+              setLuckyOnly(value)
+              setBossPage(0)
+            }}
             onBossChange={(name) => {
               setBossName(name)
               setBossPage(0)
