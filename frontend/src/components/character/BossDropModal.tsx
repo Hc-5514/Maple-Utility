@@ -227,10 +227,22 @@ export default function BossDropModal({
                   메소
                 </div>
               )}
-              <span className={item.dropItem.itemKind === 'RANDOM' ? 'ml-auto' : ''}>
+              {item.acquired && item.dropItem.detailOptions.length > 0 && (
+                <div className="ml-auto shrink-0">
+                  <PeriodMenu
+                    compact
+                    label={`${item.dropItem.itemName} 상세`}
+                    value={item.detailItem ?? ''}
+                    placeholder="상세 선택"
+                    options={item.dropItem.detailOptions.map((option) => ({ value: option, label: option }))}
+                    onChange={(value) => changeItem(item.dropItem.id, { detailItem: value })}
+                  />
+                </div>
+              )}
+              <span className={item.dropItem.itemKind === 'RANDOM' && !(item.acquired && item.dropItem.detailOptions.length > 0) ? 'ml-auto' : ''}>
                 <ThemedCheckbox
                   checked={item.acquired}
-                  onChange={(acquired) => changeItem(item.dropItem.id, { acquired })}
+                  onChange={(acquired) => changeItem(item.dropItem.id, acquired ? { acquired } : { acquired, detailItem: null })}
                   label={`${item.dropItem.itemName} 획득 여부`}
                 />
               </span>

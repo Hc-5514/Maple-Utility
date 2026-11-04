@@ -101,7 +101,7 @@ export const statsHandlers = [
         characterName: previewCharacter(period.characterId)?.characterName ?? '',
         bossName: previewBoss(period.bossId)?.bossName ?? '',
         difficulty: (previewBoss(period.bossId)?.difficulty ?? 'NORMAL') as BossDifficulty,
-        itemName: item.dropItem.itemName,
+        itemName: item.detailItem ? `${item.dropItem.itemName} (${item.detailItem})` : item.dropItem.itemName,
       })))
     const rows = [...[...previewHistory, ...september].filter((item) =>
       (characterId === null || item.characterName === previewCharacter(characterId)?.characterName)

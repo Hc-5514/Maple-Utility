@@ -27,7 +27,7 @@ export const bossHandlers = [
       periodStart: string
       partySize: number
       crystalPrice?: number | null
-      items: { bossDropItemId: number; acquired: boolean; quantity: number }[]
+      items: { bossDropItemId: number; acquired: boolean; quantity: number; detailItem?: string | null }[]
     }
     const previous = getPreviewPeriod(body.characterId, bossId, body.periodStart)
     if (!previous || body.partySize < 1 || body.partySize > previous.maxPartySize) {
@@ -49,11 +49,12 @@ export const bossHandlers = [
           ...item,
           acquired: edit.acquired,
           quantity: edit.quantity,
+          detailItem: edit.acquired && item.dropItem.detailOptions.includes(edit.detailItem ?? '') ? edit.detailItem ?? null : null,
           // 결정 메소는 서버가 결정 가격 / 인원수로 계산
           mesoAmount: item.dropItem.itemKind === 'CRYSTAL' && crystalPrice > 0
             ? Math.floor(crystalPrice / body.partySize)
             : null,
-        } : { ...item, acquired: false }
+        } : { ...item, acquired: false, detailItem: null }
       }),
     }
     return HttpResponse.json({ success: true, data: savePreviewPeriod(saved) })
