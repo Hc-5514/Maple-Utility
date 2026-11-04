@@ -62,35 +62,6 @@ public class StatsQueryRepository {
 				.toList();
 	}
 
-	public List<CrystalIncomeRow> findCompletedBossCrystalRows(
-			List<Long> characterIds,
-			LocalDate dateFrom,
-			LocalDate dateTo
-	) {
-		if (characterIds.isEmpty()) {
-			return List.of();
-		}
-
-		QBossItemAcquisition record = QBossItemAcquisition.bossItemAcquisition;
-		return queryFactory
-				.select(record.acquiredDate, record.bossDropItem.boss.bossName,
-						record.bossDropItem.boss.difficulty, record.mesoAmount)
-				.from(record)
-				.where(bossItemCondition(record, characterIds, dateFrom, dateTo)
-						.and(record.bossDropItem.itemKind.eq(BossItemKind.CRYSTAL))
-						.and(record.mesoAmount.isNotNull()))
-				.orderBy(record.acquiredDate.asc(), record.bossDropItem.boss.sortOrder.asc(), record.id.asc())
-				.fetch()
-				.stream()
-				.map(tuple -> new CrystalIncomeRow(
-						tuple.get(record.acquiredDate),
-						tuple.get(record.bossDropItem.boss.bossName),
-						tuple.get(record.bossDropItem.boss.difficulty),
-						valueOrZero(tuple.get(record.mesoAmount))
-				))
-				.toList();
-	}
-
 	public PageResponse<StatsBossItemResponse> findBossItemStats(
 			List<Long> characterIds,
 			String bossName,

@@ -8,9 +8,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,8 +32,8 @@ import com.maple.utility.dto.response.SchedulerDailyResponse;
 import com.maple.utility.dto.response.SchedulerSummaryResponse;
 import com.maple.utility.dto.response.SchedulerWeeklyResponse;
 import com.maple.utility.dto.response.TaskSummary;
-import com.maple.utility.entity.BossItemKind;
 import com.maple.utility.entity.BossMaster;
+import com.maple.utility.entity.BossPeriodEntry;
 import com.maple.utility.entity.BossPeriodSelection;
 import com.maple.utility.entity.MapleCharacter;
 import com.maple.utility.entity.ResetPeriod;
@@ -450,28 +452,44 @@ public class SchedulerService {
 					start, bossId, boss.getBossName(), boss.getDifficulty().name(), boss.getBossImage(),
 					boss.getCrystalPrice(), resetPeriod.name(), selection.isCompleted(), null, boss.getCrystalPrice()));
 		}
+		// 클리어한 보스가 있을 때만 기간 기록·결정 획득 여부를 한 번에 선조회
+		Map<Long, BossPeriodEntry> entries = Map.of();
+		Set<Long> entriesWithCrystal = Set.of();
+		if (records.values().stream().anyMatch(SchedulerBossResponse::isCompleted)) {
+			entries = bossPeriodEntryRepository.findByCharacter_IdAndPeriodStart(character.getId(), start).stream()
+					.collect(Collectors.toMap(entry -> entry.getBoss().getId(), entry -> entry, (first, second) -> first));
+			if (!entries.isEmpty()) {
+				entriesWithCrystal = new HashSet<>(bossItemAcquisitionRepository.findCrystalEntryIds(
+						entries.values().stream().map(BossPeriodEntry::getId).toList()));
+			}
+		}
+		Map<Long, BossPeriodEntry> periodEntries = entries;
+		Set<Long> crystalEntryIds = entriesWithCrystal;
 		return records.values().stream()
-				.map(record -> record.withAcquiredCrystalMeso(
-						acquiredCrystalMeso(character.getId(), record, start, bosses.get(record.bossId()))))
+				.map(record -> record.withAcquiredCrystalMeso(acquiredCrystalMeso(
+						record, bosses.get(record.bossId()), periodEntries.get(record.bossId()), crystalEntryIds)))
 				.sorted(Comparator.comparingInt((SchedulerBossResponse record) -> bosses.get(record.bossId()).getSortOrder())
 					.thenComparing(SchedulerBossResponse::bossId))
 				.toList();
 	}
 
 	/** 미처치는 0, 처치는 결정 가격 / 인원수, 결정 미획득이면 0. 기록이 없으면 1인 기준 결정 가격. */
-	private Long acquiredCrystalMeso(Long characterId, SchedulerBossResponse record, LocalDate start, BossMaster boss) {
+	private Long acquiredCrystalMeso(
+			SchedulerBossResponse record, BossMaster boss, BossPeriodEntry entry, Set<Long> crystalEntryIds) {
 		if (!record.isCompleted()) {
 			return 0L;
 		}
-		return bossPeriodEntryRepository
-				.findByCharacter_IdAndBoss_IdAndPeriodStart(characterId, record.bossId(), start)
-				.map(entry -> bossItemAcquisitionRepository.findByPeriodEntry_IdOrderByIdAsc(entry.getId()).stream()
-						.filter(acquisition -> acquisition.getBossDropItem().getItemKind() == BossItemKind.CRYSTAL)
-						.findFirst()
-						// 저장된 메소 값과 무관하게 결정 가격 / 인원수로 계산
-						.map(acquisition -> boss.getCrystalPrice() / entry.getPartySize())
-						.orElse(0L))
-				.orElse(boss.getCrystalPrice());
+		if (entry == null) {
+			return boss.getCrystalPrice();
+		}
+		// 저장된 메소 값과 무관하게 결정 가격 / 인원수로 계산, 결정 획득을 해제한 기록은 0
+		return crystalEntryIds.contains(entry.getId()) ? boss.getCrystalPrice() / entry.getPartySize() : 0L;
+	}
+
+	/** 통계용: 해당 기간의 보스 목록(카드와 동일 규칙, 결정 금액 `acquiredCrystalMeso` 포함) */
+	@Transactional(readOnly = true)
+	public List<SchedulerBossResponse> getPeriodBosses(MapleCharacter character, LocalDate periodStart, ResetPeriod resetPeriod) {
+		return bossResponsesForPeriod(character, periodStart, resetPeriod);
 	}
 
 	private LocalDate periodStart(LocalDate date, ResetPeriod resetPeriod) {
