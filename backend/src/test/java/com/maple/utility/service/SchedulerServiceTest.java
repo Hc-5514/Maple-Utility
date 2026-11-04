@@ -114,7 +114,7 @@ class SchedulerServiceTest {
 		LocalDateTime completedAt = LocalDateTime.of(2026, 7, 14, 21, 0);
 		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of());
 		when(syncJobRepository.latestCompleted(1L, "SCHEDULER")).thenReturn(Optional.of(
-				new SyncJobResponse(1L, "SCHEDULER", "COMPLETED", 0, 0, 0, null,
+				new SyncJobResponse(1L, "SCHEDULER", "COMPLETED", 0, 0, 0, 0, null,
 						completedAt.minusSeconds(1), completedAt)));
 
 		SchedulerSummaryResponse response = schedulerService.getSummary(1L, LocalDate.of(2026, 7, 14));

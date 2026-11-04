@@ -41,7 +41,9 @@ class NexonOpenApiClientTest {
 				"https://example.test/scheduler/character-state",
 				500,
 				450,
-				Duration.ofSeconds(1)
+				Duration.ofSeconds(1),
+				Duration.ofSeconds(3),
+				Duration.ofSeconds(10)
 		);
 		nexonOpenApiClient = new NexonOpenApiClient(nexonApiGateway, properties);
 	}

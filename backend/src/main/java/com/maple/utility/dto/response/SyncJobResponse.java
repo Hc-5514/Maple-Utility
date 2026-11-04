@@ -9,6 +9,7 @@ public record SyncJobResponse(
 		int totalCount,
 		int completedCount,
 		int skippedCount,
+		int failedCount,
 		String errorMessage,
 		LocalDateTime startedAt,
 		LocalDateTime completedAt

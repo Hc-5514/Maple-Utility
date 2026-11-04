@@ -227,7 +227,7 @@ class SyncJobServiceTest {
 	}
 
 	private SyncJobResponse job(Long id, String type, String status, int total, int completed, LocalDateTime completedAt) {
-		return new SyncJobResponse(id, type, status, total, completed, 0, null,
+		return new SyncJobResponse(id, type, status, total, completed, 0, 0, null,
 				LocalDateTime.now(CLOCK).minusMinutes(3), completedAt);
 	}
 }
