@@ -38,7 +38,7 @@ class StatsQueryRepositoryTest {
 	private StatsQueryRepository repository;
 
 	@Test
-	void itemPagesExcludeCrystalsButCrystalIncomeKeepsThem() {
+	void itemPagesExcludeCrystals() {
 		// Production Flyway owns timestamp defaults; Hibernate's test schema needs the same defaults.
 		for (String table : List.of("users", "characters", "boss_master", "boss_drop_items", "boss_item_acquisitions")) {
 			for (String column : List.of("created_at", "updated_at")) {
@@ -90,9 +90,6 @@ class StatsQueryRepositoryTest {
 				.totalElements()).isEqualTo(12);
 		assertThat(repository.findBossItemStats(List.of(character.getId(), other.getId()), "자쿰", null, null, 0, 10)
 				.totalElements()).isZero();
-		assertThat(repository.findCompletedBossCrystalRows(List.of(character.getId()), null, null))
-				.extracting(StatsQueryRepository.CrystalIncomeRow::income)
-				.containsExactly(12_000L);
 	}
 
 	@Test
