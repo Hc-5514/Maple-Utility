@@ -1,6 +1,5 @@
 package com.maple.utility.repository;
 
-import java.time.LocalDate;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,8 +12,4 @@ public interface HuntingRecordRepository extends JpaRepository<HuntingRecord, Lo
 	Optional<HuntingRecord> findByIdAndCharacter_User_Id(Long id, Long userId);
 
 	Optional<HuntingRecord> findFirstByCharacter_IdAndHuntingGroundCatalogIsNotNullOrderByRecordDateDescIdDesc(Long characterId);
-
-	boolean existsByCharacter_IdAndRecordDate(Long characterId, LocalDate recordDate);
-
-	boolean existsByCharacter_IdAndRecordDateAndIdNot(Long characterId, LocalDate recordDate, Long id);
 }

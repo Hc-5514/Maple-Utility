@@ -311,7 +311,11 @@ public class DataContextMergeService {
 		mergeRecords("boss_item_acquisitions", targetId, sourceId,
 				List.of("boss_drop_item_id", "acquired_date", "memo", "boss_period_entry_id", "quantity", "meso_amount", "created_at"),
 				origins);
-		mergeRecords("hunting_records", targetId, sourceId, List.of("record_date"), origins);
+		// Same-day hunting records are allowed, so only exact copies of the same record collapse.
+		mergeRecords("hunting_records", targetId, sourceId,
+				List.of("record_date", "meso_earned", "sol_erda_earned", "play_duration_min", "hunting_ground",
+						"hunting_ground_id", "memo", "created_at"),
+				origins);
 		mergeRecords("scheduler_week_finalizations", targetId, sourceId, List.of("week_start_date"), origins);
 		// Cascading the losing finalization removes only its own snapshot set.
 		mergeRecords("scheduler_monthly_finalizations", targetId, sourceId, List.of("month_start_date"), origins);

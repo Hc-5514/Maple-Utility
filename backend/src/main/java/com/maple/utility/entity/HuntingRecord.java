@@ -11,16 +11,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "hunting_records", uniqueConstraints = {
-		@UniqueConstraint(name = "uk_hunting_records_character_id_record_date", columnNames = {"character_id", "record_date"})
-})
+@Table(name = "hunting_records")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class HuntingRecord extends BaseTimeEntity {
 
