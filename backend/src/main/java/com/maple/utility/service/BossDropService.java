@@ -2,6 +2,7 @@ package com.maple.utility.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -61,8 +62,15 @@ public class BossDropService {
 	@Transactional(readOnly = true)
 	public List<BossDropItemResponse> getDropItems(Long bossId) {
 		findBoss(bossId);
-		return bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(bossId).stream()
+		return activeDropItems(bossId).stream()
 				.map(BossDropItemResponse::from)
+				.toList();
+	}
+
+	/** 결정 → 고정 아이템 → 랜덤 아이템 순서(BossItemKind 선언 순서), 같은 종류 안에서는 id 오름차순 */
+	private List<BossDropItem> activeDropItems(Long bossId) {
+		return bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(bossId).stream()
+				.sorted(Comparator.comparing(BossDropItem::getItemKind))
 				.toList();
 	}
 
@@ -74,7 +82,7 @@ public class BossDropService {
 	) {
 		findCharacter(userId, characterId);
 		findBoss(bossId);
-		List<BossDropItem> dropItems = bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(bossId);
+		List<BossDropItem> dropItems = activeDropItems(bossId);
 		if (dropItems.isEmpty()) {
 			return List.of();
 		}
@@ -178,7 +186,7 @@ public class BossDropService {
 			latest.putIfAbsent(acquisition.getBossDropItem().getId(), acquisition);
 		}
 		int partySize = entry == null ? 1 : entry.getPartySize();
-		List<BossPeriodResponse.Item> items = bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(boss.getId())
+		List<BossPeriodResponse.Item> items = activeDropItems(boss.getId())
 				.stream().map(dropItem -> {
 					BossItemAcquisition saved = current.get(dropItem.getId());
 					BossItemAcquisition previous = latest.get(dropItem.getId());

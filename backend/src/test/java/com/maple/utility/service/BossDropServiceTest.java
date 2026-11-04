@@ -308,6 +308,52 @@ class BossDropServiceTest {
 				.satisfies(item -> assertThat(item.mesoAmount()).isEqualTo(30_000_000L));
 	}
 
+	@Test
+	void getPeriodOrdersItemsCrystalFixedRandom() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		BossDropItem randomFirst = dropItem(100L, boss, "루즈 컨트롤 머신 마크");
+		BossDropItem fixed = dropItem(101L, boss, "미트라의 코어 젬스톤");
+		ReflectionTestUtils.setField(fixed, "itemKind", BossItemKind.FIXED);
+		BossDropItem randomSecond = dropItem(102L, boss, "홍옥의 보스 반지 상자");
+		BossDropItem crystal = dropItem(103L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L))
+				.thenReturn(List.of(randomFirst, fixed, randomSecond, crystal));
+		when(bossPeriodEntryRepository.findByCharacter_IdAndBoss_IdAndPeriodStart(10L, 20L,
+				LocalDate.parse("2026-10-08"))).thenReturn(Optional.empty());
+
+		var response = bossDropService.getPeriod(1L, 20L, 10L, LocalDate.parse("2026-10-08"));
+
+		assertThat(response.items()).extracting(item -> item.dropItem().id())
+				.containsExactly(103L, 101L, 100L, 102L);
+	}
+
+	@Test
+	void dropItemListsOrderCrystalFixedRandom() {
+		MapleCharacter character = character(user());
+		BossMaster boss = boss(20L);
+		BossDropItem random = dropItem(100L, boss, "홍옥의 보스 반지 상자");
+		BossDropItem crystal = dropItem(101L, boss, "강렬한 힘의 결정");
+		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		BossDropItem fixed = dropItem(102L, boss, "미트라의 코어 젬스톤");
+		ReflectionTestUtils.setField(fixed, "itemKind", BossItemKind.FIXED);
+		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
+		when(bossMasterRepository.findById(20L)).thenReturn(Optional.of(boss));
+		when(bossDropItemRepository.findByBossIdAndActiveTrueOrderByIdAsc(20L))
+				.thenReturn(List.of(random, crystal, fixed));
+		when(bossItemAcquisitionRepository.findByCharacter_IdAndBossDropItem_IdInOrderByAcquiredDateDescIdDesc(
+				10L, List.of(101L, 102L, 100L))).thenReturn(List.of());
+
+		assertThat(bossDropService.getDropItems(20L)).extracting(BossDropItemResponse::id)
+				.containsExactly(101L, 102L, 100L);
+		assertThat(bossDropService.getAcquisitionStatus(1L, 20L, 10L))
+				.extracting(status -> status.dropItem().id())
+				.containsExactly(101L, 102L, 100L);
+	}
+
 	private User user() {
 		User user = User.create(OAuthProvider.KAKAO, "oauth-id", "user@example.com", "nickname");
 		ReflectionTestUtils.setField(user, "id", 1L);
