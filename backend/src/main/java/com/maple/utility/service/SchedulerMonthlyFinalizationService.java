@@ -91,7 +91,7 @@ public class SchedulerMonthlyFinalizationService {
 					var ids = new HashSet<Long>();
 					for (var row : response.boss()) {
 						if (row.resetPeriod() != ResetPeriod.MONTHLY) { continue; }
-						var boss = bosses.findByBossNameAndDifficulty(BossNames.canonical(row.bossName()), row.difficulty())
+						var boss = bosses.findByNameKeyAndDifficulty(BossNames.lookupKey(row.bossName()), row.difficulty())
 								.orElseThrow(() -> new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_MONTH_BOSS_INVALID", "월간 보스 매핑 누락"));
 						if (boss.getResetPeriod() != ResetPeriod.MONTHLY || !ids.add(boss.getId())) {
 							throw new ApiException(HttpStatus.BAD_GATEWAY, "NEXON_MONTH_BOSS_INVALID", "월간 보스 매핑 오류");
