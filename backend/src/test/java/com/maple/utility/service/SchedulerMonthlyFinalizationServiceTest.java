@@ -76,7 +76,7 @@ class SchedulerMonthlyFinalizationServiceTest {
 	}
 	@Test void falseFlagIsPreservedAndOnlyMonthlyRowsAreSaved() {
 		BossMaster boss=mock(BossMaster.class); when(boss.getId()).thenReturn(20L); when(boss.getResetPeriod()).thenReturn(ResetPeriod.MONTHLY);
-		when(bosses.findByBossNameAndDifficulty("검은 마법사",Difficulty.HARD)).thenReturn(Optional.of(boss));
+		when(bosses.findByNameKeyAndDifficulty("검은마법사",Difficulty.HARD)).thenReturn(Optional.of(boss));
 		when(nexon.getCharacterSchedulerForDateStrict(10L,"ocid",END,NexonRequestMode.REALTIME)).thenReturn(new NexonSchedulerResponse(END,List.of(),List.of(),List.of(
 				new NexonSchedulerResponse.Boss(END,"검은 마법사",Difficulty.HARD,ResetPeriod.MONTHLY,false),
 				new NexonSchedulerResponse.Boss(END,"스우",Difficulty.HARD,ResetPeriod.WEEKLY,true))));
@@ -133,7 +133,7 @@ class SchedulerMonthlyFinalizationServiceTest {
 	}
 	@Test void duplicateMonthlyBossIsNotFinalized() {
 		BossMaster boss=mock(BossMaster.class); when(boss.getId()).thenReturn(20L); when(boss.getResetPeriod()).thenReturn(ResetPeriod.MONTHLY);
-		when(bosses.findByBossNameAndDifficulty("검은 마법사",Difficulty.HARD)).thenReturn(Optional.of(boss));
+		when(bosses.findByNameKeyAndDifficulty("검은마법사",Difficulty.HARD)).thenReturn(Optional.of(boss));
 		var row=new NexonSchedulerResponse.Boss(END,"검은 마법사",Difficulty.HARD,ResetPeriod.MONTHLY,true);
 		when(nexon.getCharacterSchedulerForDateStrict(10L,"ocid",END,NexonRequestMode.REALTIME)).thenReturn(new NexonSchedulerResponse(END,List.of(),List.of(),List.of(row,row)));
 		assertThat(run()).containsExactly(true); verify(records).retry(1,"NEXON_MONTH_BOSS_INVALID",true,NOW); verify(records,never()).finish(any(),any(),any());
