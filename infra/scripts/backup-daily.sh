@@ -5,13 +5,25 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/lib/rclone-env.sh"
+source "$script_dir/lib/healthcheck.sh"
+
+healthcheck_url="${HEALTHCHECK_DAILY_URL:-}"
 
 mkdir -p "$BACKUP_DIR"
 
 timestamp="$(date +%Y%m%d-%H%M%S)"
 backup_file="$BACKUP_DIR/maple-daily-$timestamp.sql.gz"
 partial_file="$backup_file.partial"
-trap 'rm -f -- "$partial_file"' EXIT
+finish() {
+  local rc=$?
+  rm -f -- "$partial_file"
+  if [[ $rc -eq 0 ]]; then
+    hc_ping "$healthcheck_url"
+  else
+    hc_ping "$healthcheck_url" /fail
+  fi
+}
+trap finish EXIT
 
 docker exec maple-postgres sh -eu -c '
   export PGPASSWORD="$POSTGRES_PASSWORD"

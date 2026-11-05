@@ -31,11 +31,25 @@ bash -c 'set -a; source /opt/maple-utility/.env; set +a; source /opt/maple-utili
 
 6. 다음 날 03:00 이후 로그와 R2 `daily/` 신규 객체 재확인
 
-## 3. 복구 리허설
+## 3. dead-man ping (healthchecks.io)
+
+백업이 실행되지 않거나 실패해도 서버 로그만으로는 알 수 없으므로 외부 서비스가 ping 부재를 감지.
+
+1. healthchecks.io 체크 2개 생성(사용자 수행)
+   - 일간: 주기 1일, 유예 2시간 (cron 03:00 기준)
+   - 주간: 주기 7일, 유예 1일 (일요일 04:00 기준)
+2. 알림 채널(이메일·Discord 등) 연결. 이 채널을 이후 쿼터·5xx 경보에 재사용
+3. 서버 `.env`에 `HEALTHCHECK_DAILY_URL`, `HEALTHCHECK_WEEKLY_URL` 반영. ping URL은 시크릿 취급(Git·문서·채팅 기재 금지)
+4. 수동 백업 1회 후 대시보드에서 ping 수신 확인
+5. 의도적 감지 검증: 일간 체크 유예 시간 경과 시 알림 수신 확인
+
+스크립트 동작: 성공 시 URL, 실패 시 `URL/fail` 호출. URL 미설정 시 경고만 출력하고 백업은 정상 진행. 설정 오류(필수 환경변수 누락)로 스크립트가 시작 전에 종료되면 ping이 없어 유예 시간 후 알림으로 감지. curl 설정은 stdin으로 전달해 URL이 `ps`에 노출되지 않음.
+
+## 4. 복구 리허설
 
 운영 DB 직접 복구 금지. 임시 PostgreSQL 컨테이너(`--network none`)에서 덤프 파일을 `gunzip -c <파일> | psql -v ON_ERROR_STOP=1 --single-transaction`로 적용해 주요 테이블 행 수·Flyway 이력 확인. 운영 복구는 `restore.sh`(오류 시 중단, 단일 트랜잭션, 대상 DB 기존 객체 삭제 후 재생성) 사용 전 현재 상태 수동 백업 확보.
 
-## 4. 참고
+## 5. 참고
 
 - 백업 스크립트는 DB 접속 정보를 컨테이너 환경(`POSTGRES_USER`·`POSTGRES_DB`·`POSTGRES_PASSWORD`)에서 읽으며 호스트 명령행에 비밀번호를 싣지 않음
 - rclone 접속 정보는 `lib/rclone-env.sh`의 `RCLONE_CONFIG_R2_*` 환경변수로만 전달
