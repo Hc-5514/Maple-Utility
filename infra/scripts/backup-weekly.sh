@@ -1,26 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${DB_PASSWORD:?DB_PASSWORD is required}"
 : "${BACKUP_DIR:?BACKUP_DIR is required}"
-: "${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}"
-: "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}"
-: "${R2_BUCKET:?R2_BUCKET is required}"
-: "${R2_ENDPOINT:?R2_ENDPOINT is required}"
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/lib/rclone-env.sh"
 
 mkdir -p "$BACKUP_DIR"
 
 timestamp="$(date +%Y%m%d-%H%M%S)"
 backup_file="$BACKUP_DIR/maple-weekly-$timestamp.sql.gz"
+partial_file="$backup_file.partial"
+trap 'rm -f -- "$partial_file"' EXIT
 
-docker exec maple-postgres sh -c \
-  "PGPASSWORD=\"$DB_PASSWORD\" pg_dump \
-    -U \"${DB_USER:-maple_user}\" \
-    --format plain \
-    \"${DB_NAME:-maple}\"" \
-  | gzip > "$backup_file"
+docker exec maple-postgres sh -eu -c '
+  export PGPASSWORD="$POSTGRES_PASSWORD"
+  exec pg_dump -w -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format plain --clean --if-exists
+' | gzip > "$partial_file"
+gzip -t "$partial_file"
+mv "$partial_file" "$backup_file"
 
-rclone copyto "$backup_file" \
-  ":s3,provider=Cloudflare,access_key_id=${R2_ACCESS_KEY_ID},secret_access_key=${R2_SECRET_ACCESS_KEY},endpoint=${R2_ENDPOINT}:${R2_BUCKET}/weekly/$(basename "$backup_file")"
+rclone copyto "$backup_file" "r2:${R2_BUCKET}/weekly/$(basename "$backup_file")"
 
 find "$BACKUP_DIR" -name 'maple-weekly-*.sql.gz' -mtime +84 -delete

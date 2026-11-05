@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_USER="${SUDO_USER:-ubuntu}"
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/maple-utility}"
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
+LOG_FILE="/var/log/maple-backup.log"
 
 if ! command -v rclone &>/dev/null; then
   echo "rclone 설치 중..."
@@ -18,6 +19,25 @@ if ! command -v rclone &>/dev/null; then
 fi
 
 install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$BACKUP_DIR"
+
+# cron의 `>> $LOG_FILE` 리다이렉트는 DEPLOY_USER 권한으로 수행되므로 파일을 미리 만들어 둠
+# (/var/log는 root 소유라 파일이 없으면 리다이렉트 실패로 백업 스크립트가 실행되지 않음)
+touch "$LOG_FILE"
+chown "$DEPLOY_USER:$DEPLOY_USER" "$LOG_FILE"
+chmod 0640 "$LOG_FILE"
+
+cat > /etc/logrotate.d/maple-backup <<LOGROTATE
+${LOG_FILE} {
+    weekly
+    rotate 4
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}
+LOGROTATE
+chmod 0644 /etc/logrotate.d/maple-backup
 
 sed \
   -e "s|DEPLOY_USER|${DEPLOY_USER}|g" \
@@ -34,6 +54,8 @@ echo "  백업 사용자:  ${DEPLOY_USER}"
 echo "  배포 경로:    ${DEPLOY_DIR}"
 echo "  백업 경로:    ${BACKUP_DIR}"
 echo "  cron 파일:    /etc/cron.d/maple-backup"
+echo "  로그 파일:    ${LOG_FILE}"
+echo "  logrotate:    /etc/logrotate.d/maple-backup"
 echo ""
 echo "수동 테스트:"
 echo "  sudo -u ${DEPLOY_USER} bash -c 'set -a; source ${DEPLOY_DIR}/.env; set +a; ${DEPLOY_DIR}/infra/scripts/backup-daily.sh'"
