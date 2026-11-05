@@ -78,7 +78,7 @@ class NexonBossCatalogMigrationTest {
 			""";
 
 	@Test
-	void newCatalogEntriesAreAddedWithCrystalItemsAndPartyLimits() throws Exception {
+	void newCatalogEntriesAreAddedWithPartyLimitsAndDropItems() throws Exception {
 		try (var database = new SyncJobRepositoryTest.Database("24")) {
 			assertThat(count(database, "림보", "EXTREME")).isZero();
 
@@ -97,15 +97,32 @@ class NexonBossCatalogMigrationTest {
 					.containsExactly(
 							tuple("림보", "EXTREME", "WEEKLY", 7_500_000_000L, 3, true),
 							tuple("발드릭스", "EXTREME", "WEEKLY", 9_600_000_000L, 3, true),
-							tuple("시즌 보스 메이린", "HARD", "WEEKLY", 0L, 6, true),
-							tuple("시즌 보스 메이린", "NORMAL", "WEEKLY", 0L, 6, true));
-			// 새 보스에도 결정 드랍 아이템이 하나씩 등록
-			assertThat(database.jdbc.queryForObject("""
-					SELECT count(*) FROM boss_drop_items d JOIN boss_master m ON m.id = d.boss_id
-					WHERE d.item_kind = 'CRYSTAL' AND d.is_active
-					  AND (m.boss_name, m.difficulty) IN (('림보', 'EXTREME'), ('발드릭스', 'EXTREME'),
-					       ('시즌 보스 메이린', 'NORMAL'), ('시즌 보스 메이린', 'HARD'))
-					""", Integer.class)).isEqualTo(4);
+							tuple("시즌 보스 메이린", "HARD", "WEEKLY", 0L, 1, true),
+							tuple("시즌 보스 메이린", "NORMAL", "WEEKLY", 0L, 1, true));
+
+			// 시즌 보스 메이린은 드랍 아이템이 없음
+			assertThat(dropItems(database, "시즌 보스 메이린", "NORMAL")).isEmpty();
+			assertThat(dropItems(database, "시즌 보스 메이린", "HARD")).isEmpty();
+
+			// 림보·발드릭스 익스트림 = 하드 활성 아이템 − 고정 아이템 + 익셉셔널 해머 + 영롱한 달빛 포션
+			for (var spec : List.of(
+					tuple("림보", "왜곡된 욕망의 결정", "익셉셔널 해머(포켓)"),
+					tuple("발드릭스", "영원한 충성의 흔적", "익셉셔널 해머(펜던트)"))) {
+				String boss = (String) spec.toList().get(0);
+				String excluded = (String) spec.toList().get(1);
+				String hammer = (String) spec.toList().get(2);
+				var hard = dropItems(database, boss, "HARD");
+				var extreme = dropItems(database, boss, "EXTREME");
+				assertThat(hard).extracting(item -> item.get("item_name")).contains(excluded);
+				// 익스트림에서는 하드의 고정 아이템이 드랍되지 않음
+				assertThat(extreme).extracting(item -> item.get("item_name")).doesNotContain(excluded);
+				assertThat(extreme).filteredOn(item -> item.get("item_kind").equals("FIXED")).isEmpty();
+				var expected = new ArrayList<>(hard.stream().filter(item -> !item.get("item_name").equals(excluded)).toList());
+				assertThat(extreme).containsAll(expected);
+				assertThat(extreme).extracting(item -> item.get("item_name"))
+						.contains(hammer, "영롱한 달빛 포션", "강렬한 힘의 결정")
+						.hasSize(expected.size() + 2);
+			}
 		}
 	}
 
@@ -132,6 +149,15 @@ class NexonBossCatalogMigrationTest {
 			assertThat(checked).isEqualTo(58);
 			assertThat(unmatched).isEmpty();
 		}
+	}
+
+	private List<java.util.Map<String, Object>> dropItems(SyncJobRepositoryTest.Database database, String name, String difficulty) {
+		return database.jdbc.queryForList("""
+				SELECT d.item_name, d.item_kind, d.default_quantity
+				FROM boss_drop_items d JOIN boss_master m ON m.id = d.boss_id
+				WHERE m.boss_name = ? AND m.difficulty = ? AND d.is_active
+				ORDER BY d.item_name
+				""", name, difficulty);
 	}
 
 	private int count(SyncJobRepositoryTest.Database database, String name, String difficulty) {
