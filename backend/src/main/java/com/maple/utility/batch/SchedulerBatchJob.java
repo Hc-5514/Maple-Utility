@@ -1,5 +1,6 @@
 package com.maple.utility.batch;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "app.scheduling", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SchedulerBatchJob {
 
 	private final UserRepository userRepository;
