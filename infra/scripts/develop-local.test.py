@@ -188,6 +188,34 @@ class LocalDevelopTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Invalid migration filename'):
                 local.validate_history('fixture')
 
+    def test_missing_middle_applied_migration_rejected(self):
+        rows = self.history()
+        directory = self.root / 'backend/src/main/resources/db/migration'
+        for version in ('24', '25'):
+            filename = 'V' + version + '__fixture.sql'
+            (directory / filename).write_bytes(b'SELECT 1;\n-- fixture\n')
+            if version == '25':
+                rows.append(dict(rows[0], version=version, script=filename))
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            with self.assertRaisesRegex(ValueError, 'Missing applied migration history'):
+                local.validate_history('fixture')
+
+    def test_pending_higher_migration_allowed(self):
+        rows = self.history()
+        (self.root / 'backend/src/main/resources/db/migration/V2__pending.sql').write_text('SELECT 2;\n')
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            local.validate_history('fixture')
+
+    def test_complete_history_in_different_install_order_allowed(self):
+        rows = self.history()
+        directory = self.root / 'backend/src/main/resources/db/migration'
+        for version in ('24', '25'):
+            filename = 'V' + version + '__fixture.sql'
+            (directory / filename).write_bytes(b'SELECT 1;\n-- fixture\n')
+            rows.insert(0, dict(rows[-1], version=version, script=filename))
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            local.validate_history('fixture')
+
     def test_invalid_history_rejects_restore_before_credential_cleanup_or_swap(self):
         root = self.backup()
         queries = []
