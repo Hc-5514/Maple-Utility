@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Private, project-scoped local integration environment."""
-import base64, datetime, hashlib, json, os, pathlib, re, secrets, shlex, subprocess, sys
+import base64, datetime, hashlib, json, os, pathlib, re, secrets, shlex, subprocess, sys, zlib
 os.umask(0o077)
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 CONFIG=ROOT/'.env.develop.local'
@@ -40,11 +40,40 @@ def load():
         require(bool(data.get(key)),'Missing required setting: '+key)
     require(len(base64.b64decode(data['NEXON_API_KEY_SECRET'],validate=True))==32,'Invalid local encryption key')
     return data
+def assert_local_docker():
+    if os.environ.get('DOCKER_HOST'):
+        require(os.environ['DOCKER_HOST'].startswith('unix://'),'Remote Docker endpoint rejected')
+    context=os.environ.get('DOCKER_CONTEXT') or output(['docker','context','show'])
+    endpoint=output(['docker','context','inspect',context,'--format','{{.Endpoints.docker.Host}}'])
+    require(endpoint.startswith('unix://'),'Remote Docker context rejected')
+
+def validate_history(db):
+    rows=json.loads(sql("SELECT COALESCE(json_agg(json_build_object('version',version,'type',type,'script',script,'checksum',checksum,'success',success)),'[]'::json) FROM flyway_schema_history",db))
+    require(bool(rows),'Missing Flyway history')
+    seen=set()
+    for row in rows:
+        require(row['success'] and row['type']=='SQL' and row['version'] not in seen,'Invalid Flyway history')
+        seen.add(row['version'])
+        filename=row['script']
+        require(pathlib.Path(filename).name==filename,'Invalid migration filename')
+        file=ROOT/'backend/src/main/resources/db/migration'/filename
+        require(file.is_file() and filename.startswith('V'+row['version']+'__'),'Unknown migration version/script')
+        crc=0
+        for line in file.read_text(encoding='utf-8-sig').splitlines(): crc=zlib.crc32(line.encode('utf-8'),crc)
+        signed=crc if crc<2**31 else crc-2**32
+        require(row['checksum']==signed,'Flyway checksum mismatch: '+filename)
+    maximum=max(int(v) for v in seen)
+    expected={str(int(m.group(1))) for f in (ROOT/'backend/src/main/resources/db/migration').glob('V*__*.sql') if (m:=re.match(r'V(\d+)__',f.name)) and int(m.group(1))<=maximum}
+    require(expected==seen,'Missing applied migration history below current version')
+
 def compose(*args,capture=False):
+    assert_local_docker()
     data=load();env=dict(os.environ)
     for key in list(env):
         if key.startswith('COMPOSE_'):env.pop(key)
     env.update(data)
+    # Compose Bake may misidentify normalized Unicode paths on macOS.
+    env['COMPOSE_BAKE']='false'
     env['BUILD_SHA']=output(['git','-C',str(ROOT),'rev-parse','--short=12','HEAD'])
     cmd=['docker','compose','--project-directory',str(ROOT),'--project-name',PROJECT,'--env-file',str(CONFIG),'-f',str(ROOT/'docker-compose.develop.yml'),*args]
     return output(cmd,env=env) if capture else run(cmd,env=env)
@@ -103,6 +132,7 @@ def restore(folder):
     try:
         with (folder/'maple.dump').open('rb') as f:
             run(['docker','exec','-i',service('postgres'),'pg_restore','-U',DB,'-d',temp,'--no-owner','--no-privileges','--exit-on-error','--single-transaction'],stdin=f)
+        validate_history(temp)
         before=snapshot(temp)
         require('flyway_schema_history' in before and 'characters' in before,'Incomplete application dump')
         sql('DELETE FROM public.user_api_keys',temp)
@@ -125,13 +155,17 @@ def main():
     cmd=sys.argv[1]
     if cmd=='init':require(len(sys.argv)==2,'Unexpected arguments');init();return
     if cmd=='fetch-backup':require(len(sys.argv)==2,'Unexpected arguments');fetch();return
+    assert_local_docker()
     load()
     if cmd=='restore':
         require(len(sys.argv)==3,'restore requires backup directory');restore(pathlib.Path(sys.argv[2]).expanduser().resolve())
     elif cmd=='up':
         require(len(sys.argv)==2 and (ROOT/'.local-develop/restore.json').exists(),'Restore a verified backup before up')
         print('Source: '+output(['git','-C',str(ROOT),'branch','--show-current'])+' '+output(['git','-C',str(ROOT),'rev-parse','HEAD']),flush=True)
-        compose('up','-d','--build','--wait','--wait-timeout','240')
+        sha=output(['git','-C',str(ROOT),'rev-parse','--short=12','HEAD'])
+        run(['docker','build','-t','maple-develop-app:'+sha,str(ROOT/'backend')])
+        run(['docker','build','-f',str(ROOT/'frontend/Dockerfile.develop'),'--build-arg','KAKAO_CLIENT_ID='+load()['KAKAO_CLIENT_ID'],'-t','maple-develop-frontend:'+sha,str(ROOT)])
+        compose('up','-d','--no-build','--wait','--wait-timeout','240')
         print('Open http://localhost:3000; sign in and register the development application key')
     elif cmd=='down':require(len(sys.argv)==2,'Unexpected arguments');compose('down')
     elif cmd=='status':require(len(sys.argv)==2,'Unexpected arguments');compose('ps');print('http://localhost:3000')
