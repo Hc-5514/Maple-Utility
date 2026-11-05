@@ -101,7 +101,7 @@ class SchedulerSyncServiceTest {
 				.thenReturn(Optional.empty());
 		when(weeklyRecordRepository.findByCharacterIdAndWeekStartDateAndContentName(10L, LocalDate.parse("2026-07-09"), "길드 주간 미션"))
 				.thenReturn(Optional.empty());
-		when(bossMasterRepository.findByBossNameAndDifficulty("스우", Difficulty.HARD)).thenReturn(Optional.of(boss));
+		when(bossMasterRepository.findByNameKeyAndDifficulty("스우", Difficulty.HARD)).thenReturn(Optional.of(boss));
 		when(bossRecordRepository.findByCharacterIdAndBossIdAndRecordDate(10L, 20L, LocalDate.parse("2026-07-14")))
 				.thenReturn(Optional.empty());
 		when(dailyRecordRepository.save(any(SchedulerDailyRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -134,7 +134,7 @@ class SchedulerSyncServiceTest {
 						LocalDate.parse("2026-07-14"), "가디언 엔젤 슬라임", Difficulty.CHAOS, ResetPeriod.WEEKLY, true))
 		);
 		when(nexonOpenApiClient.getCharacterScheduler(1L, "ocid", false)).thenReturn(response);
-		when(bossMasterRepository.findByBossNameAndDifficulty("가엔슬", Difficulty.CHAOS)).thenReturn(Optional.of(boss));
+		when(bossMasterRepository.findByNameKeyAndDifficulty("가엔슬", Difficulty.CHAOS)).thenReturn(Optional.of(boss));
 		when(bossRecordRepository.findByCharacterIdAndBossIdAndRecordDate(10L, 20L, LocalDate.parse("2026-07-14")))
 				.thenReturn(Optional.empty());
 		when(bossRecordRepository.save(any(SchedulerBossRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -147,12 +147,40 @@ class SchedulerSyncServiceTest {
 	}
 
 	@Test
-	void bossNamesKeepUnknownNamesAndAliasNexonFullName() {
-		assertThat(BossNames.canonical("가디언 엔젤 슬라임")).isEqualTo("가엔슬");
-		assertThat(BossNames.canonical("가디언엔젤슬라임")).isEqualTo("가엔슬");
-		assertThat(BossNames.canonical("가엔슬")).isEqualTo("가엔슬");
-		assertThat(BossNames.canonical("스우")).isEqualTo("스우");
-		assertThat(BossNames.canonical(null)).isNull();
+	void syncCharactersMatchesBossNameWithoutSpaceAsCatalogNameWithSpace() {
+		when(syncLock.tryAcquire(1L)).thenReturn(true);
+		MapleCharacter character = character(user());
+		BossMaster boss = boss();
+		ReflectionTestUtils.setField(boss, "bossName", "블러디 퀸");
+		ReflectionTestUtils.setField(boss, "difficulty", Difficulty.CHAOS);
+		NexonSchedulerResponse response = new NexonSchedulerResponse(
+				LocalDate.parse("2026-07-14"), List.of(), List.of(),
+				List.of(new NexonSchedulerResponse.Boss(
+						LocalDate.parse("2026-07-14"), "블러디퀸", Difficulty.CHAOS, ResetPeriod.WEEKLY, false))
+		);
+		when(nexonOpenApiClient.getCharacterScheduler(1L, "ocid", false)).thenReturn(response);
+		when(bossMasterRepository.findByNameKeyAndDifficulty("블러디퀸", Difficulty.CHAOS)).thenReturn(Optional.of(boss));
+		when(bossRecordRepository.findByCharacterIdAndBossIdAndRecordDate(10L, 20L, LocalDate.parse("2026-07-14")))
+				.thenReturn(Optional.empty());
+		when(bossRecordRepository.save(any(SchedulerBossRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		schedulerSyncService.syncCharacters(1L, List.of(character));
+
+		ArgumentCaptor<SchedulerBossRecord> bossCaptor = ArgumentCaptor.forClass(SchedulerBossRecord.class);
+		verify(bossRecordRepository).save(bossCaptor.capture());
+		assertThat(bossCaptor.getValue().getBoss().getBossName()).isEqualTo("블러디 퀸");
+	}
+
+	@Test
+	void bossNamesIgnoreSpacesAndAliasNexonFullName() {
+		assertThat(BossNames.lookupKey("가디언 엔젤 슬라임")).isEqualTo("가엔슬");
+		assertThat(BossNames.lookupKey("가디언엔젤슬라임")).isEqualTo("가엔슬");
+		assertThat(BossNames.lookupKey("가엔슬")).isEqualTo("가엔슬");
+		assertThat(BossNames.lookupKey("블러디퀸")).isEqualTo("블러디퀸");
+		assertThat(BossNames.lookupKey("블러디 퀸")).isEqualTo("블러디퀸");
+		assertThat(BossNames.lookupKey(" 시즌 보스  메이린 ")).isEqualTo("시즌보스메이린");
+		assertThat(BossNames.lookupKey("스우")).isEqualTo("스우");
+		assertThat(BossNames.lookupKey(null)).isNull();
 	}
 
 	@Test
@@ -305,7 +333,7 @@ class SchedulerSyncServiceTest {
 		when(nexonOpenApiClient.getCharacterScheduler(1L,"ocid",false)).thenReturn(new NexonSchedulerResponse(date,List.of(),List.of(),List.of()));
 		schedulerSyncService.syncOneCharacter(1L,character,false,false);
 		verify(bossRecordRepository).deleteAll(List.of());
-		when(bossMasterRepository.findByBossNameAndDifficulty(boss.getBossName(),boss.getDifficulty())).thenReturn(Optional.of(boss));
+		when(bossMasterRepository.findByNameKeyAndDifficulty(BossNames.lookupKey(boss.getBossName()),boss.getDifficulty())).thenReturn(Optional.of(boss));
 		when(bossRecordRepository.findByCharacterIdAndBossIdAndRecordDate(10L,boss.getId(),date)).thenReturn(Optional.of(manual));
 		when(nexonOpenApiClient.getCharacterScheduler(1L,"ocid",false)).thenReturn(new NexonSchedulerResponse(date,List.of(),List.of(),List.of(
 				new NexonSchedulerResponse.Boss(date,boss.getBossName(),boss.getDifficulty(),ResetPeriod.MONTHLY,false))));

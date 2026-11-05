@@ -203,7 +203,7 @@ public class SchedulerSyncService {
 				continue;
 			}
 			BossMaster boss = bossMasterRepository
-					.findByBossNameAndDifficulty(BossNames.canonical(source.bossName()), source.difficulty())
+					.findByNameKeyAndDifficulty(BossNames.lookupKey(source.bossName()), source.difficulty())
 					.orElse(null);
 			if (boss == null) {
 				log.warn("Unmatched Nexon scheduler boss. name={}, difficulty={}", source.bossName(), source.difficulty());
