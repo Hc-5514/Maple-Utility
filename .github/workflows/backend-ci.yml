@@ -8,6 +8,7 @@ on:
     paths:
       - "backend/**"
       - "docker-compose.prod.yml"
+      - "docker-compose.develop.yml"
       - "infra/**"
       - ".github/workflows/backend-ci.yml"
   push:
@@ -17,6 +18,7 @@ on:
     paths:
       - "backend/**"
       - "docker-compose.prod.yml"
+      - "docker-compose.develop.yml"
       - "infra/**"
       - ".github/workflows/backend-ci.yml"
 
