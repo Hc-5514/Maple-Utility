@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import pathlib
 import tempfile
 import unittest
@@ -112,6 +113,97 @@ class LocalDevelopTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Wrong project'):
                 local.service('postgres')
 
+    def test_remote_docker_host_rejected_without_running_docker(self):
+        with mock.patch.dict(os.environ, {'DOCKER_HOST': 'tcp://production:2376'}, clear=True), mock.patch.object(local, 'output') as output, mock.patch.object(local, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'Remote Docker endpoint'):
+                local.compose('up', '-d')
+            output.assert_not_called()
+            run.assert_not_called()
+
+    def test_ssh_docker_context_rejected_before_compose(self):
+        with mock.patch.dict(os.environ, {'DOCKER_CONTEXT': 'remote'}, clear=True), mock.patch.object(local, 'output', return_value='ssh://production') as output, mock.patch.object(local, 'run') as run:
+            with self.assertRaisesRegex(ValueError, 'Remote Docker context'):
+                local.compose('up', '-d')
+            output.assert_called_once_with(['docker', 'context', 'inspect', 'remote', '--format', '{{.Endpoints.docker.Host}}'])
+            run.assert_not_called()
+
+    def test_effective_remote_default_context_rejected(self):
+        with mock.patch.dict(os.environ, {}, clear=True), mock.patch.object(local, 'output', side_effect=['default', 'tcp://production:2376']):
+            with self.assertRaisesRegex(ValueError, 'Remote Docker context'):
+                local.assert_local_docker()
+
+    def test_unix_docker_desktop_context_accepted(self):
+        with mock.patch.dict(os.environ, {}, clear=True), mock.patch.object(local, 'output', side_effect=['desktop-linux', 'unix:///fixture/docker.sock']):
+            local.assert_local_docker()
+
+    def history(self):
+        migration = self.root / 'backend/src/main/resources/db/migration/V1__fixture.sql'
+        migration.parent.mkdir(parents=True)
+        migration.write_bytes(b'\xef\xbb\xbfSELECT 1;\r\n-- fixture\r\n')
+        return [{'version': '1', 'type': 'SQL', 'script': migration.name,
+                 'checksum': -1621092548, 'success': True}]
+
+    def test_valid_migration_with_bom_and_crlf_history_accepted(self):
+        rows = self.history()
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            local.validate_history('fixture')
+
+    def test_changed_migration_checksum_rejected(self):
+        rows = self.history()
+        rows[0]['checksum'] = 123
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                local.validate_history('fixture')
+
+    def test_failed_migration_history_rejected(self):
+        rows = self.history()
+        rows[0]['success'] = False
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            with self.assertRaisesRegex(ValueError, 'Invalid Flyway history'):
+                local.validate_history('fixture')
+
+    def test_unknown_migration_version_rejected(self):
+        rows = self.history()
+        rows[0].update(version='99', script='V99__future.sql')
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            with self.assertRaisesRegex(ValueError, 'Unknown migration'):
+                local.validate_history('fixture')
+
+    def test_duplicate_migration_version_rejected(self):
+        rows = self.history()
+        rows.append(dict(rows[0]))
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            with self.assertRaisesRegex(ValueError, 'Invalid Flyway history'):
+                local.validate_history('fixture')
+
+    def test_empty_migration_history_rejected(self):
+        with mock.patch.object(local, 'sql', return_value='[]'):
+            with self.assertRaisesRegex(ValueError, 'Missing Flyway history'):
+                local.validate_history('fixture')
+
+    def test_migration_filename_traversal_rejected(self):
+        rows = self.history()
+        rows[0]['script'] = '../V1__fixture.sql'
+        with mock.patch.object(local, 'sql', return_value=json.dumps(rows)):
+            with self.assertRaisesRegex(ValueError, 'Invalid migration filename'):
+                local.validate_history('fixture')
+
+    def test_invalid_history_rejects_restore_before_credential_cleanup_or_swap(self):
+        root = self.backup()
+        queries = []
+        def sql(query, db='postgres'):
+            queries.append(query)
+            if query == 'SELECT current_database()':
+                return local.DB
+            if 'information_schema.tables' in query:
+                return 'f'
+            return ''
+        with mock.patch.object(local, 'compose'), mock.patch.object(local, 'sql', side_effect=sql), mock.patch.object(local, 'service', return_value='fixture-cid'), mock.patch.object(local, 'run'), mock.patch.object(local, 'validate_history', side_effect=ValueError('Flyway checksum mismatch')):
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                local.restore(root)
+        self.assertFalse(any('ALTER DATABASE' in query or 'DELETE FROM' in query for query in queries))
+        self.assertTrue(any(query.startswith('DROP DATABASE IF EXISTS restore_') for query in queries))
+
     def test_failed_archive_restore_never_renames_existing_database(self):
         root = self.backup()
         queries = []
@@ -142,7 +234,7 @@ class LocalDevelopTest(unittest.TestCase):
             return ''
         before = {'characters': '1:before', 'flyway_schema_history': '24:hash'}
         after = {'characters': '0:after', 'flyway_schema_history': '24:hash'}
-        with mock.patch.object(local, 'compose'), mock.patch.object(local, 'sql', side_effect=sql), mock.patch.object(local, 'service', return_value='fixture-cid'), mock.patch.object(local, 'run'), mock.patch.object(local, 'snapshot', side_effect=[before, after]):
+        with mock.patch.object(local, 'compose'), mock.patch.object(local, 'sql', side_effect=sql), mock.patch.object(local, 'service', return_value='fixture-cid'), mock.patch.object(local, 'run'), mock.patch.object(local, 'validate_history'), mock.patch.object(local, 'snapshot', side_effect=[before, after]):
             with self.assertRaisesRegex(ValueError, 'Business data'):
                 local.restore(root)
         self.assertIn('DELETE FROM public.user_api_keys', queries)
