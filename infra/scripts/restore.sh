@@ -9,13 +9,10 @@ usage() {
   exit 1
 }
 
-: "${DB_PASSWORD:?DB_PASSWORD is required}"
-: "${DB_USER:=${DB_USER:-maple_user}}"
-: "${DB_NAME:=${DB_NAME:-maple}}"
-: "${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}"
-: "${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}"
-: "${R2_BUCKET:?R2_BUCKET is required}"
-: "${R2_ENDPOINT:?R2_ENDPOINT is required}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$script_dir/lib/rclone-env.sh"
+
+DB_NAME="${DB_NAME:-maple}"
 
 BACKUP_TYPE="${1:-}"
 BACKUP_FILE="${2:-}"
@@ -29,7 +26,7 @@ if [[ "$BACKUP_TYPE" != "daily" && "$BACKUP_TYPE" != "weekly" ]]; then
   usage
 fi
 
-R2_REMOTE=":s3,provider=Cloudflare,access_key_id=${R2_ACCESS_KEY_ID},secret_access_key=${R2_SECRET_ACCESS_KEY},endpoint=${R2_ENDPOINT}:${R2_BUCKET}"
+R2_REMOTE="r2:${R2_BUCKET}"
 
 if [[ -z "$BACKUP_FILE" ]]; then
   echo "R2에서 최신 ${BACKUP_TYPE} 백업 조회 중..."
@@ -64,7 +61,9 @@ fi
 
 echo "복구 진행 중..."
 gunzip -c "$TMP_FILE" \
-  | docker exec -i maple-postgres sh -c \
-    "PGPASSWORD=\"$DB_PASSWORD\" psql -U \"$DB_USER\" -d \"$DB_NAME\""
+  | docker exec -i maple-postgres sh -eu -c '
+    export PGPASSWORD="$POSTGRES_PASSWORD"
+    exec psql -X -w -v ON_ERROR_STOP=1 --single-transaction -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+  '
 
 echo "복구 완료: ${BACKUP_FILE}"
