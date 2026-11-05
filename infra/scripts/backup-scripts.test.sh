@@ -8,6 +8,7 @@ passed=0
 ok() { passed=$((passed+1)); printf 'PASS %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1" >&2; exit 1; }
 
+unset HEALTHCHECK_DAILY_URL HEALTHCHECK_WEEKLY_URL
 secret_id=test-access-key-id-not-real
 secret_key=test-secret-access-key-not-real
 stub_dir="$temp_dir/bin"
@@ -34,7 +35,14 @@ case "$1" in
   copyto) if [[ "$2" == r2:* ]]; then echo 'SELECT 1;' | gzip > "$3"; fi ;;
 esac
 STUB
-chmod +x "$stub_dir/docker" "$stub_dir/rclone"
+cat > "$stub_dir/curl" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$LOG_DIR/curl.args"
+cat >> "$LOG_DIR/curl.config"
+[[ "${FAKE_CURL_FAIL:-}" == 1 ]] && exit 22
+exit 0
+STUB
+chmod +x "$stub_dir/docker" "$stub_dir/rclone" "$stub_dir/curl"
 
 # 케이스별 격리된 실행 환경. 성공 시 0, 실패 시 종료 코드를 stdout 끝에 기록
 run_case() {
@@ -70,6 +78,37 @@ for kind in daily weekly; do
   run_case "$kind-nobucket" env -u R2_BUCKET bash "$script_dir/backup-$kind.sh"
   [[ $rc != 0 && ! -e "$case_dir/log/docker.args" ]] || fail "$kind 환경변수 누락 시 즉시 실패"
   ok "$kind 환경변수 누락 시 덤프 전 실패"
+done
+
+# dead-man ping: 성공/실패 신호, URL argv 미노출, 미설정·전송 실패가 백업 결과에 영향 없음
+ping_url=https://hc.invalid/ping/test-ping-token-not-real
+for kind in daily weekly; do
+  upper=$(printf '%s' "$kind" | tr '[:lower:]' '[:upper:]')
+  other=$([[ $kind == daily ]] && echo HEALTHCHECK_WEEKLY_URL || echo HEALTHCHECK_DAILY_URL)
+
+  run_case "$kind-ping" env "HEALTHCHECK_${upper}_URL=$ping_url" "$other=https://hc.invalid/other" \
+    bash "$script_dir/backup-$kind.sh"
+  [[ $rc == 0 ]] || fail "$kind ping 성공 경로"
+  [[ "$(cat "$case_dir/log/curl.config")" == "url = \"$ping_url\"" ]] || fail "$kind 성공 ping URL"
+  ! grep -q 'test-ping-token' "$case_dir/log/curl.args" || fail "$kind ping URL argv 노출"
+  ok "$kind 성공 시 ping 1회·URL argv 미노출·다른 주기 URL 미사용"
+
+  run_case "$kind-pingfail" env "HEALTHCHECK_${upper}_URL=$ping_url" FAKE_DUMP_FAIL=1 \
+    bash "$script_dir/backup-$kind.sh"
+  [[ $rc != 0 ]] || fail "$kind 실패 종료 코드 유지"
+  [[ "$(cat "$case_dir/log/curl.config")" == "url = \"$ping_url/fail\"" ]] || fail "$kind 실패 ping"
+  ok "$kind 실패 시 /fail 신호·종료 코드 유지"
+
+  run_case "$kind-pingunset" bash "$script_dir/backup-$kind.sh"
+  [[ $rc == 0 && ! -e "$case_dir/log/curl.args" ]] || fail "$kind URL 미설정 동작"
+  grep -q 'ping 건너뜀' "$case_dir/out.log" || fail "$kind URL 미설정 경고"
+  ok "$kind URL 미설정 시 경고 후 백업 정상 완료"
+
+  run_case "$kind-curlfail" env "HEALTHCHECK_${upper}_URL=$ping_url" FAKE_CURL_FAIL=1 \
+    bash "$script_dir/backup-$kind.sh"
+  [[ $rc == 0 ]] || fail "$kind ping 전송 실패가 백업 실패로 전파"
+  grep -q 'ping 전송 실패' "$case_dir/out.log" || fail "$kind ping 실패 경고"
+  ok "$kind ping 전송 실패해도 백업 성공 유지"
 done
 
 # restore: 최신 파일 선택, 오류 전파, 시크릿 미노출
