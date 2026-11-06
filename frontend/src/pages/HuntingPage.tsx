@@ -16,21 +16,19 @@ import {
 import { useThemeStore } from '../stores/themeStore'
 import client from '../api/client'
 import type { ApiResponse, Character, HuntingRecord } from '../types'
-import { localDate } from '../utils/date'
-
-function getFirstOfMonth(): string {
-  const d = new Date()
-  d.setDate(1)
-  return localDate(d)
-}
+import { seoulDate } from '../utils/date'
+import { currentWeekRange } from '../utils/weekRange'
 
 export default function HuntingPage() {
   const navigate = useNavigate()
   const { theme } = useThemeStore()
-  const today = localDate(new Date())
+  const today = import.meta.env.VITE_USE_MOCK === 'true' && import.meta.env.VITE_PREVIEW_DATE
+    ? import.meta.env.VITE_PREVIEW_DATE
+    : seoulDate()
+  const initialRange = currentWeekRange(today)
 
-  const [dateFrom, setDateFrom] = useState(getFirstOfMonth())
-  const [dateTo, setDateTo] = useState(today)
+  const [dateFrom, setDateFrom] = useState(initialRange.dateFrom)
+  const [dateTo, setDateTo] = useState(initialRange.dateTo)
   const [characterId, setCharacterId] = useState<number | null>(null)
   const [page, setPage] = useState(0)
   const [size, setSize] = useState<HuntingPageSize>(10)
