@@ -16,18 +16,20 @@ export function crystalWindowRange(baseDate: string, window: CrystalWindow) {
 }
 
 export function crystalChartPeriods(
-  weeklyRecords: StatsCrystalWeekly[],
+  weeklyRecords: (StatsCrystalWeekly & { weeklyIncome?: number; monthlyIncome?: number })[],
   dateFrom: string,
   window: CrystalWindow,
 ) {
-  const amounts = new Map(weeklyRecords.map((record) => [record.weekStart, record.totalIncome]))
+  const amounts = new Map(weeklyRecords.map((record) => [record.weekStart, record]))
   const groupSize = window === 4 ? 1 : 4
   return Array.from({ length: window / groupSize }, (_, index) => {
     const start = addDays(dateFrom, index * groupSize * 7)
     const end = addDays(start, groupSize * 7 - 1)
-    const totalIncome = Array.from({ length: groupSize }, (_, week) =>
-      amounts.get(addDays(start, week * 7)) ?? 0).reduce((sum, amount) => sum + amount, 0)
-    return { weekStart: `${start} ~ ${end}`, totalIncome, bossDetails: [] }
+    const weeks = Array.from({ length: groupSize }, (_, week) => amounts.get(addDays(start, week * 7)))
+    const totalIncome = weeks.reduce((sum, record) => sum + (record?.totalIncome ?? 0), 0)
+    const weeklyIncome = weeks.reduce((sum, record) => sum + (record?.weeklyIncome ?? 0), 0)
+    const monthlyIncome = weeks.reduce((sum, record) => sum + (record?.monthlyIncome ?? 0), 0)
+    return { weekStart: `${start} ~ ${end}`, totalIncome, weeklyIncome, monthlyIncome, bossDetails: [] }
   })
 }
 

@@ -1,9 +1,14 @@
+import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { useThemeStore } from '../../stores/themeStore'
 import { crystalAxisMax, type CrystalWindow } from '../../utils/crystalPeriods'
 import { formatEok } from './format'
 
 interface Period {
   weekStart: string
   totalIncome: number
+  weeklyIncome: number
+  monthlyIncome: number
 }
 
 const PLOT_HEIGHT = 204
@@ -17,6 +22,36 @@ export default function CrystalRevenue({
   periods: Period[]
   onWindowChange: (window: CrystalWindow) => void
 }) {
+  const { theme } = useThemeStore()
+  const tooltipId = useId()
+  const chartRef = useRef<HTMLDivElement>(null)
+  const [active, setActive] = useState<{ period: Period; left: number; top: number } | null>(null)
+  function showPeriod(period: Period, target: HTMLButtonElement) {
+    const bar = target.querySelector('span')?.getBoundingClientRect() ?? target.getBoundingClientRect()
+    setActive({
+      period,
+      left: Math.max(8, Math.min(bar.right - 246, globalThis.innerWidth - 254)),
+      top: Math.max(8, Math.min(bar.top - 66, globalThis.innerHeight - 150)),
+    })
+  }
+  useEffect(() => {
+    if (!active) return
+    const close = () => setActive(null)
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !chartRef.current?.contains(event.target)) close()
+    }
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('keydown', escape)
+    globalThis.addEventListener('resize', close)
+    globalThis.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('keydown', escape)
+      globalThis.removeEventListener('resize', close)
+      globalThis.removeEventListener('scroll', close, true)
+    }
+  }, [active])
   const total = periods.reduce((sum, period) => sum + period.totalIncome, 0)
   const average = periods.length === 0 ? 0 : total / periods.length
   const axisMax = crystalAxisMax(Math.max(0, ...periods.map((period) => period.totalIncome)))
@@ -52,7 +87,7 @@ export default function CrystalRevenue({
             <span className="text-[13px] leading-[1.2] text-[var(--dash-muted)]">{window === 4 ? '주간 평균' : '4주 평균'}</span>
             <span className="text-[28px] leading-[34px] font-semibold [font-family:Inter,sans-serif]">{formatEok(average)}억 메소</span>
           </div>
-          <div className="flex w-full min-w-0 gap-3 sm:gap-5 lg:flex-1" role="img" aria-label={`최근 ${window}주 결정석 수익 막대 차트`}>
+          <div className="flex w-full min-w-0 gap-3 sm:gap-5 lg:flex-1" ref={chartRef} role="group" aria-label={`최근 ${window}주 결정석 수익 막대 차트`}>
             <div className="flex h-[204px] w-[35px] shrink-0 flex-col justify-between text-[11px] leading-[normal] text-[var(--dash-muted)] [font-family:Inter,sans-serif]">
               {ticks.map((tick) => (
                 <span key={tick}>{tick === 0 ? '0' : `${Number(tick.toFixed(2))}억`}</span>
@@ -72,13 +107,26 @@ export default function CrystalRevenue({
                     const last = index === periods.length - 1
                     const height = Math.round((period.totalIncome / 100_000_000 / axisMax) * PLOT_HEIGHT)
                     return (
-                      <div key={period.weekStart} className="flex h-full min-w-0 flex-1 items-end justify-center px-1">
-                        <div
-                          title={`${period.weekStart} · ${formatEok(period.totalIncome)}억 메소`}
-                          className={`relative rounded-t-lg bg-gradient-to-r w-full ${window === 4 ? 'max-w-[150px]' : 'max-w-[200px]'} ${last ? 'from-[var(--dash-accent)] to-[var(--dash-meso)]' : 'from-[var(--dash-accent)]/75 to-[var(--dash-accent)]/38'}`}
+                      <button
+                        key={period.weekStart}
+                        type="button"
+                        aria-label={`${period.weekStart} 결정석 수익: 총합 ${period.totalIncome.toLocaleString('ko-KR')} 메소, 주간 결정 ${period.weeklyIncome.toLocaleString('ko-KR')} 메소, 월간 결정 ${period.monthlyIncome.toLocaleString('ko-KR')} 메소`}
+                        aria-describedby={active?.period === period ? tooltipId : undefined}
+                        onMouseEnter={(event) => showPeriod(period, event.currentTarget)}
+                        onMouseLeave={(event) => {
+                          if (document.activeElement !== event.currentTarget) setActive(null)
+                        }}
+                        onFocus={(event) => showPeriod(period, event.currentTarget)}
+                        onBlur={() => setActive(null)}
+                        onClick={(event) => showPeriod(period, event.currentTarget)}
+                        className="flex h-full min-w-0 flex-1 cursor-pointer items-end justify-center rounded-lg px-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--dash-accent)] focus-visible:ring-offset-2"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`block rounded-t-lg bg-gradient-to-r w-full ${window === 4 ? 'max-w-[150px]' : 'max-w-[200px]'} ${last ? 'from-[var(--dash-accent)] to-[var(--dash-meso)]' : 'from-[var(--dash-accent)]/75 to-[var(--dash-accent)]/38'}`}
                           style={{ height }}
                         />
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
@@ -97,6 +145,26 @@ export default function CrystalRevenue({
           월간 보스 수익은 매월 1일이 속한 주(목요일 시작)에 합산됩니다.
         </p>
       </div>
+      {active && createPortal(
+        <div
+          id={tooltipId}
+          role="tooltip"
+          data-theme={theme}
+          className={`dashboard-theme pointer-events-none fixed z-[100] flex w-[246px] flex-col gap-[10px] rounded-xl p-4 text-[var(--dash-text)] shadow-[var(--dash-popover-shadow)] ring-1 ring-inset ring-[var(--dash-border)] ${theme === 'light' ? 'bg-white' : 'bg-[var(--dash-popover)]'}`}
+          style={{ left: active.left, top: active.top }}
+        >
+          <p className="text-[12px] leading-[1.2] font-bold whitespace-nowrap">{active.period.weekStart}</p>
+          {([
+            ['총합', active.period.totalIncome],
+            ['주간 결정', active.period.weeklyIncome],
+            ['월간 결정', active.period.monthlyIncome],
+          ] as const).map(([label, amount]) => (
+            <div key={label} className="grid grid-cols-[56px_110px_28px] items-center gap-[10px] text-[13px] leading-[1.2] font-bold whitespace-nowrap">
+              <span>{label}</span><span className="tabular-nums">{amount.toLocaleString('ko-KR')}</span><span>메소</span>
+            </div>
+          ))}
+        </div>, document.body,
+      )}
     </section>
   )
 }
