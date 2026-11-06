@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import { previewBoss, previewCharacter, previewDate, previewPeriods } from '../fixtures/nexonPreview'
+import { previewBoss, previewCharacter, previewDate, previewPeriods, savedPreviewPeriods } from '../fixtures/nexonPreview'
 import catalog from '../fixtures/nexonPreviewCatalog.json'
 import { previewHistory } from '../fixtures/nexonPreviewHistory'
 import { novemberBossItems, previewBossNames, previewCrystalWeeks, septemberBossItems } from '../fixtures/statsPreview'
@@ -108,7 +108,10 @@ export const statsHandlers = [
       1: previewCharacter(1)?.characterName ?? '',
       2: previewCharacter(2)?.characterName ?? '',
     })
-    const savedItems: StatsBossItem[] = selectedPeriods(request).flatMap((period) => period.items
+    // 이력은 스냅샷 획득일이 아닌 주간·월간 기간 겹침으로 판별.
+    const periods = new Map([...previewPeriods(characterId), ...savedPreviewPeriods(characterId)]
+      .map((period) => [`${period.characterId}:${period.bossId}:${period.periodStart}`, period]))
+    const savedItems: StatsBossItem[] = [...periods.values()].flatMap((period) => period.items
       .filter((item) => item.acquired && item.dropItem.itemKind !== 'CRYSTAL')
       .map((item) => ({
         acquiredDate: previewDate,
@@ -119,6 +122,7 @@ export const statsHandlers = [
         difficulty: (previewBoss(period.bossId)?.difficulty ?? 'NORMAL') as BossDifficulty,
         itemName: item.detailItem ? `${item.dropItem.itemName} (${item.detailItem})` : item.dropItem.itemName,
       })))
+      .filter((item) => (!from || item.periodEnd >= from) && (!to || item.periodStart <= to))
     const rows = [...[...previewHistory, ...september, ...novemberBossItems].filter((item) =>
       (characterId === null || item.characterName === previewCharacter(characterId)?.characterName)
       && (!from || item.periodEnd >= from) && (!to || item.periodStart <= to)), ...savedItems]

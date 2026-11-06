@@ -121,3 +121,8 @@ export function previewPeriods(characterId?: number | null) {
   return characters.flatMap((id) => previewBossRecords(id).map((record) =>
     getPreviewPeriod(id, record.bossId ?? 0, previewWeekStart)).filter((period): period is BossPeriod => period !== null))
 }
+
+/** 이미 저장한 모든 기간 기록. 조회 날짜와 겹치는지 여부는 호출부에서 판별. */
+export function savedPreviewPeriods(characterId: number | null) {
+  return [...savedPeriods.values()].filter((period) => characterId === null || period.characterId === characterId)
+}

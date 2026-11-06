@@ -6,7 +6,7 @@ import { characterHandlers } from './character'
 import { statsHandlers } from './stats'
 import { authHandlers } from './auth'
 import { apiKeyHandlers } from './apiKey'
-import { previewBossRecords, previewPartySize, previewWeekStart, resetPreviewPeriods } from '../fixtures/nexonPreview'
+import { previewBossRecords, previewPartySize, previewWeekStart, resetPreviewPeriods, getPreviewPeriod, savePreviewPeriod } from '../fixtures/nexonPreview'
 import previewFixture from '../fixtures/nexonPreview.json'
 
 const server = setupServer(
@@ -211,6 +211,20 @@ describe('Nexon preview contracts', () => {
       if (week.weekStart !== '2026-10-29') expect(week.monthlyIncome).toBe(0)
     }
     expect(data.totalCrystalIncome).toBe(3_000_000_000)
+  })
+
+  it('includes a saved monthly acquisition when its period overlaps a later week', async () => {
+    const monthlyBoss = previewBossRecords(1).find((boss) => boss.resetPeriod === 'MONTHLY')!
+    const period = getPreviewPeriod(1, monthlyBoss.bossId!, '2026-11-01')!
+    const target = period.items.find((item) => item.dropItem.itemName === '아케인셰이드 방어구 상자')!
+    savePreviewPeriod({ ...period, items: [{ ...target, acquired: true }] })
+
+    const base = 'http://localhost/api/v1/stats/boss-items?characterId=1&size=30'
+    const overlapping = (await (await fetch(`${base}&dateFrom=2026-11-12&dateTo=2026-11-18`)).json()).data
+    expect(overlapping.content.some((item: { itemName: string; periodStart: string; periodEnd: string }) =>
+      item.itemName === target.dropItem.itemName && item.periodStart === '2026-11-01' && item.periodEnd === '2026-11-30')).toBe(true)
+    const outside = (await (await fetch(`${base}&dateFrom=2026-12-03&dateTo=2026-12-09`)).json()).data
+    expect(outside.content).toEqual([])
   })
 
 })

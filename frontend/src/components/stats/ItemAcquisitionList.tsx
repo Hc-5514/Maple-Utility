@@ -108,7 +108,7 @@ export default function ItemAcquisitionList({
           {status ??
             page.content.map((item, index) => (
               <div
-                key={`${item.periodStart} ~ {item.periodEnd}-${item.characterName}-${item.itemName}-${index}`}
+                key={`${item.periodStart} ~ ${item.periodEnd}-${item.characterName}-${item.itemName}-${index}`}
                 role="row"
                 className="flex h-[62px] items-center gap-6 border-b border-[var(--dash-border)] px-6"
               >
