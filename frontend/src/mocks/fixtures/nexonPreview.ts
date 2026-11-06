@@ -1,3 +1,4 @@
+import { luckyItemNames } from './statsItemPolicy'
 import { detailOptionsFor } from './bossDetailOptions'
 import snapshot from './nexonPreview.json'
 import catalog from './nexonPreviewCatalog.json'
@@ -95,7 +96,7 @@ export function getPreviewPeriod(characterId: number, bossId: number, periodStar
     items: boss.dropItems.map((dropItem) => ({
       dropItem: {
         ...dropItem,
-        itemKind: dropItem.itemKind as BossItemKind,
+        itemKind: (luckyItemNames.has(dropItem.itemName) ? 'LUCKY' : dropItem.itemKind) as BossItemKind,
         itemImage: null,
         itemDescription: null,
         dropRateTier: null,
@@ -119,4 +120,9 @@ export function previewPeriods(characterId?: number | null) {
   const characters = characterId ? [characterId] : snapshot.characters.map((character) => character.id)
   return characters.flatMap((id) => previewBossRecords(id).map((record) =>
     getPreviewPeriod(id, record.bossId ?? 0, previewWeekStart)).filter((period): period is BossPeriod => period !== null))
+}
+
+/** 이미 저장한 모든 기간 기록. 조회 날짜와 겹치는지 여부는 호출부에서 판별. */
+export function savedPreviewPeriods(characterId: number | null) {
+  return [...savedPeriods.values()].filter((period) => characterId === null || period.characterId === characterId)
 }
