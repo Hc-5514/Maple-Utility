@@ -131,6 +131,56 @@ class StatsQueryRepositoryTest {
 	}
 
 	@Test
+	void luckyFilterChecksEveryRingBoxDetailAndIncludesSoulEther() {
+		for (String table : List.of("users", "characters", "boss_master", "boss_drop_items", "boss_item_acquisitions")) {
+			for (String column : List.of("created_at", "updated_at")) {
+				entityManager.createNativeQuery("ALTER TABLE " + table + " ALTER COLUMN " + column
+						+ " SET DEFAULT CURRENT_TIMESTAMP").executeUpdate();
+			}
+		}
+		User user = User.create(OAuthProvider.KAKAO, "lucky-detail", null, "물욕");
+		entityManager.persist(user);
+		MapleCharacter character = MapleCharacter.create(user, "detail-ocid", "꼬농", "엘리시움", "마법사", 294, 0);
+		entityManager.persist(character);
+		BossMaster boss = BeanUtils.instantiateClass(BossMaster.class);
+		ReflectionTestUtils.setField(boss, "bossName", "검은 마법사");
+		ReflectionTestUtils.setField(boss, "difficulty", Difficulty.HARD);
+		ReflectionTestUtils.setField(boss, "resetPeriod", ResetPeriod.MONTHLY);
+		entityManager.persist(boss);
+		for (String color : List.of("녹옥", "홍옥", "흑옥", "백옥", "생명")) {
+			BossDropItem box = dropItem(boss, color + "의 보스 반지 상자", BossItemKind.LUCKY);
+			for (String detail : new String[] {"리스트레인트 링 Lv4", "컨티뉴어스링 Lv4", "기타", null}) {
+				BossItemAcquisition row = BossItemAcquisition.create(character, box, LocalDate.parse("2026-11-06"), null);
+				ReflectionTestUtils.setField(row, "detailItem", detail);
+				entityManager.persist(row);
+			}
+		}
+		for (int stage = 1; stage <= 4; stage++) {
+			entityManager.persist(BossItemAcquisition.create(character,
+					dropItem(boss, stage + "단계 소울 에테르", BossItemKind.LUCKY), LocalDate.parse("2026-11-06"), null));
+		}
+		entityManager.persist(BossItemAcquisition.create(character,
+				dropItem(boss, "루인 포스실드", BossItemKind.RANDOM), LocalDate.parse("2026-11-06"), null));
+		entityManager.flush();
+		entityManager.clear();
+		List<Long> ids = List.of(character.getId());
+		var lucky = repository.findBossItemStats(ids, null, BossItemKind.LUCKY,
+				LocalDate.parse("2026-11-05"), LocalDate.parse("2026-11-11"), 0, 10);
+		assertThat(lucky.totalElements()).isEqualTo(14);
+		assertThat(lucky.totalPages()).isEqualTo(2);
+		assertThat(lucky.content()).allSatisfy(row -> {
+			assertThat(row.periodStart()).isEqualTo(LocalDate.parse("2026-11-01"));
+			assertThat(row.periodEnd()).isEqualTo(LocalDate.parse("2026-11-30"));
+			assertThat(row.acquiredDate()).isEqualTo(LocalDate.parse("2026-11-06"));
+		});
+		assertThat(lucky.content()).extracting(StatsBossItemResponse::itemName)
+				.contains("1단계 소울 에테르", "2단계 소울 에테르", "3단계 소울 에테르", "4단계 소울 에테르");
+		assertThat(repository.findBossItemStats(ids, null, BossItemKind.RANDOM, null, null, 0, 30).totalElements()).isEqualTo(25);
+		assertThat(repository.findBossItemStats(ids, null, BossItemKind.LUCKY,
+				LocalDate.parse("2026-12-01"), null, 0, 10).totalElements()).isZero();
+	}
+
+	@Test
 	void activeBossNamesFollowCatalogSortOrderOnce() {
 		entityManager.createNativeQuery("ALTER TABLE boss_master ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP")
 				.executeUpdate();

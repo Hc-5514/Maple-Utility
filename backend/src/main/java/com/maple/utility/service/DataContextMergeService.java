@@ -309,7 +309,7 @@ public class DataContextMergeService {
 		mergeRecords("boss_period_selections", targetId, sourceId, List.of("boss_id", "period_start"), origins);
 		// Acquisitions are events, not unique item/date settings. Only exact copies of the same event collapse.
 		mergeRecords("boss_item_acquisitions", targetId, sourceId,
-				List.of("boss_drop_item_id", "acquired_date", "memo", "boss_period_entry_id", "quantity", "meso_amount", "detail_item", "created_at"),
+				List.of("boss_drop_item_id", "acquired_date", "period_start", "period_end", "memo", "boss_period_entry_id", "quantity", "meso_amount", "detail_item", "created_at"),
 				origins);
 		// Same-day hunting records are allowed, so only exact copies of the same record collapse.
 		mergeRecords("hunting_records", targetId, sourceId,

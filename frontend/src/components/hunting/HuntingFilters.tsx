@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import DateButton from '../common/DateButton'
+import WeekDateButton from '../common/WeekDateButton'
+import { currentWeekRange } from '../../utils/weekRange'
 import GlassSelect from '../common/GlassSelect'
 import { useThemeStore } from '../../stores/themeStore'
 import { huntingAssets } from './assets'
@@ -29,18 +30,22 @@ export default function HuntingFilters({
     <div className="relative z-20 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--dash-border)] bg-[var(--dash-card)] p-[19px] shadow-[var(--dash-card-shadow)] backdrop-blur-[12px]">
       <div className="flex flex-wrap items-center gap-4">
         <span className="text-[14px] leading-[1.45] text-[var(--dash-muted)]">기간</span>
-        <DateButton
+        <WeekDateButton
           label="시작일"
+          weekday={4}
           value={dateFrom}
           max={dateTo}
           onChange={(value) => onDateChange(value, dateTo)}
         />
         <span className="text-[14px] text-[var(--dash-muted)]">~</span>
-        <DateButton
+        <WeekDateButton
           label="종료일"
+          weekday={3}
+          rangeStart={dateFrom}
+          rangeEnd={dateTo}
           value={dateTo}
           min={dateFrom}
-          max={today}
+          max={currentWeekRange(today).dateTo}
           onChange={(value) => onDateChange(dateFrom, value)}
         />
         <span aria-hidden="true" className="h-7 w-px bg-[var(--dash-border)]" />

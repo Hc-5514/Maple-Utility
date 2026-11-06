@@ -16,7 +16,7 @@ interface StatsParams {
 
 export type BossItemPageSize = 10 | 20 | 30
 
-export type BossItemKindFilter = 'RANDOM'
+export type BossItemKindFilter = 'RANDOM' | 'LUCKY'
 
 interface BossItemStatsParams extends StatsParams {
   bossName?: string | null

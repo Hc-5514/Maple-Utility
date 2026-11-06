@@ -14,6 +14,7 @@ import {
 } from '../hooks/useStats'
 import client from '../api/client'
 import type { ApiResponse, Character } from '../types'
+import { currentWeekRange } from '../utils/weekRange'
 import { localDate } from '../utils/date'
 import { crystalChartPeriods, crystalWindowRange, type CrystalWindow } from '../utils/crystalPeriods'
 
@@ -49,8 +50,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function StatsPage() {
-  const [dateFrom, setDateFrom] = useState(`${today.slice(0, 7)}-01`)
-  const [dateTo, setDateTo] = useState(today)
+  const [dateFrom, setDateFrom] = useState(currentWeekRange(today).dateFrom)
+  const [dateTo, setDateTo] = useState(currentWeekRange(today).dateTo)
   const [characterId, setCharacterId] = useState<number | null>(null)
   const [bossName, setBossName] = useState<string | null>(null)
   const [luckyOnly, setLuckyOnly] = useState(false)
@@ -69,7 +70,7 @@ export default function StatsPage() {
   const crystal = useStatsCrystal({ characterId, ...crystalRange })
   const bosses = useStatsBosses()
   const bossItems = useStatsBossItems({
-    characterId, bossName, itemKind: luckyOnly ? 'RANDOM' : null, dateFrom, dateTo, page: bossPage, size: bossPageSize,
+    characterId, bossName, itemKind: luckyOnly ? 'LUCKY' : null, dateFrom, dateTo, page: bossPage, size: bossPageSize,
   })
   const crystalPeriods = crystalChartPeriods(crystal.data?.weeklyRecords ?? [], crystalRange.dateFrom, crystalWindow)
 

@@ -1,9 +1,11 @@
 import { http, HttpResponse } from 'msw'
-import { previewBoss, previewCharacter, previewDate, previewPeriods } from '../fixtures/nexonPreview'
+import { previewBoss, previewCharacter, previewDate, previewPeriods, savedPreviewPeriods } from '../fixtures/nexonPreview'
 import catalog from '../fixtures/nexonPreviewCatalog.json'
 import { previewHistory } from '../fixtures/nexonPreviewHistory'
-import { previewBossNames, previewCrystalWeeks, septemberBossItems } from '../fixtures/statsPreview'
+import { novemberBossItems, previewBossNames, previewCrystalWeeks, septemberBossItems } from '../fixtures/statsPreview'
 import { currentHuntingRecords, isFavoriteCharacter } from './hunting'
+import { acquisitionPeriod, isLuckyItem } from '../fixtures/statsItemPolicy'
+import { thursdayWeekStart } from '../../utils/date'
 import type { BossDifficulty, StatsBossItem, StatsCrystalWeekly } from '../../types'
 
 // 물욕템 필터(itemKind=RANDOM)는 고정 아이템을 제외한 아이템만 남김
@@ -61,15 +63,17 @@ export const statsHandlers = [
       const crystal = period.items.find((item) => item.dropItem.itemKind === 'CRYSTAL')
       const boss = previewBoss(period.bossId)
       if (!crystal?.acquired || crystal.mesoAmount === null || !boss) return []
-      return [{ weekStart: '2026-10-01', bossName: boss.bossName, difficulty: boss.difficulty, income: crystal.mesoAmount }]
+      return [{ weekStart: thursdayWeekStart(new Date(`${period.periodStart}T12:00:00`)), bossName: boss.bossName, difficulty: boss.difficulty, income: crystal.mesoAmount, resetPeriod: boss.resetPeriod }]
     })
     const seeded = previewCrystalWeeks
       .filter((week) => (characterId === null || week.characterId === characterId)
         && inRange(week.weekStart, params.get('dateFrom'), params.get('dateTo')))
     const weeks = new Map<string, StatsCrystalWeekly>()
-    ;[...seeded, ...details].forEach(({ weekStart, bossName, difficulty, income }) => {
-      const week = weeks.get(weekStart) ?? { weekStart, totalIncome: 0, bossDetails: [] }
+    ;[...seeded, ...details].forEach(({ weekStart, bossName, difficulty, income, resetPeriod }) => {
+      const week = weeks.get(weekStart) ?? { weekStart, totalIncome: 0, weeklyIncome: 0, monthlyIncome: 0, bossDetails: [] }
       week.totalIncome += income
+      if (resetPeriod === 'MONTHLY') week.monthlyIncome += income
+      else week.weeklyIncome += income
       week.bossDetails.push({ bossName, difficulty: difficulty as BossDifficulty, income })
       weeks.set(weekStart, week)
     })
@@ -95,7 +99,7 @@ export const statsHandlers = [
     const characterId = params.has('characterId') ? Number(params.get('characterId')) : null
     const bossName = params.get('bossName')?.trim() || null
     const itemKind = params.get('itemKind')
-    if (itemKind !== null && itemKind !== 'RANDOM') {
+    if (itemKind !== null && itemKind !== 'RANDOM' && itemKind !== 'LUCKY') {
       return HttpResponse.json({ code: 'INVALID_ITEM_KIND', message: '아이템 종류 오류' }, { status: 400 })
     }
     const from = params.get('dateFrom')
@@ -104,21 +108,27 @@ export const statsHandlers = [
       1: previewCharacter(1)?.characterName ?? '',
       2: previewCharacter(2)?.characterName ?? '',
     })
-    const savedItems: StatsBossItem[] = selectedPeriods(request).flatMap((period) => period.items
+    // 이력은 스냅샷 획득일이 아닌 주간·월간 기간 겹침으로 판별.
+    const periods = new Map([...previewPeriods(characterId), ...savedPreviewPeriods(characterId)]
+      .map((period) => [`${period.characterId}:${period.bossId}:${period.periodStart}`, period]))
+    const savedItems: StatsBossItem[] = [...periods.values()].flatMap((period) => period.items
       .filter((item) => item.acquired && item.dropItem.itemKind !== 'CRYSTAL')
       .map((item) => ({
         acquiredDate: previewDate,
+        ...acquisitionPeriod(period.periodStart, previewBoss(period.bossId)?.bossName ?? ''),
+        detailItem: item.detailItem,
         characterName: previewCharacter(period.characterId)?.characterName ?? '',
         bossName: previewBoss(period.bossId)?.bossName ?? '',
         difficulty: (previewBoss(period.bossId)?.difficulty ?? 'NORMAL') as BossDifficulty,
         itemName: item.detailItem ? `${item.dropItem.itemName} (${item.detailItem})` : item.dropItem.itemName,
       })))
-    const rows = [...[...previewHistory, ...september].filter((item) =>
+      .filter((item) => (!from || item.periodEnd >= from) && (!to || item.periodStart <= to))
+    const rows = [...[...previewHistory, ...september, ...novemberBossItems].filter((item) =>
       (characterId === null || item.characterName === previewCharacter(characterId)?.characterName)
-      && inRange(item.acquiredDate, from, to)), ...savedItems]
+      && (!from || item.periodEnd >= from) && (!to || item.periodStart <= to)), ...savedItems]
       .filter((item) => bossName === null || item.bossName === bossName)
-      .filter((item) => itemKind === null || !fixedItemNames.has(item.itemName))
-      .sort((a, b) => b.acquiredDate.localeCompare(a.acquiredDate))
+      .filter((item) => itemKind === 'LUCKY' ? isLuckyItem(item.itemName, item.detailItem) : itemKind === null || !fixedItemNames.has(item.itemName))
+      .sort((a, b) => b.periodStart.localeCompare(a.periodStart))
 
     return HttpResponse.json({ success: true, data: {
       content: rows.slice(page * size, (page + 1) * size),

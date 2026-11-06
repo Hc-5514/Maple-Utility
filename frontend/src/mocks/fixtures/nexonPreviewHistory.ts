@@ -1,3 +1,4 @@
+import { acquisitionPeriod } from './statsItemPolicy'
 import type { BossDifficulty, StatsBossItem } from '../../types'
 import { previewBoss, previewCharacter, previewDate, previewPeriods } from './nexonPreview'
 
@@ -13,5 +14,5 @@ export const previewHistory: StatsBossItem[] = [1, 2].flatMap((characterId) => {
   return Array.from({ length: 20 }, (_, index) => ({
     ...candidates[Math.floor(index * candidates.length / 20)],
     acquiredDate: `${previewDate.slice(0, 8)}${String(1 + index % 7).padStart(2, '0')}`,
-  }))
+  })).map((item) => ({ ...item, ...acquisitionPeriod(item.acquiredDate, item.bossName) }))
 })

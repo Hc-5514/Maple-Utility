@@ -463,8 +463,8 @@ class SharedLoginMergePostgresTest {
 	}
 
 	private void acquisition(long id, long character, long period, String memo, int quantity, String createdAt) {
-		jdbc.update("INSERT INTO boss_item_acquisitions(id,character_id,boss_drop_item_id,boss_period_entry_id,acquired_date,memo,quantity,created_at) VALUES (?,?,9001,?,(?::timestamptz AT TIME ZONE 'Asia/Seoul')::date,?,?,?::timestamptz AT TIME ZONE 'Asia/Seoul')",
-				id, character, period, createdAt, memo, quantity, createdAt);
+		jdbc.update("INSERT INTO boss_item_acquisitions(id,character_id,boss_drop_item_id,boss_period_entry_id,period_start,period_end,acquired_date,memo,quantity,created_at) SELECT ?,?,9001,id,period_start,period_start+6,(?::timestamptz AT TIME ZONE 'Asia/Seoul')::date,?,?,?::timestamptz AT TIME ZONE 'Asia/Seoul' FROM boss_period_entries WHERE id=?",
+				id, character, createdAt, memo, quantity, createdAt, period);
 	}
 
 	private long number(String sql) {
