@@ -37,7 +37,6 @@ import com.maple.utility.entity.User;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.StatsQueryRepository;
-import com.maple.utility.repository.StatsQueryRepository.CrystalIncomeRow;
 
 @ExtendWith(MockitoExtension.class)
 class StatsServiceTest {
@@ -134,6 +133,8 @@ class StatsServiceTest {
 		assertThat(response.weeklyRecords()).hasSize(2);
 		assertThat(response.weeklyRecords().getFirst().weekStart()).isEqualTo(LocalDate.parse("2026-07-09"));
 		assertThat(response.weeklyRecords().getFirst().totalIncome()).isEqualTo(400L);
+		assertThat(response.weeklyRecords().getFirst().weeklyIncome()).isEqualTo(400L);
+		assertThat(response.weeklyRecords().getFirst().monthlyIncome()).isZero();
 		assertThat(response.weeklyRecords().getFirst().bossDetails()).hasSize(2);
 		assertThat(response.weeklyRecords().get(1).totalIncome()).isEqualTo(100L);
 	}
@@ -154,6 +155,32 @@ class StatsServiceTest {
 		assertThat(response.weeklyRecords()).singleElement().satisfies(week -> {
 			assertThat(week.weekStart()).isEqualTo(LocalDate.parse("2026-10-29"));
 			assertThat(week.totalIncome()).isEqualTo(800L);
+			assertThat(week.weeklyIncome()).isEqualTo(100L);
+			assertThat(week.monthlyIncome()).isEqualTo(700L);
+			assertThat(week.totalIncome()).isEqualTo(week.weeklyIncome() + week.monthlyIncome());
+		});
+	}
+
+	@Test
+	void getCrystalStatsKeepsMonthlyOnlyIncomeSeparateAndSkipsZeroOrUncompletedBosses() {
+		MapleCharacter character = character(user(), 10L);
+		when(characterRepository.findByUserIdAndFavoriteTrueOrderBySortOrderAscIdAsc(1L)).thenReturn(List.of(character));
+		when(schedulerService.getPeriodBosses(character, LocalDate.parse("2026-10-29"), ResetPeriod.WEEKLY))
+				.thenReturn(List.of());
+		when(schedulerService.getPeriodBosses(character, LocalDate.parse("2026-11-01"), ResetPeriod.MONTHLY))
+				.thenReturn(List.of(bossResponse("검은 마법사", true, 700L),
+						bossResponse("미클리어", false, 100L), bossResponse("체크 해제", true, 0L),
+						bossResponse("미입력", true, null)));
+
+		StatsCrystalSummaryResponse response = statsService.getCrystalStats(
+				1L, null, LocalDate.parse("2026-10-29"), LocalDate.parse("2026-11-04"));
+
+		assertThat(response.totalCrystalIncome()).isEqualTo(700L);
+		assertThat(response.weeklyRecords()).singleElement().satisfies(week -> {
+			assertThat(week.weeklyIncome()).isZero();
+			assertThat(week.monthlyIncome()).isEqualTo(700L);
+			assertThat(week.totalIncome()).isEqualTo(week.weeklyIncome() + week.monthlyIncome());
+			assertThat(week.bossDetails()).hasSize(1);
 		});
 	}
 

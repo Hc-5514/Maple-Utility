@@ -31,7 +31,6 @@ import com.maple.utility.entity.ResetPeriod;
 import com.maple.utility.exception.ApiException;
 import com.maple.utility.repository.CharacterRepository;
 import com.maple.utility.repository.StatsQueryRepository;
-import com.maple.utility.repository.StatsQueryRepository.CrystalIncomeRow;
 
 @Service
 public class StatsService {
@@ -104,7 +103,7 @@ public class StatsService {
 		for (CrystalIncomeRow row : rows) {
 			LocalDate weekStart = weekStartDate(row.recordDate());
 			weekly.computeIfAbsent(weekStart, ignored -> new WeeklyCrystalAccumulator())
-					.add(row.bossName(), row.difficulty(), row.income());
+					.add(row.bossName(), row.difficulty(), row.income(), row.resetPeriod());
 		}
 
 		List<StatsCrystalWeeklyResponse> weeklyRecords = weekly.entrySet()
@@ -112,7 +111,9 @@ public class StatsService {
 				.map(entry -> new StatsCrystalWeeklyResponse(
 						entry.getKey(),
 						entry.getValue().totalIncome(),
-						entry.getValue().bossDetails()
+						entry.getValue().bossDetails(),
+						entry.getValue().weeklyIncome,
+						entry.getValue().monthlyIncome
 				))
 				.toList();
 		long totalCrystalIncome = weeklyRecords.stream()
@@ -213,7 +214,7 @@ public class StatsService {
 		for (SchedulerBossResponse boss : schedulerService.getPeriodBosses(character, start, resetPeriod)) {
 			long income = boss.acquiredCrystalMeso() == null ? 0 : boss.acquiredCrystalMeso();
 			if (boss.isCompleted() && income > 0) {
-				rows.add(new CrystalIncomeRow(start, boss.bossName(), Difficulty.valueOf(boss.difficulty()), income));
+				rows.add(new CrystalIncomeRow(start, boss.bossName(), Difficulty.valueOf(boss.difficulty()), income, resetPeriod));
 			}
 		}
 	}
@@ -231,8 +232,15 @@ public class StatsService {
 	private static class WeeklyCrystalAccumulator {
 
 		private final Map<CrystalBossKey, Long> incomes = new LinkedHashMap<>();
+		private long weeklyIncome;
+		private long monthlyIncome;
 
-		void add(String bossName, Difficulty difficulty, long income) {
+		void add(String bossName, Difficulty difficulty, long income, ResetPeriod resetPeriod) {
+			if (resetPeriod == ResetPeriod.MONTHLY) {
+				monthlyIncome += income;
+			} else {
+				weeklyIncome += income;
+			}
 			CrystalBossKey key = new CrystalBossKey(bossName, difficulty);
 			incomes.merge(key, income, Long::sum);
 		}
@@ -253,6 +261,10 @@ public class StatsService {
 			)));
 			return details;
 		}
+	}
+
+	private record CrystalIncomeRow(LocalDate recordDate, String bossName, Difficulty difficulty, long income,
+			ResetPeriod resetPeriod) {
 	}
 
 	private record CrystalBossKey(String bossName, Difficulty difficulty) {
