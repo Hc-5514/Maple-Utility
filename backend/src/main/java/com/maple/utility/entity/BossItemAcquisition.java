@@ -1,6 +1,8 @@
 package com.maple.utility.entity;
 
 import java.time.LocalDate;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -36,6 +38,12 @@ public class BossItemAcquisition extends BaseTimeEntity {
 	@Column(name = "acquired_date", nullable = false)
 	private LocalDate acquiredDate;
 
+	@Column(name = "period_start", nullable = false)
+	private LocalDate periodStart;
+
+	@Column(name = "period_end", nullable = false)
+	private LocalDate periodEnd;
+
 	@Column(name = "memo", length = 255)
 	private String memo;
 
@@ -62,6 +70,7 @@ public class BossItemAcquisition extends BaseTimeEntity {
 		acquisition.character = character;
 		acquisition.bossDropItem = bossDropItem;
 		acquisition.acquiredDate = acquiredDate;
+		acquisition.assignPeriod(acquiredDate, bossDropItem.getBoss().getResetPeriod());
 		acquisition.memo = memo;
 		return acquisition;
 	}
@@ -71,10 +80,21 @@ public class BossItemAcquisition extends BaseTimeEntity {
 	) {
 		BossItemAcquisition acquisition = create(periodEntry.getCharacter(), dropItem, periodEntry.getPeriodStart(), null);
 		acquisition.periodEntry = periodEntry;
+		acquisition.assignPeriod(periodEntry.getPeriodStart(), periodEntry.getResetPeriod());
 		acquisition.quantity = quantity;
 		acquisition.mesoAmount = mesoAmount;
 		acquisition.detailItem = detailItem;
 		return acquisition;
+	}
+
+	private void assignPeriod(LocalDate date, ResetPeriod resetPeriod) {
+		if (resetPeriod == ResetPeriod.MONTHLY) {
+			this.periodStart = date.withDayOfMonth(1);
+			this.periodEnd = date.with(TemporalAdjusters.lastDayOfMonth());
+		} else {
+			this.periodStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.THURSDAY));
+			this.periodEnd = this.periodStart.plusDays(6);
+		}
 	}
 
 	public void updateForPeriod(int quantity, Long mesoAmount, String detailItem) {

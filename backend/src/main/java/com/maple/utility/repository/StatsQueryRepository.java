@@ -81,8 +81,12 @@ public class StatsQueryRepository {
 		if (bossName != null) {
 			condition.and(acquisition.bossDropItem.boss.bossName.eq(bossName));
 		}
-		if (itemKind != null) {
-			condition.and(acquisition.bossDropItem.itemKind.eq(itemKind));
+		if (itemKind == BossItemKind.RANDOM) {
+			condition.and(acquisition.bossDropItem.itemKind.in(BossItemKind.RANDOM, BossItemKind.LUCKY));
+		} else if (itemKind == BossItemKind.LUCKY) {
+			condition.and(acquisition.bossDropItem.itemKind.eq(BossItemKind.LUCKY));
+			condition.and(acquisition.bossDropItem.itemName.endsWith("보스 반지 상자").not()
+					.or(acquisition.detailItem.in("리스트레인트 링 Lv4", "컨티뉴어스링 Lv4")));
 		}
 		Long count = queryFactory.select(acquisition.id.count())
 				.from(acquisition)
@@ -92,6 +96,8 @@ public class StatsQueryRepository {
 		List<StatsBossItemResponse> content = queryFactory
 				.select(
 						acquisition.acquiredDate,
+						acquisition.periodStart,
+						acquisition.periodEnd,
 						acquisition.character.characterName,
 						acquisition.bossDropItem.boss.bossName,
 						acquisition.bossDropItem.boss.difficulty,
@@ -100,7 +106,7 @@ public class StatsQueryRepository {
 				)
 				.from(acquisition)
 				.where(condition)
-				.orderBy(acquisition.acquiredDate.desc(), acquisition.id.desc())
+				.orderBy(acquisition.periodStart.desc(), acquisition.id.desc())
 				.offset((long) page * size)
 				.limit(size)
 				.fetch()
@@ -110,7 +116,10 @@ public class StatsQueryRepository {
 						tuple.get(acquisition.character.characterName),
 						tuple.get(acquisition.bossDropItem.boss.bossName),
 						tuple.get(acquisition.bossDropItem.boss.difficulty),
-						itemLabel(tuple.get(acquisition.bossDropItem.itemName), tuple.get(acquisition.detailItem))
+						itemLabel(tuple.get(acquisition.bossDropItem.itemName), tuple.get(acquisition.detailItem)),
+						tuple.get(acquisition.periodStart),
+						tuple.get(acquisition.periodEnd),
+						tuple.get(acquisition.detailItem)
 				))
 				.toList();
 		return new PageResponse<>(content, totalElements,
@@ -239,10 +248,10 @@ public class StatsQueryRepository {
 	) {
 		BooleanBuilder builder = new BooleanBuilder(acquisition.character.id.in(characterIds));
 		if (dateFrom != null) {
-			builder.and(acquisition.acquiredDate.goe(dateFrom));
+			builder.and(acquisition.periodEnd.goe(dateFrom));
 		}
 		if (dateTo != null) {
-			builder.and(acquisition.acquiredDate.loe(dateTo));
+			builder.and(acquisition.periodStart.loe(dateTo));
 		}
 		return builder;
 	}
