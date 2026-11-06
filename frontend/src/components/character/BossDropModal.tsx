@@ -257,7 +257,7 @@ export default function BossDropModal({
                   />
                 </div>
               )}
-              <span className={item.dropItem.itemKind === 'RANDOM' && !(item.acquired && item.dropItem.detailOptions.length > 0) ? 'ml-auto' : ''}>
+              <span className={(item.dropItem.itemKind === 'RANDOM' || item.dropItem.itemKind === 'LUCKY') && !(item.acquired && item.dropItem.detailOptions.length > 0) ? 'ml-auto' : ''}>
                 <ThemedCheckbox
                   checked={item.acquired}
                   onChange={(acquired) => changeItem(item.dropItem.id, acquired ? { acquired } : { acquired, detailItem: null })}

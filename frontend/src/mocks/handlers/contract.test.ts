@@ -162,7 +162,7 @@ describe('Nexon preview contracts', () => {
     expect((await (await fetch(`${base}&page=4&size=10`)).json()).data.content).toEqual([])
   })
 
-  it('keeps only lucky items for itemKind=RANDOM and rejects other kinds', async () => {
+  it('keeps legacy probabilistic items for itemKind=RANDOM and rejects other kinds', async () => {
     const base = 'http://localhost/api/v1/stats/boss-items?dateFrom=2026-10-01&dateTo=2026-10-07&size=30'
     const all = (await (await fetch(base)).json()).data
     const lucky = (await (await fetch(`${base}&itemKind=RANDOM`)).json()).data
@@ -182,8 +182,35 @@ describe('Nexon preview contracts', () => {
     expect(second.totalElements).toBe(20)
     expect(first.content.every((item: { characterName: string }) => item.characterName === '꼬농')).toBe(true)
     expect(second.content.every((item: { characterName: string }) => item.characterName === '말랑꼬농')).toBe(true)
-    expect(singleDate.totalElements).toBe(2)
-    expect(singleDate.content.every((item: { acquiredDate: string }) => item.acquiredDate === '2026-10-07')).toBe(true)
+    expect(singleDate.totalElements).toBe(20)
+    expect(singleDate.content.every((item: { periodStart: string; periodEnd: string }) => item.periodStart <= '2026-10-07' && item.periodEnd >= '2026-10-07')).toBe(true)
     expect((await fetch(`${base}&size=11`)).status).toBe(400)
   })
+  it('filters the approved lucky catalog, soul ethers and only two ring results', async () => {
+    const base = 'http://localhost/api/v1/stats/boss-items?dateFrom=2026-11-05&dateTo=2026-11-11&size=30'
+    const all = (await (await fetch(base)).json()).data
+    const lucky = (await (await fetch(`${base}&itemKind=LUCKY`)).json()).data
+    expect(lucky.totalElements).toBe(13)
+    expect(lucky.totalElements).toBeLessThan(all.totalElements)
+    for (const stage of [1, 2, 3, 4]) {
+      expect(lucky.content.some((item: { itemName: string }) => item.itemName === `${stage}단계 소울 에테르`)).toBe(true)
+    }
+    const rings = lucky.content.filter((item: { itemName: string }) => item.itemName.includes('보스 반지 상자'))
+    expect(rings).toHaveLength(2)
+    expect(new Set(rings.map((item: { detailItem: string }) => item.detailItem)))
+      .toEqual(new Set(['리스트레인트 링 Lv4', '컨티뉴어스링 Lv4']))
+    expect(lucky.content.find((item: { bossName: string }) => item.bossName === '검은 마법사'))
+      .toMatchObject({ periodStart: '2026-11-01', periodEnd: '2026-11-30' })
+  })
+
+  it('preserves weekly and monthly crystal components when summing chart periods', async () => {
+    const data = (await (await fetch('http://localhost/api/v1/stats/crystal?dateFrom=2026-10-15&dateTo=2026-11-11')).json()).data
+    expect(data.weeklyRecords.some((week: { monthlyIncome: number }) => week.monthlyIncome > 0)).toBe(true)
+    for (const week of data.weeklyRecords) {
+      expect(week.totalIncome).toBe(week.weeklyIncome + week.monthlyIncome)
+      if (week.weekStart !== '2026-10-29') expect(week.monthlyIncome).toBe(0)
+    }
+    expect(data.totalCrystalIncome).toBe(3_000_000_000)
+  })
+
 })

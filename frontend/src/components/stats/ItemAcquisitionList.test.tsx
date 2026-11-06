@@ -6,6 +6,7 @@ import type { PageResponse, StatsBossItem } from '../../types'
 
 const item: StatsBossItem = {
   acquiredDate: '2026-10-07',
+  periodStart: '2026-10-01', periodEnd: '2026-10-07', detailItem: null,
   characterName: '꼬농',
   bossName: '스우',
   difficulty: 'HARD',
@@ -34,6 +35,8 @@ describe('ItemAcquisitionList', () => {
     const { onPageChange, onPageSizeChange } = renderList(firstPage)
 
     expect(screen.getByText('총 40개')).toBeTruthy()
+    expect(screen.getByText('2026-10-01 ~ 2026-10-07')).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: '보스' }).className).toContain('w-[150px]')
     expect(screen.getByText('하드')).toBeTruthy()
     const nav = screen.getByRole('navigation', { name: '보스 아이템 획득 이력 페이지' })
     expect((within(nav).getByRole('button', { name: '이전' }) as HTMLButtonElement).disabled).toBe(true)

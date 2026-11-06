@@ -1,3 +1,4 @@
+import { luckyItemNames } from './statsItemPolicy'
 import { detailOptionsFor } from './bossDetailOptions'
 import snapshot from './nexonPreview.json'
 import catalog from './nexonPreviewCatalog.json'
@@ -95,7 +96,7 @@ export function getPreviewPeriod(characterId: number, bossId: number, periodStar
     items: boss.dropItems.map((dropItem) => ({
       dropItem: {
         ...dropItem,
-        itemKind: dropItem.itemKind as BossItemKind,
+        itemKind: (luckyItemNames.has(dropItem.itemName) ? 'LUCKY' : dropItem.itemKind) as BossItemKind,
         itemImage: null,
         itemDescription: null,
         dropRateTier: null,

@@ -106,7 +106,7 @@ export interface Character {
 export type BossDifficulty = 'EASY' | 'NORMAL' | 'HARD' | 'CHAOS' | 'EXTREME'
 export type ResetPeriod = 'WEEKLY' | 'MONTHLY'
 export type DropRateTier = 'HIGH' | 'NORMAL' | 'LOW'
-export type BossItemKind = 'CRYSTAL' | 'FIXED' | 'RANDOM'
+export type BossItemKind = 'CRYSTAL' | 'FIXED' | 'RANDOM' | 'LUCKY'
 
 export interface BossDropItem {
   id: number
@@ -325,6 +325,8 @@ export interface StatsCrystalBossDetail {
 export interface StatsCrystalWeekly {
   weekStart: string
   totalIncome: number
+  weeklyIncome: number
+  monthlyIncome: number
   bossDetails: StatsCrystalBossDetail[]
 }
 
@@ -336,6 +338,9 @@ export interface StatsCrystalSummary {
 
 export interface StatsBossItem {
   acquiredDate: string
+  periodStart: string
+  periodEnd: string
+  detailItem: string | null
   characterName: string
   bossName: string
   difficulty: BossDifficulty
