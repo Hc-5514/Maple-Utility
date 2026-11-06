@@ -10,6 +10,9 @@ public record StatsBossItemResponse(
 		String characterName,
 		String bossName,
 		Difficulty difficulty,
-		String itemName
+		String itemName,
+		LocalDate periodStart,
+		LocalDate periodEnd,
+		String detailItem
 ) implements Serializable {
 }

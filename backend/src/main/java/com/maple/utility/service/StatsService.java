@@ -140,8 +140,8 @@ public class StatsService {
 		if (page < 0 || (size != 10 && size != 20 && size != 30)) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAGE_REQUEST", "페이지 요청 오류");
 		}
-		// 결정은 결정석 수익, 고정 아이템은 전체 목록에서만 다루므로 물욕템(RANDOM)만 별도 필터 허용
-		if (itemKind != null && itemKind != BossItemKind.RANDOM) {
+		// LUCKY 물욕템과 기존 RANDOM 확률 보상 필터 허용
+		if (itemKind != null && itemKind != BossItemKind.RANDOM && itemKind != BossItemKind.LUCKY) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ITEM_KIND", "아이템 종류 오류");
 		}
 		String normalizedBossName = bossName == null || bossName.isBlank() ? null : bossName.strip();

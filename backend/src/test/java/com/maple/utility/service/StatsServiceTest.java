@@ -188,7 +188,7 @@ class StatsServiceTest {
 	void getBossItemStatsReturnsQueryResult() {
 		MapleCharacter character = character(user(), 10L);
 		List<StatsBossItemResponse> rows = List.of(
-				new StatsBossItemResponse(LocalDate.parse("2026-07-14"), "캐릭터", "스우", Difficulty.HARD, "아이템")
+				new StatsBossItemResponse(LocalDate.parse("2026-07-14"), "캐릭터", "스우", Difficulty.HARD, "아이템", LocalDate.parse("2026-07-09"), LocalDate.parse("2026-07-15"), null)
 		);
 		when(characterRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(character));
 		PageResponse<StatsBossItemResponse> expected = new PageResponse<>(rows, 21, 3, 1, 10);
@@ -227,6 +227,9 @@ class StatsServiceTest {
 				.thenReturn(empty);
 
 		assertThat(statsService.getBossItemStats(1L, 10L, null, BossItemKind.RANDOM, null, null, 0, 10)).isEqualTo(empty);
+		when(statsQueryRepository.findBossItemStats(List.of(10L), null, BossItemKind.LUCKY, null, null, 0, 10))
+				.thenReturn(empty);
+		assertThat(statsService.getBossItemStats(1L, 10L, null, BossItemKind.LUCKY, null, null, 0, 10)).isEqualTo(empty);
 		for (BossItemKind rejected : List.of(BossItemKind.CRYSTAL, BossItemKind.FIXED)) {
 			assertThatThrownBy(() -> statsService.getBossItemStats(1L, 10L, null, rejected, null, null, 0, 10))
 					.isInstanceOf(ApiException.class)

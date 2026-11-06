@@ -269,6 +269,7 @@ class SchedulerServiceTest {
 		SchedulerBossRecord cleared = SchedulerBossRecord.create(character, boss, LocalDate.parse("2026-07-14"), ResetPeriod.WEEKLY, true, null);
 		BossDropItem crystal = newEntity(BossDropItem.class);
 		ReflectionTestUtils.setField(crystal, "itemKind", BossItemKind.CRYSTAL);
+		ReflectionTestUtils.setField(crystal, "boss", boss);
 		BossPeriodEntry entry = BossPeriodEntry.create(character, boss, LocalDate.parse("2026-07-09"), 5);
 		ReflectionTestUtils.setField(entry, "id", 50L);
 		// 직접 수정된 것처럼 가격과 무관한 값이 저장돼 있어도 계산값을 사용
