@@ -12,7 +12,7 @@ bash infra/scripts/manual-backup.sh maple-postgres "$HOME/maple-manual-backups"
 
 출력 디렉터리 전체를 `scp -r`로 개인 PC에 복사 후 해당 디렉터리에서 `shasum -a 256 -c SHA256SUMS` 확인. `pg_dump.log` 경고 검토. `.partial`은 실패 산출물이므로 정상 백업으로 취급 금지. `manifest.txt`는 개인정보 값 없이 테이블별 행 수만 포함하며 덤프와 별도 관측 시점 기준.
 
-개인 PC에 PostgreSQL 16.9 검증 컨테이너 생성 (`--network none`, 포트·운영 볼륨 연결 없음). 컨테이너 초기 비밀번호는 로컬 일회성 값 사용, 셸 추적 금지. `pg_restore --exit-on-error --single-transaction --no-owner --no-privileges`로 `maple.dump` 전체 복구 후 주요 테이블과 Flyway 이력 조회. `pg_restore --list` 성공만으로 복구 검증 대체 금지. 복구 DB에서 아래 초기화까지 먼저 검증.
+덤프 생성 직후 `docs_private/덤프 내역.md`에 행을 추가하고(규칙은 `dump-inventory.md`), 개인 PC에 PostgreSQL 16.9 검증 컨테이너 생성 (`--network none`, 포트·운영 볼륨 연결 없음). 컨테이너 초기 비밀번호는 로컬 일회성 값 사용, 셸 추적 금지. `pg_restore --exit-on-error --single-transaction --no-owner --no-privileges`로 `maple.dump` 전체 복구 후 주요 테이블과 Flyway 이력 조회. `pg_restore --list` 성공만으로 복구 검증 대체 금지. 복구 DB에서 아래 초기화까지 먼저 검증.
 
 ## 2. 기준 목록 추출
 
