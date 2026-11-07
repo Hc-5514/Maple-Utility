@@ -21,11 +21,11 @@ describe('CrystalRevenue responsive layout', () => {
   it('stacks the summary above the chart below lg and puts them side by side from lg', () => {
     const chart = renderChart(4)
     const row = chart.parentElement as HTMLElement
-    expect(row.className).toContain('flex-col')
-    expect(row.className).toContain('lg:flex-row')
+    expect(row.className).toContain('grid-cols-1')
+    expect(row.className).toContain('lg:grid-cols-[265px_minmax(0,1fr)]')
     expect(row.className).not.toContain('flex-wrap')
     expect(chart.className).toContain('w-full')
-    expect(chart.className).toContain('lg:flex-1')
+    expect(chart.className).toContain('lg:row-start-2')
   })
 
   it('shrinks bars with the container and caps their width at 150px (4 weeks) or 200px (12 weeks)', () => {
@@ -112,14 +112,76 @@ describe('CrystalRevenue tooltip', () => {
     expect(tooltip.className).not.toContain('truncate')
   })
 
-  it('clamps the tooltip within the viewport at the left and right edges', () => {
-    const chart = renderChart(4)
+  it.each([4, 12] as const)('positions each %i-week bar tooltip independently above the entire plot', (window) => {
+    const chart = renderChart(window)
+    const slot = screen.getByTestId('crystal-tooltip-slot')
+    const plot = screen.getByTestId('crystal-plot')
+    const rect = (left: number, width: number, top = 100, height = 204): DOMRect => ({
+      left, right: left + width, top, bottom: top + height, width, height, x: left, y: top, toJSON: () => ({}),
+    })
+    vi.spyOn(slot, 'getBoundingClientRect').mockReturnValue(rect(40, 900, 100, 124))
+    vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue(rect(300, 640, 236))
     const bars = within(chart).getAllByRole('button')
-    const rect = { top: 200, right: 2000, left: 1980, bottom: 300, width: 20, height: 100, x: 1980, y: 200, toJSON: () => ({}) }
-    vi.spyOn(bars[0].querySelector('span')!, 'getBoundingClientRect').mockReturnValue(rect)
+    const positions: number[] = []
+    for (const [index, left] of [300, 520, 800].entries()) {
+      vi.spyOn(bars[index], 'getBoundingClientRect').mockReturnValue(rect(left, 100, 236))
+      fireEvent.mouseEnter(bars[index])
+      const tooltip = screen.getByRole('tooltip')
+      positions.push(Number.parseFloat(tooltip.style.left))
+      expect(tooltip.parentElement).toBe(slot)
+      expect(tooltip.className).toContain('top-0')
+      expect(tooltip.className).toContain('h-[124px]')
+      expect(slot.getBoundingClientRect().bottom + 12).toBe(plot.getBoundingClientRect().top)
+    }
+    expect(positions).toEqual([187, 407, 654])
+    // The last tooltip is clamped to the card's inner right edge, not the viewport.
+    expect(positions[2] + 246).toBe(900)
+  })
+
+  it('keeps the slot reserved before, during and after hover with no chart resizing', () => {
+    const chart = renderChart(4)
+    const slot = screen.getByTestId('crystal-tooltip-slot')
+    const plot = screen.getByTestId('crystal-plot')
+    const slotClass = slot.className
+    const plotClass = plot.className
+    expect(slotClass).toContain('h-[124px]')
+    expect(plotClass).toContain('h-[204px]')
+    fireEvent.mouseEnter(within(chart).getAllByRole('button')[0])
+    expect(screen.getByRole('tooltip').parentElement).toBe(slot)
+    expect(slot.className).toBe(slotClass)
+    expect(plot.className).toBe(plotClass)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(slot.className).toBe(slotClass)
+    expect(plot.className).toBe(plotClass)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+  })
+
+  it('clamps narrow mobile slots to the viewport while keeping the reserved height', () => {
+    const originalWidth = globalThis.innerWidth
+    Object.defineProperty(globalThis, 'innerWidth', { value: 320, configurable: true })
+    const chart = renderChart(4)
+    const slot = screen.getByTestId('crystal-tooltip-slot')
+    vi.spyOn(slot, 'getBoundingClientRect').mockReturnValue({ left: 40, right: 280, width: 240 } as DOMRect)
+    const bars = within(chart).getAllByRole('button')
+    vi.spyOn(bars[0], 'getBoundingClientRect').mockReturnValue({ left: 0, right: 30 } as DOMRect)
     fireEvent.mouseEnter(bars[0])
-    expect(Number.parseFloat(screen.getByRole('tooltip').style.left)).toBeLessThanOrEqual(window.innerWidth - 254)
+    expect(Number.parseFloat(screen.getByRole('tooltip').style.left) + 40).toBe(8)
+    vi.spyOn(bars[1], 'getBoundingClientRect').mockReturnValue({ left: 300, right: 320 } as DOMRect)
     fireEvent.mouseEnter(bars[1])
-    expect(screen.getByRole('tooltip').style.left).toBe('8px')
+    expect(Number.parseFloat(screen.getByRole('tooltip').style.left) + 40 + 246).toBe(312)
+    Object.defineProperty(globalThis, 'innerWidth', { value: originalWidth, configurable: true })
+  })
+
+  it('dismisses stale data immediately on period or window changes', () => {
+    const { rerender } = render(<CrystalRevenue window={4} periods={periods} onWindowChange={vi.fn()} />)
+    const bar = screen.getAllByRole('button')[2]
+    fireEvent.click(bar)
+    expect(screen.getByRole('tooltip')).toBeTruthy()
+    rerender(<CrystalRevenue window={4} periods={periods.map((period) => ({ ...period }))} onWindowChange={vi.fn()} />)
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    fireEvent.click(screen.getAllByRole('button')[2])
+    expect(screen.getByRole('tooltip')).toBeTruthy()
+    rerender(<CrystalRevenue window={12} periods={periods} onWindowChange={vi.fn()} />)
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 })
