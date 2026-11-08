@@ -7,6 +7,8 @@ import java.util.List;
 public record StatsCrystalWeeklyResponse(
 		LocalDate weekStart,
 		long totalIncome,
-		List<StatsCrystalBossDetailResponse> bossDetails
+		List<StatsCrystalBossDetailResponse> bossDetails,
+		long weeklyIncome,
+		long monthlyIncome
 ) implements Serializable {
 }

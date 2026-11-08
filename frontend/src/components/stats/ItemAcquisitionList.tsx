@@ -6,11 +6,11 @@ import type { PageResponse, StatsBossItem } from '../../types'
 
 const pageSizes: BossItemPageSize[] = [10, 20, 30]
 const columns: [string, string][] = [
-  ['날짜', 'w-[160px]'],
+  ['기간', 'w-[240px]'],
   ['캐릭터', 'w-[150px]'],
-  ['보스', 'w-[310px]'],
-  ['난이도', 'w-[150px]'],
-  ['아이템', 'w-[430px]'],
+  ['보스', 'w-[150px]'],
+  ['난이도', 'w-[100px]'],
+  ['아이템', 'min-w-[560px] flex-1'],
 ]
 
 interface Props {
@@ -108,23 +108,23 @@ export default function ItemAcquisitionList({
           {status ??
             page.content.map((item, index) => (
               <div
-                key={`${item.acquiredDate}-${item.characterName}-${item.itemName}-${index}`}
+                key={`${item.periodStart} ~ ${item.periodEnd}-${item.characterName}-${item.itemName}-${index}`}
                 role="row"
                 className="flex h-[62px] items-center gap-6 border-b border-[var(--dash-border)] px-6"
               >
-                <span role="cell" className={`${cell} w-[160px] [font-family:Inter,sans-serif]`}>
-                  {item.acquiredDate}
+                <span role="cell" className={`${cell} w-[240px] [font-family:Inter,sans-serif]`}>
+                  {item.periodStart} ~ {item.periodEnd}
                 </span>
                 <span role="cell" className={`${cell} w-[150px]`}>
                   {item.characterName}
                 </span>
-                <span role="cell" className={`${cell} w-[310px]`}>
+                <span role="cell" className={`${cell} w-[150px]`}>
                   {item.bossName}
                 </span>
-                <span role="cell" className="flex w-[150px] shrink-0">
+                <span role="cell" className="flex w-[100px] shrink-0">
                   <StatsDifficultyBadge difficulty={item.difficulty} />
                 </span>
-                <span role="cell" className={`${cell} w-[430px]`}>
+                <span role="cell" className={`${cell} min-w-[560px] flex-1`}>
                   {item.itemName}
                 </span>
               </div>
