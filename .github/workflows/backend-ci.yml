@@ -63,6 +63,10 @@ jobs:
         working-directory: .
         run: bash infra/scripts/check-flyway-migrations-test.sh
 
+      - name: Test dump listing script
+        working-directory: .
+        run: bash infra/scripts/list-backups.test.sh
+
       - name: Check Flyway migration immutability
         working-directory: .
         env:
